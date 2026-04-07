@@ -1,6 +1,8 @@
 import streamlit as st
 import plotly.graph_objects as go
 from datetime import datetime
+import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ─────────────────────────────────────────────
 #  PAGE CONFIG
@@ -33,6 +35,114 @@ div[data-testid="column"]{padding:0 6px!important;}
 .stPlotlyChart{border:1.5px solid #1E1E1E!important;border-radius:20px!important;overflow:hidden!important;background:#FFFFFF!important;}
 .stSelectbox>div>div{border:1.5px solid #1E1E1E!important;border-radius:12px!important;background:#FFFFFF!important;box-shadow:none!important;}
 </style>""", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  STEAM API
+# ─────────────────────────────────────────────
+_STEAM_SEARCH  = "https://store.steampowered.com/api/storesearch/"
+_STEAM_REVIEWS = "https://store.steampowered.com/appreviews/{appid}"
+_STEAM_DETAILS = "https://store.steampowered.com/api/appdetails"
+
+
+def _thumb(appid: int) -> str:
+    return f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg"
+
+
+def _fetch_review_raw(appid: int) -> dict:
+    """캐시 없는 리뷰 요약 조회. ThreadPoolExecutor 내부에서 호출됩니다."""
+    try:
+        r = requests.get(
+            _STEAM_REVIEWS.format(appid=appid),
+            params={"json": 1, "num_per_page": 0, "language": "all"},
+            timeout=6,
+        )
+        s = r.json().get("query_summary", {})
+        total = s.get("total_reviews", 0)
+        pos   = s.get("total_positive", 0)
+        return {
+            "total_reviews": total,
+            "rating_pct":    round(pos / total * 100) if total else 0,
+            "rating_label":  s.get("review_score_desc", ""),
+        }
+    except Exception:
+        return {"total_reviews": 0, "rating_pct": 0, "rating_label": ""}
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def steam_search(query: str) -> list[dict]:
+    """Steam Store 검색 + 각 게임 리뷰 요약 병렬 조회. 5분 캐시."""
+    try:
+        resp = requests.get(
+            _STEAM_SEARCH,
+            params={"term": query, "l": "korean", "cc": "KR"},
+            timeout=8,
+        )
+        items = resp.json().get("items", [])[:8]
+    except Exception:
+        return []
+
+    if not items:
+        return []
+
+    games = [
+        {
+            "appid":         item["id"],
+            "name":          item["name"],
+            "name_en":       item["name"],
+            "thumbnail":     _thumb(item["id"]),
+            "release_date":  "",
+            "total_reviews": 0,
+            "rating_pct":    0,
+            "rating_label":  "",
+            "last_analyzed": None,
+        }
+        for item in items
+    ]
+
+    # 리뷰 요약 병렬 조회 (순수 HTTP — Streamlit 컨텍스트 미사용)
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futures = {ex.submit(_fetch_review_raw, g["appid"]): i for i, g in enumerate(games)}
+        for fut in as_completed(futures):
+            idx = futures[fut]
+            try:
+                games[idx].update(fut.result())
+            except Exception:
+                pass
+
+    return games
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def steam_game_detail(appid: int) -> dict:
+    """특정 게임의 상세정보 + 리뷰 요약. 10분 캐시."""
+    result = {
+        "appid":         appid,
+        "name":          str(appid),
+        "name_en":       str(appid),
+        "thumbnail":     _thumb(appid),
+        "release_date":  "",
+        "total_reviews": 0,
+        "rating_pct":    0,
+        "rating_label":  "",
+        "last_analyzed": None,
+    }
+    try:
+        d = requests.get(
+            _STEAM_DETAILS,
+            params={"appids": appid, "cc": "kr", "l": "koreana"},
+            timeout=8,
+        ).json().get(str(appid), {})
+        if d.get("success"):
+            data = d["data"]
+            result["name"]         = data.get("name", str(appid))
+            result["name_en"]      = data.get("name", str(appid))
+            result["release_date"] = data.get("release_date", {}).get("date", "")
+            result["thumbnail"]    = data.get("header_image", _thumb(appid))
+    except Exception:
+        pass
+    result.update(_fetch_review_raw(appid))
+    return result
 
 
 # ─────────────────────────────────────────────
@@ -350,7 +460,8 @@ def render_game_card(game: dict, analyzed: bool = True):
 
     btn_label = "타임라인 보기 →" if analyzed else "분석 시작하기 →"
     if st.button(btn_label, key=f"btn_{game['appid']}"):
-        st.session_state.current_game = game["appid"]
+        st.session_state.current_game      = game["appid"]
+        st.session_state.current_game_data = game   # 검색 결과 게임 정보 보존
         st.session_state.page = "game"
         st.rerun()
 
@@ -394,18 +505,19 @@ def render_home():
         )
 
     if search_query and len(search_query.strip()) > 0:
-        q = search_query.strip().lower()
-        all_games = ANALYZED_GAMES + SEARCH_ONLY_GAMES
         analyzed_ids = {g["appid"] for g in ANALYZED_GAMES}
-        results = [
-            g for g in all_games
-            if q in g["name"].lower() or q in g["name_en"].lower()
-        ]
-        st.markdown(f"""<div style="margin:24px 0 12px 0;font-size:13px;color:#757575;font-weight:500;">"{search_query}" 검색 결과 — {len(results)}개 게임</div>""",
+
+        with st.spinner("🔍  Steam에서 검색 중..."):
+            results = steam_search(search_query.strip())
+
+        # 분석 완료 게임을 앞으로 정렬
+        results_sorted = sorted(results, key=lambda g: g["appid"] not in analyzed_ids)
+
+        st.markdown(f"""<div style="margin:24px 0 12px 0;font-size:13px;color:#757575;font-weight:500;">"{search_query}" Steam 검색 결과 — {len(results_sorted)}개 게임</div>""",
             unsafe_allow_html=True)
-        if results:
+        if results_sorted:
             cols = st.columns(4)
-            for i, game in enumerate(results):
+            for i, game in enumerate(results_sorted):
                 with cols[i % 4]:
                     render_game_card(game, analyzed=(game["appid"] in analyzed_ids))
         else:
@@ -424,15 +536,52 @@ def render_home():
 
 
 # ─────────────────────────────────────────────
+#  PAGE: 미분석 게임 — 분석 준비 페이지
+# ─────────────────────────────────────────────
+def render_new_game_page(game: dict):
+    label, color, abbr = get_rating_info(game.get("rating_pct", 0))
+
+    # 뒤로가기
+    col_back, _ = st.columns([1, 9])
+    with col_back:
+        if st.button("← 목록으로"):
+            st.session_state.page = "home"
+            st.rerun()
+
+    # 게임 헤더 카드
+    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin:12px 0 20px 0;display:grid;grid-template-columns:300px 1fr;"><img src="{game['thumbnail']}" style="width:100%;height:100%;min-height:175px;object-fit:cover;display:block;border-right:1.5px solid #1E1E1E;"><div style="padding:24px 28px;"><div style="font-size:22px;font-weight:900;color:#1E1E1E;margin-bottom:6px;word-break:keep-all;">{game['name']}</div><div style="font-size:13px;color:#757575;margin-bottom:16px;">{game.get('name_en','')} &nbsp;·&nbsp; 출시 {game.get('release_date','—')}</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><div style="background:{color};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{abbr}</span><span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · 전체 {game.get('rating_pct',0)}% 긍정</span></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">총 리뷰 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(game.get('total_reviews',0))}건</span></div></div></div></div>""",
+        unsafe_allow_html=True)
+
+    # 분석 준비 안내
+    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;"><div style="height:5px;background:#6DC2FF;"></div><div style="padding:32px 36px;"><div style="font-size:18px;font-weight:700;color:#1E1E1E;margin-bottom:10px;word-break:keep-all;">⚙️ 이 게임의 타임라인을 생성하시겠습니까?</div><div style="font-size:13px;color:#757575;line-height:1.8;margin-bottom:24px;word-break:keep-all;">스팀곡괭이가 전체 리뷰 <b style="color:#1E1E1E;">{fmt_number(game.get('total_reviews',0))}건</b>을 수집하고,<br>Gemini AI가 주요 이벤트별 민심을 분석하여 타임라인을 생성합니다.<br>리뷰 수에 따라 최초 생성에 수 분이 소요될 수 있습니다.</div><div style="display:flex;flex-wrap:wrap;gap:12px;"><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 1</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">⛏ 스팀곡괭이</div><div style="font-size:12px;color:#757575;margin-top:2px;">전체 리뷰 수집 & 아카이빙</div></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 2</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">🗞 이벤트 탐지</div><div style="font-size:12px;color:#757575;margin-top:2px;">패치노트 & 주요 사건 파악</div></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 3</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">🤖 Gemini 분석</div><div style="font-size:12px;color:#757575;margin-top:2px;">이벤트별 민심 요약 생성</div></div></div></div></div>""",
+        unsafe_allow_html=True)
+
+    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+    col_btn, _ = st.columns([2, 8])
+    with col_btn:
+        if st.button("⚙️  이 게임 타임라인 생성 시작", key="start_analysis"):
+            st.toast("🚧 분석 기능은 Google Sheets & Gemini 연동 후 활성화됩니다!", icon="⚙️")
+
+
+# ─────────────────────────────────────────────
 #  PAGE: 게임 타임라인 상세
 # ─────────────────────────────────────────────
 def render_game_detail(appid: int):
+    analyzed_ids = {g["appid"] for g in ANALYZED_GAMES}
+
+    # 게임 정보 조회: ANALYZED_GAMES → session_state → Steam API 순
     game = next((g for g in ANALYZED_GAMES if g["appid"] == appid), None)
     if game is None:
-        st.error("게임 정보를 찾을 수 없습니다.")
-        if st.button("← 홈으로"):
-            st.session_state.page = "home"
-            st.rerun()
+        cached = st.session_state.get("current_game_data", {})
+        if cached and cached.get("appid") == appid:
+            game = cached
+        else:
+            with st.spinner("게임 정보를 가져오는 중..."):
+                game = steam_game_detail(appid)
+
+    # 미분석 게임은 분석 준비 페이지로
+    if appid not in analyzed_ids:
+        render_new_game_page(game)
         return
 
     events = TIMELINE_MAP.get(appid, [])
