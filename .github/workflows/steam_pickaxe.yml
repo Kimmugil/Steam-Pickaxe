@@ -30,5 +30,5 @@ jobs:
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
         run: |
           echo "스팀곡괭이 시작..."
-          python src/steam_pickaxe.py
+          python run_pickaxe.py
           echo "완료!"
