@@ -4,6 +4,40 @@ from datetime import datetime
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# ── src 모듈 임포트 (Secrets 미설정 상태에서도 앱은 정상 실행됨) ──
+try:
+    from src.config import is_sheets_configured
+    from src.sheets_manager import (
+        get_client as _get_sheets_client,
+        get_game_info as _sheets_get_game_info,
+        register_game as _sheets_register_game,
+        get_all_tracked_games as _sheets_get_all_games,
+    )
+    _SHEETS_IMPORTABLE = True
+except Exception:
+    _SHEETS_IMPORTABLE = False
+
+
+@st.cache_resource(show_spinner=False)
+def get_sheets_client():
+    """Google Sheets 클라이언트 (앱 전체에서 1회만 인증)."""
+    if not _SHEETS_IMPORTABLE:
+        return None
+    try:
+        return _get_sheets_client()
+    except Exception:
+        return None
+
+
+def sheets_ready() -> bool:
+    """Sheets 연결이 가능한 상태인지 확인합니다."""
+    if not _SHEETS_IMPORTABLE:
+        return False
+    try:
+        return is_sheets_configured() and get_sheets_client() is not None
+    except Exception:
+        return False
+
 # ─────────────────────────────────────────────
 #  PAGE CONFIG
 # ─────────────────────────────────────────────
@@ -560,10 +594,65 @@ def render_new_game_page(game: dict):
         unsafe_allow_html=True)
 
     st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-    col_btn, _ = st.columns([2, 8])
-    with col_btn:
-        if st.button("⚙️  이 게임 타임라인 생성 시작", key="start_analysis"):
-            st.toast("🚧 분석 기능은 Google Sheets & Gemini 연동 후 활성화됩니다!", icon="⚙️")
+
+    if not sheets_ready():
+        # Sheets 미연결 — 설정 안내 카드
+        st.markdown("""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:22px 28px;"><div style="font-size:14px;font-weight:700;color:#1E1E1E;margin-bottom:8px;">⚙️ Google Sheets 연결이 필요합니다</div><div style="font-size:13px;color:#757575;line-height:1.8;word-break:keep-all;">Streamlit Cloud 앱 설정에서 Secrets를 입력하면 분석을 시작할 수 있습니다.<br>아래 버튼을 누르면 설정 방법이 표시됩니다.</div></div>""",
+            unsafe_allow_html=True)
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        with st.expander("📋 Secrets 설정 방법 보기"):
+            st.markdown("""
+**1단계 — 서비스 계정 키 파일 다운로드**
+- Google Cloud Console → IAM → 서비스 계정 → `steam-pickaxe@steam-pickaxe.iam.gserviceaccount.com`
+- **키** 탭 → **키 추가** → **JSON** → 다운로드
+
+**2단계 — Streamlit Cloud Secrets 입력**
+- [share.streamlit.io](https://share.streamlit.io) → 앱 클릭 → ⋮ → **Settings** → **Secrets**
+- 아래 형식으로 입력 후 **Save**:
+
+```toml
+GDRIVE_FOLDER_ID = "1rux1MUddT31t7RwuJiOGzLX4-cmxPijc"
+GEMINI_API_KEY   = "your_gemini_key"
+
+[GOOGLE_SERVICE_ACCOUNT]
+type                        = "service_account"
+project_id                  = "steam-pickaxe"
+private_key_id              = "다운로드한 JSON의 private_key_id 값"
+private_key                 = "다운로드한 JSON의 private_key 값 (줄바꿈 포함)"
+client_email                = "steam-pickaxe@steam-pickaxe.iam.gserviceaccount.com"
+client_id                   = "다운로드한 JSON의 client_id 값"
+auth_uri                    = "https://accounts.google.com/o/oauth2/auth"
+token_uri                   = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url        = "다운로드한 JSON의 client_x509_cert_url 값"
+universe_domain             = "googleapis.com"
+```
+
+**3단계 — 앱 재시작**
+- Secrets 저장 후 앱이 자동으로 재시작됩니다.
+""")
+    else:
+        col_btn, _ = st.columns([3, 7])
+        with col_btn:
+            if st.button("⚙️  이 게임 타임라인 생성 시작", key="start_analysis"):
+                client = get_sheets_client()
+                with st.spinner(f"'{game['name']}' 등록 중..."):
+                    try:
+                        existing = _sheets_get_game_info(client, game["appid"])
+                        if existing:
+                            st.success("이미 등록된 게임입니다! 스팀곡괭이가 자동으로 리뷰를 수집 중입니다.")
+                        else:
+                            _sheets_register_game(
+                                client,
+                                game["appid"],
+                                game["name"],
+                                game.get("name_en", game["name"]),
+                                game.get("release_date", ""),
+                            )
+                            st.success(f"✅ '{game['name']}' 등록 완료! 스팀곡괭이가 내일부터 자동 수집을 시작합니다.")
+                            st.balloons()
+                    except Exception as e:
+                        st.error(f"오류 발생: {e}")
 
 
 # ─────────────────────────────────────────────
