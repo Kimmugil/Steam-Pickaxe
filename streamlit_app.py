@@ -1,0 +1,519 @@
+import streamlit as st
+import plotly.graph_objects as go
+from datetime import datetime
+
+# ─────────────────────────────────────────────
+#  PAGE CONFIG
+# ─────────────────────────────────────────────
+st.set_page_config(
+    page_title="리뷰 속에 답이 있다 | 스팀탈곡기 mk2",
+    page_icon="⚙️",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ─────────────────────────────────────────────
+#  CSS
+# ─────────────────────────────────────────────
+def inject_css():
+    st.markdown("""<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
+html,body,[class*="css"]{font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important;}
+.stApp{background-color:#F4F5F7!important;}
+section[data-testid="stSidebar"]{display:none!important;}
+.block-container{padding:2.5rem 2.5rem 5rem 2.5rem!important;max-width:1280px!important;}
+#MainMenu,footer,header{visibility:hidden!important;}
+.stTextInput>div>div>input{border:1.5px solid #1E1E1E!important;border-radius:16px!important;background:#FFFFFF!important;padding:14px 20px!important;font-size:16px!important;color:#1E1E1E!important;box-shadow:none!important;transition:border-color 0.2s!important;}
+.stTextInput>div>div>input:focus{border-color:#6DC2FF!important;box-shadow:none!important;}
+.stTextInput>label{display:none!important;}
+.stButton>button{border:1.5px solid #1E1E1E!important;border-radius:12px!important;background:#FFFFFF!important;color:#1E1E1E!important;font-weight:600!important;font-size:13px!important;padding:10px 16px!important;box-shadow:none!important;width:100%!important;transition:all 0.15s!important;word-break:keep-all!important;}
+.stButton>button:hover{background:#1E1E1E!important;color:#FFFFFF!important;}
+.stButton>button:active{transform:scale(0.98)!important;}
+div[data-testid="column"]{padding:0 6px!important;}
+.stPlotlyChart{border:1.5px solid #1E1E1E!important;border-radius:20px!important;overflow:hidden!important;background:#FFFFFF!important;}
+.stSelectbox>div>div{border:1.5px solid #1E1E1E!important;border-radius:12px!important;background:#FFFFFF!important;box-shadow:none!important;}
+</style>""", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  MOCK DATA — 분석 완료된 게임들
+# ─────────────────────────────────────────────
+ANALYZED_GAMES = [
+    {
+        "appid": 2161700,
+        "name": "원스 휴먼",
+        "name_en": "Once Human",
+        "thumbnail": "https://cdn.akamai.steamstatic.com/steam/apps/2161700/header.jpg",
+        "release_date": "2024-07-09",
+        "total_reviews": 234521,
+        "rating_pct": 52,
+        "last_analyzed": "2026-04-06",
+        "timeline_id": "2161700_A3X7K",
+    },
+    {
+        "appid": 1623730,
+        "name": "팰월드",
+        "name_en": "Palworld",
+        "thumbnail": "https://cdn.akamai.steamstatic.com/steam/apps/1623730/header.jpg",
+        "release_date": "2024-01-19",
+        "total_reviews": 612847,
+        "rating_pct": 76,
+        "last_analyzed": "2026-03-28",
+        "timeline_id": "1623730_B2M4P",
+    },
+    {
+        "appid": 553850,
+        "name": "헬다이버즈 2",
+        "name_en": "Helldivers 2",
+        "thumbnail": "https://cdn.akamai.steamstatic.com/steam/apps/553850/header.jpg",
+        "release_date": "2024-02-08",
+        "total_reviews": 512384,
+        "rating_pct": 84,
+        "last_analyzed": "2026-04-01",
+        "timeline_id": "553850_C9R2T",
+    },
+    {
+        "appid": 1868140,
+        "name": "데이브 더 다이버",
+        "name_en": "Dave the Diver",
+        "thumbnail": "https://cdn.akamai.steamstatic.com/steam/apps/1868140/header.jpg",
+        "release_date": "2023-06-28",
+        "total_reviews": 198432,
+        "rating_pct": 97,
+        "last_analyzed": "2026-03-15",
+        "timeline_id": "1868140_D5W8Q",
+    },
+]
+
+# 검색 결과에만 등장하는 게임 (아직 분석 미완료)
+SEARCH_ONLY_GAMES = [
+    {
+        "appid": 1091500,
+        "name": "사이버펑크 2077",
+        "name_en": "Cyberpunk 2077",
+        "thumbnail": "https://cdn.akamai.steamstatic.com/steam/apps/1091500/header.jpg",
+        "release_date": "2020-12-10",
+        "total_reviews": 802341,
+        "rating_pct": 87,
+        "last_analyzed": None,
+    },
+    {
+        "appid": 1245620,
+        "name": "엘든 링",
+        "name_en": "Elden Ring",
+        "thumbnail": "https://cdn.akamai.steamstatic.com/steam/apps/1245620/header.jpg",
+        "release_date": "2022-02-25",
+        "total_reviews": 756123,
+        "rating_pct": 96,
+        "last_analyzed": None,
+    },
+]
+
+# ─────────────────────────────────────────────
+#  MOCK DATA — 원스 휴먼 타임라인
+# ─────────────────────────────────────────────
+TIMELINE_ONCE_HUMAN = [
+    {
+        "id": "evt_001",
+        "name": "스팀 정식 출시",
+        "date": "2024-07-09",
+        "period": "2024.07.09 ~ 2024.07.13",
+        "type": "launch",
+        "type_label": "출시",
+        "sentiment_pct": 82,
+        "review_count": 42350,
+        "description": "기대작으로 주목받던 원스 휴먼이 스팀에 정식 출시되었습니다. 오픈 베타 당시의 인기를 이어 첫날부터 동시접속자 수십만 명을 기록하며 화제가 되었습니다.",
+        "key_issues": ["서버 불안정", "한국어 미지원", "그래픽 호평", "기대 이상의 콘텐츠"],
+        "top_langs": ["영어", "중국어 간체", "러시아어", "한국어"],
+        "kr_summary": "서버가 터지는 와중에도 '기대 이상'이라는 반응 다수. 한국어 미지원에 대한 아쉬움은 있으나 전반적으로 매우 호의적인 분위기.",
+        "color": "#82C29A",
+        "user_edited": False,
+    },
+    {
+        "id": "evt_002",
+        "name": "서버 과부하 위기 & 긴급 점검 반복",
+        "date": "2024-07-14",
+        "period": "2024.07.14 ~ 2024.08.14",
+        "type": "crisis",
+        "type_label": "위기",
+        "sentiment_pct": 51,
+        "review_count": 28100,
+        "description": "폭발적인 인기로 인한 서버 과부하가 심각해지면서 긴급 점검이 반복되었습니다. 접속 불가 상태가 수시간 지속되며 게임을 즐기지 못하는 유저들의 불만이 급증했습니다.",
+        "key_issues": ["서버 접속 불가", "긴급 점검 반복", "환불 요청 급증", "개발사 소통 부재"],
+        "top_langs": ["영어", "중국어 간체", "한국어", "러시아어"],
+        "kr_summary": "접속도 못 하는데 무슨 리뷰냐는 분위기. 환불은 했지만 게임 자체는 기대된다는 이중적인 반응이 공존.",
+        "color": "#FFD166",
+        "user_edited": False,
+    },
+    {
+        "id": "evt_003",
+        "name": "시즌 1: 더 스텔라 저니 시작",
+        "date": "2024-08-15",
+        "period": "2024.08.15 ~ 2024.09.11",
+        "type": "update",
+        "type_label": "업데이트",
+        "sentiment_pct": 73,
+        "review_count": 31200,
+        "description": "서버 안정화 이후 첫 번째 정식 시즌이 시작되었습니다. 새로운 맵, 스토리, 시즌 패스 등 대규모 콘텐츠가 추가되며 유저들의 호응을 받았습니다.",
+        "key_issues": ["시즌 패스 가성비 논란", "신규 보스 호평", "최적화 개선", "한국어 부분 지원 시작"],
+        "top_langs": ["영어", "중국어 간체", "한국어", "포르투갈어"],
+        "kr_summary": "시즌패스 가격에 대한 불만은 있지만 콘텐츠 자체는 만족. '살아났다'는 분위기가 커뮤니티에 감돎.",
+        "color": "#82C29A",
+        "user_edited": False,
+    },
+    {
+        "id": "evt_004",
+        "name": "시즌 2: 논란의 유료화 정책 발표",
+        "date": "2024-09-12",
+        "period": "2024.09.12 ~ 2024.10.07",
+        "type": "controversy",
+        "type_label": "논란",
+        "sentiment_pct": 29,
+        "review_count": 67420,
+        "description": "시즌 2와 함께 발표된 신규 유료화 정책이 커뮤니티의 강한 반발을 샀습니다. 기존 무료 콘텐츠가 유료로 전환되고, 계정 분리 정책 변경이 논란이 되었습니다.",
+        "key_issues": ["무료→유료 콘텐츠 전환", "계정 분리 정책", "개발사 일방적 공지", "조직적 부정 리뷰"],
+        "top_langs": ["영어", "중국어 간체", "한국어", "러시아어"],
+        "kr_summary": "유저들이 분노하여 조직적으로 부정 리뷰를 남김. '배신당했다'는 표현이 리뷰에 가장 많이 등장.",
+        "color": "#FF9F9F",
+        "user_edited": True,
+    },
+    {
+        "id": "evt_005",
+        "name": "긴급 사과문 발표 & 정책 철회",
+        "date": "2024-10-08",
+        "period": "2024.10.08 ~ 2024.12.18",
+        "type": "recovery",
+        "type_label": "회복",
+        "sentiment_pct": 55,
+        "review_count": 22800,
+        "description": "개발사가 공식 사과문을 발표하고 논란이 된 유료화 정책을 대부분 철회했습니다. 보상 아이템 지급과 함께 신뢰 회복을 위한 로드맵도 공개되었습니다.",
+        "key_issues": ["정책 철회 긍정 반응", "보상 아이템 지급", "남은 불신", "지켜보겠다는 분위기"],
+        "top_langs": ["영어", "중국어 간체", "한국어", "독일어"],
+        "kr_summary": "화는 풀렸지만 신뢰 회복은 시간이 필요하다는 분위기. '잘못 인정한 건 칭찬'이라는 중립적 반응이 지배적.",
+        "color": "#FFD166",
+        "user_edited": False,
+    },
+    {
+        "id": "evt_006",
+        "name": "시즌 3: 대규모 게임플레이 개편",
+        "date": "2024-12-19",
+        "period": "2024.12.19 ~ 2025.03.26",
+        "type": "update",
+        "type_label": "업데이트",
+        "sentiment_pct": 71,
+        "review_count": 44300,
+        "description": "시즌 2 논란을 딛고 대규모 게임플레이 개편이 이루어진 시즌 3이 출시되었습니다. 전투 시스템 전면 개편, 신규 직업군 추가, UI/UX 개선 등이 호평받았습니다.",
+        "key_issues": ["전투 시스템 개편 호평", "UI 개선 긍정", "신규 직업 인기", "일부 구 콘텐츠 삭제 아쉬움"],
+        "top_langs": ["영어", "중국어 간체", "한국어", "프랑스어"],
+        "kr_summary": "완전히 다른 게임이 됐다는 평가. 시즌2 사태를 기억하는 유저들도 '이 정도면 다시 해볼만'이라는 반응.",
+        "color": "#82C29A",
+        "user_edited": False,
+    },
+    {
+        "id": "evt_007",
+        "name": "시즌 4: 신규 지역 & 엔드게임 콘텐츠",
+        "date": "2025-03-27",
+        "period": "2025.03.27 ~ 현재",
+        "type": "update",
+        "type_label": "업데이트",
+        "sentiment_pct": 81,
+        "review_count": 38200,
+        "description": "현재 진행 중인 시즌 4에서는 완전히 새로운 지역과 엔드게임 콘텐츠가 추가되었습니다. 한국어 완전 지원이 이루어져 한국 유저 비율이 크게 증가했습니다.",
+        "key_issues": ["신규 지역 스케일 호평", "엔드게임 콘텐츠 다양성", "길드 시스템 개선", "최적화 아직 아쉬움"],
+        "top_langs": ["영어", "중국어 간체", "한국어", "일본어"],
+        "kr_summary": "시즌 2 사태 이후 가장 좋은 반응. 한국어 완전 지원으로 한국 유저 리뷰 비율이 크게 증가.",
+        "color": "#82C29A",
+        "user_edited": False,
+    },
+]
+
+# appid → 타임라인 데이터 맵핑
+TIMELINE_MAP = {
+    2161700: TIMELINE_ONCE_HUMAN,
+}
+
+
+# ─────────────────────────────────────────────
+#  UTILITY FUNCTIONS
+# ─────────────────────────────────────────────
+def get_rating_info(pct: int) -> tuple:
+    """긍정 비율 → (라벨, 색상, 약칭)"""
+    if pct >= 95:
+        return "압도적으로 긍정적", "#82C29A", "압긍"
+    elif pct >= 80:
+        return "매우 긍정적", "#A8D5BA", "매긍"
+    elif pct >= 70:
+        return "대체로 긍정적", "#C8E6C9", "대긍"
+    elif pct >= 40:
+        return "복합적", "#FFD166", "복합"
+    elif pct >= 25:
+        return "대체로 부정적", "#FF9F9F", "대부"
+    else:
+        return "압도적으로 부정적", "#FF6B6B", "압부"
+
+
+def get_event_type_style(event_type: str) -> tuple:
+    """이벤트 타입 → (배경색, 텍스트색)"""
+    styles = {
+        "launch":      ("#6DC2FF", "#1E1E1E"),
+        "update":      ("#82C29A", "#1E1E1E"),
+        "crisis":      ("#FFD166", "#1E1E1E"),
+        "controversy": ("#FF9F9F", "#1E1E1E"),
+        "recovery":    ("#E8D5FF", "#1E1E1E"),
+    }
+    return styles.get(event_type, ("#E0E0E0", "#1E1E1E"))
+
+
+def fmt_number(n: int) -> str:
+    if n >= 10000:
+        return f"{n // 10000}만 {n % 10000:,}"
+    return f"{n:,}"
+
+
+def create_sentiment_chart(events: list, reverse: bool = False) -> go.Figure:
+    """민심 추이 Plotly 차트 생성"""
+    ordered = list(reversed(events)) if reverse else events
+    dates = [e["date"] for e in ordered]
+    pcts = [e["sentiment_pct"] for e in ordered]
+    colors = [e["color"] for e in ordered]
+    labels = [e["name"] for e in ordered]
+
+    fig = go.Figure()
+
+    fig.add_hrect(y0=70, y1=105, fillcolor="#82C29A", opacity=0.06, line_width=0)
+    fig.add_hrect(y0=40, y1=70, fillcolor="#FFD166", opacity=0.08, line_width=0)
+    fig.add_hrect(y0=0,  y1=40, fillcolor="#FF9F9F", opacity=0.08, line_width=0)
+
+    for y_val, txt, col in [(97, "압도적 긍정", "#4A9B6A"), (82, "매우 긍정", "#5A8A6A"),
+                             (55, "복합적",     "#A07820"), (30, "대체로 부정", "#A06060")]:
+        fig.add_annotation(
+            x=dates[0], y=y_val, text=txt, showarrow=False,
+            font=dict(size=10, color=col), xanchor="left", yanchor="middle"
+        )
+
+    fig.add_trace(go.Scatter(
+        x=dates, y=pcts,
+        mode="lines+markers",
+        line=dict(color="#1E1E1E", width=2, shape="spline"),
+        marker=dict(color=colors, size=13, line=dict(color="#1E1E1E", width=1.5)),
+        hovertemplate="<b>%{customdata}</b><br>긍정 비율: %{y}%<extra></extra>",
+        customdata=labels,
+    ))
+
+    for i, (d, p, lbl) in enumerate(zip(dates, pcts, labels)):
+        fig.add_annotation(
+            x=d, y=p + 4, text=f"{p}%",
+            showarrow=False, font=dict(size=10, color="#1E1E1E", family="Pretendard Variable"),
+            yanchor="bottom"
+        )
+
+    fig.update_layout(
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        height=300,
+        margin=dict(l=40, r=20, t=30, b=60),
+        xaxis=dict(
+            showgrid=False,
+            linecolor="#1E1E1E", linewidth=1.5,
+            tickfont=dict(size=10, color="#1E1E1E"),
+            tickangle=-35,
+        ),
+        yaxis=dict(
+            showgrid=True, gridcolor="#F0F0F0", gridwidth=1,
+            linecolor="#1E1E1E", linewidth=1.5,
+            range=[0, 110],
+            ticksuffix="%",
+            tickfont=dict(size=10, color="#1E1E1E"),
+            tickvals=[0, 25, 40, 70, 80, 95, 100],
+        ),
+        showlegend=False,
+        hoverlabel=dict(bgcolor="#1E1E1E", font_color="#FFFFFF", bordercolor="#1E1E1E"),
+    )
+    return fig
+
+
+# ─────────────────────────────────────────────
+#  COMPONENT: 게임 카드 (홈 / 검색)
+# ─────────────────────────────────────────────
+def render_game_card(game: dict, analyzed: bool = True):
+    label, color, abbr = get_rating_info(game["rating_pct"])
+    badge_bg = color
+    analyzed_mark = (
+        '<span style="font-size:10px;font-weight:700;background:#1E1E1E;color:#FFFFFF;'
+        'border-radius:6px;padding:2px 8px;margin-left:6px;">분석 완료</span>'
+        if analyzed else
+        '<span style="font-size:10px;font-weight:700;background:#F4F5F7;color:#757575;'
+        'border:1.5px solid #D5D5D5;border-radius:6px;padding:2px 8px;margin-left:6px;">미분석</span>'
+    )
+    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin-bottom:4px;"><img src="{game['thumbnail']}" style="width:100%;height:140px;object-fit:cover;border-bottom:1.5px solid #1E1E1E;display:block;"><div style="padding:16px 18px 18px 18px;"><div style="display:flex;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px;"><span style="font-size:15px;font-weight:700;color:#1E1E1E;word-break:keep-all;">{game['name']}</span>{analyzed_mark}</div><div style="font-size:11px;color:#757575;margin-bottom:10px;">{game['name_en']} · 출시 {game['release_date'][:7]}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;background:{badge_bg};border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;color:#1E1E1E;">{abbr} {game['rating_pct']}%</span><span style="font-size:11px;color:#757575;">리뷰 {fmt_number(game['total_reviews'])}건</span></div></div></div>""",
+        unsafe_allow_html=True)
+
+    btn_label = "타임라인 보기 →" if analyzed else "분석 시작하기 →"
+    if st.button(btn_label, key=f"btn_{game['appid']}"):
+        st.session_state.current_game = game["appid"]
+        st.session_state.page = "game"
+        st.rerun()
+
+
+# ─────────────────────────────────────────────
+#  COMPONENT: 타임라인 이벤트 카드
+# ─────────────────────────────────────────────
+def render_event_card(event: dict, is_last: bool = False):
+    label, _, abbr = get_rating_info(event["sentiment_pct"])
+    type_bg, type_txt = get_event_type_style(event["type"])
+    line_html = "" if is_last else '<div style="width:2px;background:#D5D5D5;flex:1;margin-top:0;"></div>'
+    edited_badge = ""
+    if event.get("user_edited"):
+        edited_badge = '<span style="font-size:10px;font-weight:700;background:#E8D5FF;border:1.5px solid #C4A0FF;border-radius:6px;padding:2px 8px;margin-left:8px;color:#5A3FA0;">✏️ 유저 수정</span>'
+    issue_chips = "".join([
+        f'<span style="font-size:11px;background:#F4F5F7;border:1.5px solid #D5D5D5;border-radius:8px;padding:3px 10px;color:#444;white-space:nowrap;">{issue}</span>'
+        for issue in event["key_issues"]
+    ])
+    lang_chips = "".join([
+        f'<span style="font-size:11px;background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;color:#1E1E1E;font-weight:600;">{lang}</span>'
+        for lang in event["top_langs"]
+    ])
+    st.markdown(f"""<div style="display:flex;align-items:stretch;"><div style="width:44px;min-width:44px;display:flex;flex-direction:column;align-items:center;padding-top:4px;"><div style="width:16px;height:16px;border-radius:50%;background:{event['color']};border:2px solid #1E1E1E;flex-shrink:0;z-index:1;"></div>{line_html}</div><div style="flex:1;padding:0 0 28px 16px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:8px;letter-spacing:0.3px;">{event['date']} &nbsp;·&nbsp; {event['period']}</div><div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:22px 24px;border-left:5px solid {event['color']};"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;"><span style="font-size:11px;font-weight:700;background:{type_bg};border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;color:{type_txt};">{event['type_label']}</span><span style="font-size:17px;font-weight:700;color:#1E1E1E;word-break:keep-all;">{event['name']}</span>{edited_badge}</div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"><div style="background:{event['color']}30;border:1.5px solid {event['color']};border-radius:10px;padding:6px 14px;"><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{event['sentiment_pct']}% 긍정</span><span style="font-size:12px;color:#757575;"> · {label}</span></div><div style="background:#F4F5F7;border:1.5px solid #D5D5D5;border-radius:10px;padding:6px 14px;"><span style="font-size:12px;color:#757575;">리뷰 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(event['review_count'])}건</span></div></div><p style="font-size:13px;color:#444;line-height:1.75;margin:0 0 14px 0;word-break:keep-all;">{event['description']}</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">{issue_chips}</div><div style="background:#F4F5F7;border-radius:12px;padding:12px 16px;margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#757575;margin-bottom:4px;letter-spacing:0.5px;">🇰🇷 한국어 유저 반응 요약</div><div style="font-size:13px;color:#1E1E1E;line-height:1.7;word-break:keep-all;">{event['kr_summary']}</div></div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;color:#757575;font-weight:600;">TOP 리뷰 언어</span>{lang_chips}</div></div></div></div>""",
+        unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  PAGE: 홈
+# ─────────────────────────────────────────────
+def render_home():
+    st.markdown("""<div style="padding:8px 0 32px 0;"><div style="display:flex;align-items:center;gap:14px;"><div style="width:46px;height:46px;background:#1E1E1E;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">⚙️</div><div><div style="font-size:24px;font-weight:900;color:#1E1E1E;line-height:1.2;">리뷰 속에 답이 있다</div><div style="font-size:12px;color:#757575;font-weight:400;margin-top:2px;">스팀탈곡기 mk2 — Steam Review Timeline Machine</div></div></div></div>""",
+        unsafe_allow_html=True)
+
+    _, col_search, _ = st.columns([1, 6, 1])
+    with col_search:
+        search_query = st.text_input(
+            label="search",
+            placeholder="🔍  게임명을 입력하세요  (예: 팰월드, Helldivers, 원스 휴먼...)",
+            key="search_input",
+            label_visibility="collapsed",
+        )
+
+    if search_query and len(search_query.strip()) > 0:
+        q = search_query.strip().lower()
+        all_games = ANALYZED_GAMES + SEARCH_ONLY_GAMES
+        analyzed_ids = {g["appid"] for g in ANALYZED_GAMES}
+        results = [
+            g for g in all_games
+            if q in g["name"].lower() or q in g["name_en"].lower()
+        ]
+        st.markdown(f"""<div style="margin:24px 0 12px 0;font-size:13px;color:#757575;font-weight:500;">"{search_query}" 검색 결과 — {len(results)}개 게임</div>""",
+            unsafe_allow_html=True)
+        if results:
+            cols = st.columns(4)
+            for i, game in enumerate(results):
+                with cols[i % 4]:
+                    render_game_card(game, analyzed=(game["appid"] in analyzed_ids))
+        else:
+            st.markdown("""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:48px;text-align:center;color:#757575;"><div style="font-size:32px;margin-bottom:12px;">🔍</div><div style="font-size:15px;font-weight:600;color:#1E1E1E;margin-bottom:6px;">검색 결과가 없습니다</div><div style="font-size:13px;">다른 검색어를 시도해 보세요</div></div>""",
+                unsafe_allow_html=True)
+    else:
+        st.markdown("""<div style="margin:28px 0 14px 0;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:700;color:#1E1E1E;">분석 완료된 게임</div><div style="width:8px;height:8px;background:#82C29A;border-radius:50%;border:1.5px solid #1E1E1E;"></div><div style="font-size:12px;color:#757575;">클릭하면 타임라인을 바로 확인할 수 있습니다</div></div>""",
+            unsafe_allow_html=True)
+        cols = st.columns(4)
+        for i, game in enumerate(ANALYZED_GAMES):
+            with cols[i % 4]:
+                render_game_card(game, analyzed=True)
+
+        st.markdown("""<div style="margin:40px 0 16px 0;"><div style="height:1.5px;background:#1E1E1E;opacity:0.1;margin-bottom:24px;"></div><div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:32px;text-align:center;"><div style="font-size:13px;color:#757575;margin-bottom:4px;">새로운 게임의 타임라인을 만들고 싶다면</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;">위 검색창에서 게임을 검색하세요 🔍</div></div></div>""",
+            unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  PAGE: 게임 타임라인 상세
+# ─────────────────────────────────────────────
+def render_game_detail(appid: int):
+    game = next((g for g in ANALYZED_GAMES if g["appid"] == appid), None)
+    if game is None:
+        st.error("게임 정보를 찾을 수 없습니다.")
+        if st.button("← 홈으로"):
+            st.session_state.page = "home"
+            st.rerun()
+        return
+
+    events = TIMELINE_MAP.get(appid, [])
+    label, color, abbr = get_rating_info(game["rating_pct"])
+
+    # ── 뒤로가기 ──
+    col_back, col_spacer = st.columns([1, 9])
+    with col_back:
+        if st.button("← 목록으로"):
+            st.session_state.page = "home"
+            st.rerun()
+
+    # ── 게임 헤더 카드 ──
+    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin:12px 0 20px 0;display:flex;flex-wrap:wrap;"><img src="{game['thumbnail']}" style="width:320px;height:160px;object-fit:cover;border-right:1.5px solid #1E1E1E;flex-shrink:0;"><div style="padding:24px 28px;flex:1;min-width:240px;"><div style="font-size:22px;font-weight:900;color:#1E1E1E;margin-bottom:6px;word-break:keep-all;">{game['name']}</div><div style="font-size:13px;color:#757575;margin-bottom:16px;">{game['name_en']} &nbsp;·&nbsp; 출시 {game['release_date']}</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><div style="background:{color}30;border:1.5px solid {color};border-radius:10px;padding:6px 16px;"><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{abbr}</span><span style="font-size:12px;color:#757575;"> · 전체 {game['rating_pct']}% 긍정</span></div><div style="background:#F4F5F7;border:1.5px solid #D5D5D5;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">총 리뷰 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(game['total_reviews'])}건</span></div><div style="background:#F4F5F7;border:1.5px solid #D5D5D5;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">최근 분석 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{game['last_analyzed']}</span></div></div></div></div>""",
+        unsafe_allow_html=True)
+
+    # ── 액션 버튼 ──
+    col_a, col_b, col_spacer = st.columns([2, 2, 6])
+    with col_a:
+        if st.button("🔄  현재 기준으로 재분석하기"):
+            st.toast("⚙️ 재분석 기능은 준비 중입니다. (실제 데이터 연동 후 활성화)", icon="ℹ️")
+    with col_b:
+        if st.button("✏️  이벤트 수정하기"):
+            st.toast("✏️ 이벤트 수정 기능은 준비 중입니다.", icon="ℹ️")
+
+    # ── 민심 추이 차트 ──
+    if events:
+        st.markdown("""<div style="margin:28px 0 12px 0;font-size:16px;font-weight:700;color:#1E1E1E;">📈 민심 추이</div>""",
+            unsafe_allow_html=True)
+
+        # 최신순 / 과거순 토글
+        col_order, col_spacer = st.columns([2, 8])
+        with col_order:
+            order_opt = st.selectbox(
+                label="정렬",
+                options=["최신순 (위→아래)", "과거순 (위→아래)"],
+                key="timeline_order",
+                label_visibility="collapsed",
+            )
+        reverse_order = order_opt.startswith("최신순")
+
+        chart_events = events if not reverse_order else events
+        fig = create_sentiment_chart(chart_events, reverse=False)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+        # ── 타임라인 ──
+        st.markdown("""<div style="margin:32px 0 20px 0;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:700;color:#1E1E1E;">🗓️ 민심 타임라인</div><div style="font-size:12px;color:#757575;">이벤트별 유저 반응 분석</div></div>""",
+            unsafe_allow_html=True)
+
+        col_tl, col_spacer = st.columns([8, 2])
+        with col_tl:
+            display_events = list(reversed(events)) if reverse_order else events
+            for i, event in enumerate(display_events):
+                render_event_card(event, is_last=(i == len(display_events) - 1))
+
+    else:
+        st.markdown("""<div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:60px;text-align:center;margin-top:24px;"><div style="font-size:32px;margin-bottom:12px;">⚙️</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;margin-bottom:6px;">타임라인 데이터 없음</div><div style="font-size:13px;color:#757575;word-break:keep-all;">아직 이 게임의 타임라인이 생성되지 않았습니다.<br>'현재 기준으로 재분석하기'를 눌러 생성해 보세요.</div></div>""",
+            unsafe_allow_html=True)
+
+    # ── 데이터 메타 정보 ──
+    if events:
+        total_reviews_sum = sum(e["review_count"] for e in events)
+        st.markdown(f"""<div style="margin-top:40px;background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:20px 28px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;"><div style="font-size:12px;color:#757575;font-weight:600;">타임라인 ID</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;font-family:monospace;">{game.get('timeline_id','—')}</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">총 분석 이벤트</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{len(events)}개</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">분석된 총 리뷰</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(total_reviews_sum)}건</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">최근 분석일</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{game['last_analyzed']}</div></div>""",
+            unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  MAIN
+# ─────────────────────────────────────────────
+def main():
+    inject_css()
+
+    if "page" not in st.session_state:
+        st.session_state.page = "home"
+    if "current_game" not in st.session_state:
+        st.session_state.current_game = None
+
+    if st.session_state.page == "home":
+        render_home()
+    elif st.session_state.page == "game":
+        render_game_detail(st.session_state.current_game)
+
+
+main()
