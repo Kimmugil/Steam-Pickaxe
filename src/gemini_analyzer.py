@@ -85,6 +85,42 @@ def _build_news_text(news_items: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _parse_json_array(raw: str) -> list[dict]:
+    """
+    Gemini 응답 텍스트에서 JSON 배열을 추출합니다.
+    ```json ... ```, 순수 배열, 혼합 텍스트 순서로 시도합니다.
+    """
+    # 1. ```json ... ``` 코드 블록
+    code_match = re.search(r"```(?:json)?\s*(\[[\s\S]*?\])\s*```", raw)
+    if code_match:
+        try:
+            return json.loads(code_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # 2. 전체 응답이 JSON 배열
+    try:
+        result = json.loads(raw)
+        if isinstance(result, list):
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    # 3. 첫 번째 [ 부터 마지막 ] 까지 탐욕적 추출
+    start = raw.find("[")
+    end   = raw.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(raw[start : end + 1])
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"JSON 파싱 실패: {e}\n"
+                f"추출된 텍스트 앞부분: {raw[start : start + 400]}"
+            )
+
+    raise ValueError(f"JSON 배열을 찾을 수 없습니다.\n응답 앞부분: {raw[:300]}")
+
+
 def analyze_reviews_to_timeline(
     game_name: str,
     release_date: str,
@@ -168,13 +204,7 @@ def analyze_reviews_to_timeline(
     )
 
     raw = response.text.strip()
-
-    # JSON 블록 추출 (```json ... ``` 또는 [ ... ] 형태 모두 처리)
-    json_match = re.search(r"\[.*?\]", raw, re.DOTALL)
-    if not json_match:
-        raise ValueError(f"Gemini 응답에서 JSON 배열을 찾을 수 없습니다.\n응답 앞부분: {raw[:300]}")
-
-    events_raw: list[dict] = json.loads(json_match.group())
+    events_raw: list[dict] = _parse_json_array(raw)
 
     now_iso = datetime.now(timezone.utc).isoformat()
     events = []

@@ -74,6 +74,13 @@ section[data-testid="stSidebar"]{display:none!important;}
 div[data-testid="column"]{padding:0 6px!important;}
 .stPlotlyChart{border:1.5px solid #1E1E1E!important;border-radius:20px!important;overflow:hidden!important;background:#FFFFFF!important;}
 .stSelectbox>div>div{border:1.5px solid #1E1E1E!important;border-radius:12px!important;background:#FFFFFF!important;box-shadow:none!important;}
+/* st.status / st.expander 내부 텍스트 색상 명시 */
+div[data-testid="stExpander"] p,
+div[data-testid="stExpander"] span,
+div[data-testid="stExpander"] li,
+[data-testid="stStatusWidget"] p,
+[data-testid="stStatusWidget"] span,
+.stMarkdown p{color:#1E1E1E!important;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -828,8 +835,14 @@ def render_game_detail(appid: int):
                 render_event_card(event, is_last=(i == len(display_events) - 1))
 
     else:
-        st.markdown("""<div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:60px;text-align:center;margin-top:24px;"><div style="font-size:32px;margin-bottom:12px;">⚙️</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;margin-bottom:6px;">타임라인 데이터 없음</div><div style="font-size:13px;color:#757575;word-break:keep-all;">리뷰 수집이 아직 완료되지 않았거나 분석 대기 중입니다.</div></div>""",
+        st.markdown("""<div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:48px;text-align:center;margin-top:24px;"><div style="font-size:32px;margin-bottom:12px;">⚙️</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;margin-bottom:6px;">타임라인 미생성</div><div style="font-size:13px;color:#757575;word-break:keep-all;margin-bottom:20px;">게임은 등록됐지만 아직 타임라인 분석이 실행되지 않았습니다.</div></div>""",
             unsafe_allow_html=True)
+        # 등록됐지만 타임라인 없는 경우 — 생성 버튼 표시
+        if is_real_data and sheets_ready():
+            col_btn, _ = st.columns([3, 7])
+            with col_btn:
+                if st.button("⚙️  지금 타임라인 생성하기", key="gen_from_detail"):
+                    _run_analysis_pipeline(game)
 
     # ── 데이터 메타 정보 ──
     if events:
