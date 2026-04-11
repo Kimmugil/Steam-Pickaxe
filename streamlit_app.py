@@ -12,10 +12,16 @@ try:
         get_game_info as _sheets_get_game_info,
         register_game as _sheets_register_game,
         get_all_tracked_games as _sheets_get_all_games,
+        save_reviews as _sheets_save_reviews,
+        load_timeline_events as _sheets_load_timeline,
+        save_timeline_events as _sheets_save_timeline,
     )
+    from src.steam_pickaxe import collect_all_reviews as _steam_collect, fetch_steam_news as _steam_news
+    from src.gemini_analyzer import analyze_reviews_to_timeline as _gemini_analyze, EVENT_COLORS as _EVENT_COLORS
     _SHEETS_IMPORTABLE = True
 except Exception:
     _SHEETS_IMPORTABLE = False
+    _EVENT_COLORS = {}
 
 
 @st.cache_resource(show_spinner=False)
@@ -408,6 +414,42 @@ def get_event_type_style(event_type: str) -> tuple:
     return styles.get(event_type, ("#E0E0E0", "#1E1E1E"))
 
 
+def _sheets_to_display_event(e: dict) -> dict:
+    """Google Sheets 타임라인 레코드를 render_event_card 포맷으로 변환합니다."""
+    date_str   = e.get("date", "")
+    period_end = e.get("period_end", "")
+    if date_str and period_end:
+        period = f"{date_str[:7].replace('-','.')} ~ {period_end[:7].replace('-','.')}"
+    elif date_str:
+        period = date_str[:7].replace("-", ".")
+    else:
+        period = "—"
+
+    def _split_pipe(val) -> list:
+        if isinstance(val, list):
+            return val
+        return [v.strip() for v in str(val).split("|") if v.strip()]
+
+    event_type = e.get("type", "update")
+    return {
+        "event_id":      e.get("event_id", ""),
+        "name":          e.get("name", ""),
+        "date":          date_str,
+        "period":        period,
+        "period_end":    period_end,
+        "type":          event_type,
+        "type_label":    e.get("type_label", event_type),
+        "color":         e.get("color") or _EVENT_COLORS.get(event_type, "#E0E0E0"),
+        "sentiment_pct": int(e.get("sentiment_pct") or 50),
+        "review_count":  int(e.get("review_count") or 0),
+        "description":   e.get("description", ""),
+        "key_issues":    _split_pipe(e.get("key_issues", "")),
+        "top_langs":     _split_pipe(e.get("top_langs", "")),
+        "kr_summary":    e.get("kr_summary", ""),
+        "user_edited":   str(e.get("user_edited", "")).lower() == "true",
+    }
+
+
 def fmt_number(n: int) -> str:
     if n >= 10000:
         return f"{n // 10000}만 {n % 10000:,}"
@@ -590,7 +632,7 @@ def render_new_game_page(game: dict):
         unsafe_allow_html=True)
 
     # 분석 준비 안내
-    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;"><div style="padding:32px 36px;"><div style="font-size:18px;font-weight:700;color:#1E1E1E;margin-bottom:10px;word-break:keep-all;">⚙️ 이 게임의 타임라인을 생성하시겠습니까?</div><div style="font-size:13px;color:#757575;line-height:1.8;margin-bottom:24px;word-break:keep-all;">스팀곡괭이가 전체 리뷰 <b style="color:#1E1E1E;">{fmt_number(game.get('total_reviews',0))}건</b>을 수집하고,<br>Gemini AI가 주요 이벤트별 민심을 분석하여 타임라인을 생성합니다.<br>리뷰 수에 따라 최초 생성에 수 분이 소요될 수 있습니다.</div><div style="display:flex;flex-wrap:wrap;gap:12px;"><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 1</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">⛏ 스팀곡괭이</div><div style="font-size:12px;color:#757575;margin-top:2px;">전체 리뷰 수집 & 아카이빙</div></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 2</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">🗞 이벤트 탐지</div><div style="font-size:12px;color:#757575;margin-top:2px;">패치노트 & 주요 사건 파악</div></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 3</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">🤖 Gemini 분석</div><div style="font-size:12px;color:#757575;margin-top:2px;">이벤트별 민심 요약 생성</div></div></div></div></div>""",
+    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;"><div style="padding:32px 36px;"><div style="font-size:18px;font-weight:700;color:#1E1E1E;margin-bottom:10px;word-break:keep-all;">⚙️ 이 게임의 타임라인을 생성하시겠습니까?</div><div style="font-size:13px;color:#757575;line-height:1.8;margin-bottom:24px;word-break:keep-all;">리뷰 <b style="color:#1E1E1E;">500건</b>을 즉시 수집하여 초기 타임라인을 생성합니다.<br>이후 스팀곡괭이가 전체 <b style="color:#1E1E1E;">{fmt_number(game.get('total_reviews',0))}건</b>을 매일 자동 수집하며 타임라인을 최신화합니다.<br>초기 생성은 약 <b style="color:#1E1E1E;">1~3분</b> 소요됩니다.</div><div style="display:flex;flex-wrap:wrap;gap:12px;"><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 1</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">⛏ 즉시 수집</div><div style="font-size:12px;color:#757575;margin-top:2px;">리뷰 500건 + 패치노트</div></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 2</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">🤖 Gemini 분석</div><div style="font-size:12px;color:#757575;margin-top:2px;">이벤트 탐지 + 민심 요약</div></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:12px;padding:14px 20px;flex:1;min-width:160px;"><div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:4px;">STEP 3</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">🔄 자동 최신화</div><div style="font-size:12px;color:#757575;margin-top:2px;">매일 05:00 KST 증분 업데이트</div></div></div></div></div>""",
         unsafe_allow_html=True)
 
     st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
@@ -635,24 +677,58 @@ universe_domain             = "googleapis.com"
         col_btn, _ = st.columns([3, 7])
         with col_btn:
             if st.button("⚙️  이 게임 타임라인 생성 시작", key="start_analysis"):
-                client = get_sheets_client()
-                with st.spinner(f"'{game['name']}' 등록 중..."):
-                    try:
-                        existing = _sheets_get_game_info(client, game["appid"])
-                        if existing:
-                            st.success("이미 등록된 게임입니다! 스팀곡괭이가 자동으로 리뷰를 수집 중입니다.")
-                        else:
-                            _sheets_register_game(
-                                client,
-                                game["appid"],
-                                game["name"],
-                                game.get("name_en", game["name"]),
-                                game.get("release_date", ""),
-                            )
-                            st.success(f"✅ '{game['name']}' 등록 완료! 스팀곡괭이가 내일부터 자동 수집을 시작합니다.")
-                            st.balloons()
-                    except Exception as e:
-                        st.error(f"오류 발생: {e}")
+                _run_analysis_pipeline(game)
+
+
+def _run_analysis_pipeline(game: dict):
+    """즉시 수집 → Gemini 분석 → 시트 저장 → 타임라인 페이지 이동."""
+    appid = game["appid"]
+
+    with st.status("타임라인 생성 중...", expanded=True) as status:
+        try:
+            # STEP 1: 즉시 리뷰 500건 수집
+            st.write("⛏ 리뷰 수집 중 (최대 500건)...")
+            reviews, final_cursor = _steam_collect(appid, max_pages=5, delay=0.2)
+            st.write(f"✅ 리뷰 {len(reviews)}건 수집 완료")
+
+            # STEP 2: Steam 뉴스 수집
+            st.write("🗞 Steam 패치노트 수집 중...")
+            news = _steam_news(appid, count=50)
+            st.write(f"✅ 뉴스 {len(news)}건 수집 완료")
+
+            # STEP 3: Gemini 분석
+            st.write("🤖 Gemini AI 분석 중... (1~2분 소요)")
+            events = _gemini_analyze(
+                game_name=game["name"],
+                release_date=game.get("release_date", ""),
+                total_reviews=game.get("total_reviews", 0),
+                reviews=reviews,
+                steam_news=news,
+            )
+            st.write(f"✅ 이벤트 {len(events)}개 탐지 완료")
+
+            # STEP 4: 시트 저장
+            st.write("💾 Google Sheets에 저장 중...")
+            client = get_sheets_client()
+            _sheets_register_game(
+                client, appid, game["name"],
+                game.get("name_en", game["name"]),
+                game.get("release_date", ""),
+            )
+            _sheets_save_reviews(client, appid, reviews, final_cursor)
+            _sheets_save_timeline(client, appid, events, overwrite=True)
+            st.write("✅ 저장 완료")
+
+            status.update(label="✅ 타임라인 생성 완료!", state="complete")
+
+            # 생성된 이벤트를 session_state에 캐싱 후 이동
+            st.session_state.cached_timeline = {appid: events}
+            st.session_state.page = "game"
+            st.rerun()
+
+        except Exception as e:
+            status.update(label="❌ 오류 발생", state="error")
+            st.error(f"오류: {e}")
 
 
 # ─────────────────────────────────────────────
@@ -671,41 +747,64 @@ def render_game_detail(appid: int):
             with st.spinner("게임 정보를 가져오는 중..."):
                 game = steam_game_detail(appid)
 
-    # 미분석 게임은 분석 준비 페이지로
-    if appid not in analyzed_ids:
+    # ── 이벤트 소스 결정 ──
+    # 1순위: 방금 생성된 캐시 (파이프라인 직후)
+    cached_tl = st.session_state.get("cached_timeline", {})
+    if appid in cached_tl:
+        raw_events = cached_tl[appid]
+        events = [_sheets_to_display_event(e) for e in raw_events]
+        is_real_data  = True
+        is_initial    = True
+        reviewed_count = sum(e.get("review_count", 0) for e in events)
+    # 2순위: mock ANALYZED_GAMES
+    elif appid in analyzed_ids:
+        events = TIMELINE_MAP.get(appid, [])
+        is_real_data  = False
+        is_initial    = False
+        reviewed_count = sum(e.get("review_count", 0) for e in events)
+    # 3순위: 시트에서 로드
+    elif sheets_ready():
+        client = get_sheets_client()
+        game_info_sheet = _sheets_get_game_info(client, appid)
+        if game_info_sheet:
+            raw_events = _sheets_load_timeline(client, appid)
+            events = [_sheets_to_display_event(e) for e in raw_events]
+            is_real_data  = True
+            is_initial    = int(game_info_sheet.get("total_archived") or 0) < 5000
+            reviewed_count = int(game_info_sheet.get("total_archived") or 0)
+        else:
+            render_new_game_page(game)
+            return
+    else:
         render_new_game_page(game)
         return
 
-    events = TIMELINE_MAP.get(appid, [])
-    label, color, abbr = get_rating_info(game["rating_pct"])
+    label, color, abbr = get_rating_info(game.get("rating_pct", 0))
 
     # ── 뒤로가기 ──
-    col_back, col_spacer = st.columns([1, 9])
+    col_back, _ = st.columns([1, 9])
     with col_back:
         if st.button("← 목록으로"):
+            st.session_state.pop("cached_timeline", None)
             st.session_state.page = "home"
             st.rerun()
 
     # ── 게임 헤더 카드 ──
-    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin:12px 0 20px 0;display:grid;grid-template-columns:300px 1fr;"><img src="{game['thumbnail']}" style="width:100%;height:100%;min-height:175px;object-fit:cover;display:block;border-right:1.5px solid #1E1E1E;"><div style="padding:24px 28px;"><div style="font-size:22px;font-weight:900;color:#1E1E1E;margin-bottom:6px;word-break:keep-all;">{game['name']}</div><div style="font-size:13px;color:#757575;margin-bottom:16px;">{game['name_en']} &nbsp;·&nbsp; 출시 {game['release_date']}</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><div style="background:{color};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{abbr}</span><span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · 전체 {game['rating_pct']}% 긍정</span></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">총 리뷰 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(game['total_reviews'])}건</span></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">최근 분석 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{game['last_analyzed']}</span></div></div></div></div>""",
+    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin:12px 0 20px 0;display:grid;grid-template-columns:300px 1fr;"><img src="{game['thumbnail']}" style="width:100%;height:100%;min-height:175px;object-fit:cover;display:block;border-right:1.5px solid #1E1E1E;"><div style="padding:24px 28px;"><div style="font-size:22px;font-weight:900;color:#1E1E1E;margin-bottom:6px;word-break:keep-all;">{game['name']}</div><div style="font-size:13px;color:#757575;margin-bottom:16px;">{game.get('name_en','')} &nbsp;·&nbsp; 출시 {game.get('release_date','—')}</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><div style="background:{color};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{abbr}</span><span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · 전체 {game.get('rating_pct',0)}% 긍정</span></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">총 리뷰 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(game.get('total_reviews',0))}건</span></div></div></div></div>""",
         unsafe_allow_html=True)
 
-    # ── 액션 버튼 ──
-    col_a, col_b, col_spacer = st.columns([2, 2, 6])
-    with col_a:
-        if st.button("🔄  현재 기준으로 재분석하기"):
-            st.toast("⚙️ 재분석 기능은 준비 중입니다. (실제 데이터 연동 후 활성화)", icon="ℹ️")
-    with col_b:
-        if st.button("✏️  이벤트 수정하기"):
-            st.toast("✏️ 이벤트 수정 기능은 준비 중입니다.", icon="ℹ️")
+    # ── 초기 분석 안내 배너 ──
+    if is_real_data and is_initial:
+        total_steam = game.get("total_reviews", 0)
+        st.markdown(f"""<div style="background:#FFFDE7;border:1.5px solid #1E1E1E;border-radius:16px;padding:16px 22px;margin-bottom:16px;display:flex;align-items:flex-start;gap:14px;"><div style="font-size:22px;line-height:1;">⛏</div><div><div style="font-size:13px;font-weight:700;color:#1E1E1E;margin-bottom:4px;">초기 분석 타임라인 &nbsp;·&nbsp; {fmt_number(reviewed_count)}건 기반</div><div style="font-size:12px;color:#757575;line-height:1.7;">현재 Steam 전체 리뷰 {fmt_number(total_steam)}건 중 초기 샘플로 타임라인을 생성했습니다.<br>스팀곡괭이가 매일 오전 05:00 (KST) 전체 리뷰를 자동 수집하며, 누적될수록 타임라인이 더 정확해집니다.</div></div></div>""",
+            unsafe_allow_html=True)
 
     # ── 민심 추이 차트 ──
     if events:
         st.markdown("""<div style="margin:28px 0 12px 0;font-size:16px;font-weight:700;color:#1E1E1E;">📈 민심 추이</div>""",
             unsafe_allow_html=True)
 
-        # 최신순 / 과거순 토글
-        col_order, col_spacer = st.columns([2, 8])
+        col_order, _ = st.columns([2, 8])
         with col_order:
             order_opt = st.selectbox(
                 label="정렬",
@@ -715,28 +814,26 @@ def render_game_detail(appid: int):
             )
         reverse_order = order_opt.startswith("최신순")
 
-        chart_events = events if not reverse_order else events
-        fig = create_sentiment_chart(chart_events, reverse=False)
+        fig = create_sentiment_chart(events, reverse=False)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         # ── 타임라인 ──
         st.markdown("""<div style="margin:32px 0 20px 0;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:700;color:#1E1E1E;">🗓️ 민심 타임라인</div><div style="font-size:12px;color:#757575;">이벤트별 유저 반응 분석</div></div>""",
             unsafe_allow_html=True)
 
-        col_tl, col_spacer = st.columns([8, 2])
+        col_tl, _ = st.columns([8, 2])
         with col_tl:
             display_events = list(reversed(events)) if reverse_order else events
             for i, event in enumerate(display_events):
                 render_event_card(event, is_last=(i == len(display_events) - 1))
 
     else:
-        st.markdown("""<div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:60px;text-align:center;margin-top:24px;"><div style="font-size:32px;margin-bottom:12px;">⚙️</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;margin-bottom:6px;">타임라인 데이터 없음</div><div style="font-size:13px;color:#757575;word-break:keep-all;">아직 이 게임의 타임라인이 생성되지 않았습니다.<br>'현재 기준으로 재분석하기'를 눌러 생성해 보세요.</div></div>""",
+        st.markdown("""<div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:60px;text-align:center;margin-top:24px;"><div style="font-size:32px;margin-bottom:12px;">⚙️</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;margin-bottom:6px;">타임라인 데이터 없음</div><div style="font-size:13px;color:#757575;word-break:keep-all;">리뷰 수집이 아직 완료되지 않았거나 분석 대기 중입니다.</div></div>""",
             unsafe_allow_html=True)
 
     # ── 데이터 메타 정보 ──
     if events:
-        total_reviews_sum = sum(e["review_count"] for e in events)
-        st.markdown(f"""<div style="margin-top:40px;background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:20px 28px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;"><div style="font-size:12px;color:#757575;font-weight:600;">타임라인 ID</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;font-family:monospace;">{game.get('timeline_id','—')}</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">총 분석 이벤트</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{len(events)}개</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">분석된 총 리뷰</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(total_reviews_sum)}건</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">최근 분석일</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{game['last_analyzed']}</div></div>""",
+        st.markdown(f"""<div style="margin-top:40px;background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:20px 28px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;"><div style="font-size:12px;color:#757575;font-weight:600;">총 이벤트</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{len(events)}개</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">분석 기반 리뷰</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(reviewed_count)}건</div><div style="width:1.5px;height:20px;background:#E0E0E0;"></div><div style="font-size:12px;color:#757575;font-weight:600;">자동 업데이트</div><div style="font-size:13px;font-weight:700;color:#1E1E1E;">매일 05:00 KST</div></div>""",
             unsafe_allow_html=True)
 
 
