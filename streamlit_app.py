@@ -611,8 +611,8 @@ def render_new_game_page(game: dict):
 - 아래 형식으로 입력 후 **Save**:
 
 ```toml
-GDRIVE_FOLDER_ID = "1rux1MUddT31t7RwuJiOGzLX4-cmxPijc"
-GEMINI_API_KEY   = "your_gemini_key"
+MASTER_SPREADSHEET_ID = "1ViHc_sx751hiER4gyT3YvqgjvR_Vd0dbZA3FJzzkgRw"
+GEMINI_API_KEY        = "your_gemini_key"
 
 [GOOGLE_SERVICE_ACCOUNT]
 type                        = "service_account"

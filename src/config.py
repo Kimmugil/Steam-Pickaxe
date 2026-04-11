@@ -67,13 +67,14 @@ def is_sheets_configured() -> bool:
     """Google Sheets 연결에 필요한 설정이 있는지 확인합니다."""
     try:
         get_google_credentials()
-        folder = get_env("GDRIVE_FOLDER_ID")
-        return bool(folder)
+        spreadsheet_id = get_env("MASTER_SPREADSHEET_ID")
+        return bool(spreadsheet_id)
     except Exception:
         return False
 
 
 # ── 자주 쓰는 설정값 ──
-GDRIVE_FOLDER_ID: str = get_env("GDRIVE_FOLDER_ID")
-GEMINI_API_KEY: str   = get_env("GEMINI_API_KEY")
-STEAM_API_KEY: str    = get_env("STEAM_API_KEY")
+MASTER_SPREADSHEET_ID: str = get_env("MASTER_SPREADSHEET_ID")
+GDRIVE_FOLDER_ID: str      = get_env("GDRIVE_FOLDER_ID")
+GEMINI_API_KEY: str        = get_env("GEMINI_API_KEY")
+STEAM_API_KEY: str         = get_env("STEAM_API_KEY")

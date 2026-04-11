@@ -1,15 +1,13 @@
 """
 Google Sheets 연동 모듈
 ─────────────────────────────────────────────────────
-구조:
-  [마스터] Steam-Pickaxe-Master  (스프레드시트 1개)
-    └ 시트: 게임목록  ← 적재 중인 게임 목록 + 진행 상태
+구조 (단일 스프레드시트):
+  [Steam-Pickaxe-Data]  ← 유저가 직접 생성, ID를 secrets에 등록
+    ├ 시트: 게임목록           ← 게임 목록 + 수집 상태
+    ├ 시트: reviews_{appid}    ← 리뷰 원본 전체 적재
+    └ 시트: timeline_{appid}   ← 타임라인 이벤트 데이터
 
-  [게임별] {게임명}_{appid}  (게임 당 스프레드시트 1개)
-    ├ 시트: reviews   ← 리뷰 원본 전체 적재
-    └ 시트: timeline  ← 타임라인 이벤트 데이터
-
-이 모듈은 steam-review-bot에서도 import하여 사용할 수 있습니다.
+서비스 계정은 파일을 생성하지 않으며, 워크시트 추가/읽기/쓰기만 합니다.
 """
 
 import gspread
@@ -17,17 +15,14 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime, timezone
 from typing import Optional
 
-from .config import get_google_credentials, GDRIVE_FOLDER_ID
+from .config import get_google_credentials, get_env
 
 # ─────────────────────────────────────────────
 #  상수
 # ─────────────────────────────────────────────
 SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets",  # 시트 읽기/쓰기만 (Drive 스코프 불필요)
 ]
-
-MASTER_SHEET_NAME = "Steam-Pickaxe-Master"
 
 # 마스터 시트 컬럼 (게임 목록)
 MASTER_COLUMNS = [
@@ -35,23 +30,22 @@ MASTER_COLUMNS = [
     "name",              # 게임명 (한국어/원제)
     "name_en",           # 게임명 (영어)
     "release_date",      # 출시일 (YYYY-MM-DD)
-    "last_cursor",       # 마지막 수집 cursor (*이면 처음)
+    "last_cursor",       # 마지막 수집 cursor (* 이면 처음부터)
     "last_pickaxe_run",  # 마지막 스팀곡괭이 실행 시각 (ISO)
     "total_archived",    # 적재된 총 리뷰 수
-    "spreadsheet_id",    # 게임별 스프레드시트 ID
     "status",            # active / paused
 ]
 
-# 리뷰 아카이브 컬럼 — steam-review-bot과 공유하는 스키마
+# 리뷰 아카이브 컬럼
 REVIEW_COLUMNS = [
     "review_id",                    # Steam 리뷰 고유 ID (recommendationid)
     "steamid",                      # 작성자 Steam ID
-    "language",                     # 리뷰 작성 언어 (Steam 언어코드)
+    "language",                     # 리뷰 작성 언어
     "voted_up",                     # 긍정 여부 (TRUE / FALSE)
     "votes_up",                     # 도움됨 투표 수
     "votes_funny",                  # 재밌음 투표 수
     "weighted_vote_score",          # Steam 가중치 점수 (0~1)
-    "review",                       # 리뷰 전문 (잘리지 않은 원본)
+    "review",                       # 리뷰 전문
     "timestamp_created",            # 작성 시각 (Unix timestamp)
     "timestamp_updated",            # 최근 수정 시각 (Unix timestamp)
     "playtime_at_review",           # 리뷰 시점 플레이타임 (분)
@@ -64,10 +58,10 @@ REVIEW_COLUMNS = [
 
 # 타임라인 이벤트 컬럼
 TIMELINE_COLUMNS = [
-    "event_id",         # 이벤트 고유 ID (예: evt_001)
+    "event_id",         # 이벤트 고유 ID (evt_001)
     "name",             # 이벤트명
     "date",             # 이벤트 발생일 (YYYY-MM-DD)
-    "period_end",       # 이 이벤트 영향 기간 종료일
+    "period_end",       # 영향 기간 종료일
     "type",             # launch / update / crisis / controversy / recovery
     "type_label",       # 한글 표시명
     "sentiment_pct",    # 긍정 비율 (%)
@@ -77,14 +71,14 @@ TIMELINE_COLUMNS = [
     "top_langs",        # TOP 언어 (파이프 | 구분)
     "kr_summary",       # 한국어 유저 반응 요약
     "color",            # 카드 색상 코드
-    "user_edited",      # 유저가 수정한 이벤트 여부 (TRUE/FALSE)
+    "user_edited",      # 유저가 수정했는지 여부 (TRUE/FALSE)
     "created_at",       # 최초 생성 시각 (ISO)
     "updated_at",       # 최근 수정 시각 (ISO)
 ]
 
 
 # ─────────────────────────────────────────────
-#  클라이언트 생성
+#  클라이언트 & 스프레드시트 열기
 # ─────────────────────────────────────────────
 def get_client() -> gspread.Client:
     """Google Sheets 인증 클라이언트를 반환합니다."""
@@ -93,27 +87,39 @@ def get_client() -> gspread.Client:
     return gspread.authorize(creds)
 
 
-# ─────────────────────────────────────────────
-#  마스터 시트 관리
-# ─────────────────────────────────────────────
-def get_or_create_master_sheet(client: gspread.Client) -> gspread.Spreadsheet:
-    """마스터 시트를 가져오거나 없으면 생성합니다."""
+def _get_master_spreadsheet(client: gspread.Client) -> gspread.Spreadsheet:
+    """
+    마스터 스프레드시트를 ID로 직접 엽니다.
+    MASTER_SPREADSHEET_ID가 없으면 ValueError를 발생시킵니다.
+    """
+    spreadsheet_id = get_env("MASTER_SPREADSHEET_ID")
+    if not spreadsheet_id:
+        raise ValueError(
+            "MASTER_SPREADSHEET_ID가 설정되지 않았습니다.\n"
+            "Streamlit Secrets 또는 환경변수에 MASTER_SPREADSHEET_ID를 추가하세요."
+        )
+    return client.open_by_key(spreadsheet_id)
+
+
+def _ensure_game_list_ws(ss: gspread.Spreadsheet) -> gspread.Worksheet:
+    """'게임목록' 워크시트를 반환하고 없으면 생성합니다."""
     try:
-        return client.open(MASTER_SHEET_NAME)
-    except gspread.SpreadsheetNotFound:
-        ss = client.create(MASTER_SHEET_NAME)
-        if GDRIVE_FOLDER_ID:
-            client.move_spreadsheet(ss.id, GDRIVE_FOLDER_ID)
-        ws = ss.sheet1
-        ws.update_title("게임목록")
+        return ss.worksheet("게임목록")
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet("게임목록", rows=500, cols=len(MASTER_COLUMNS))
         ws.append_row(MASTER_COLUMNS)
-        return ss
+        ws.freeze(rows=1)
+        return ws
 
 
+# ─────────────────────────────────────────────
+#  게임 목록 조회
+# ─────────────────────────────────────────────
 def get_all_tracked_games(client: gspread.Client) -> list[dict]:
-    """마스터 시트에서 모든 게임 목록을 반환합니다."""
-    ss = get_or_create_master_sheet(client)
-    return ss.worksheet("게임목록").get_all_records()
+    """마스터 스프레드시트에서 모든 게임 목록을 반환합니다."""
+    ss = _get_master_spreadsheet(client)
+    ws = _ensure_game_list_ws(ss)
+    return ws.get_all_records()
 
 
 def get_game_info(client: gspread.Client, appid: int) -> Optional[dict]:
@@ -125,52 +131,58 @@ def get_game_info(client: gspread.Client, appid: int) -> Optional[dict]:
     return None
 
 
+# ─────────────────────────────────────────────
+#  게임 등록
+# ─────────────────────────────────────────────
 def register_game(
     client: gspread.Client,
     appid: int,
     name: str,
     name_en: str,
     release_date: str,
-) -> str:
+) -> None:
     """
-    새 게임을 마스터 시트에 등록하고 전용 스프레드시트를 생성합니다.
-
-    Returns:
-        생성된 게임 스프레드시트 ID
+    새 게임을 마스터 시트에 등록하고 리뷰/타임라인 워크시트를 생성합니다.
+    모든 작업이 MASTER_SPREADSHEET_ID 스프레드시트 안에서 이루어집니다.
     """
-    ss_name = f"[리뷰] {name}_{appid}"
-    game_ss = client.create(ss_name)
+    ss = _get_master_spreadsheet(client)
 
-    if GDRIVE_FOLDER_ID:
-        client.move_spreadsheet(game_ss.id, GDRIVE_FOLDER_ID)
+    # reviews_{appid} 워크시트 생성
+    review_ws_name = f"reviews_{appid}"
+    try:
+        review_ws = ss.worksheet(review_ws_name)
+    except gspread.WorksheetNotFound:
+        review_ws = ss.add_worksheet(review_ws_name, rows=1000, cols=len(REVIEW_COLUMNS))
+        review_ws.append_row(REVIEW_COLUMNS)
+        review_ws.freeze(rows=1)
 
-    # reviews 시트 초기화
-    review_ws = game_ss.sheet1
-    review_ws.update_title("reviews")
-    review_ws.append_row(REVIEW_COLUMNS)
-    review_ws.freeze(rows=1)
+    # timeline_{appid} 워크시트 생성
+    timeline_ws_name = f"timeline_{appid}"
+    try:
+        ss.worksheet(timeline_ws_name)
+    except gspread.WorksheetNotFound:
+        timeline_ws = ss.add_worksheet(timeline_ws_name, rows=500, cols=len(TIMELINE_COLUMNS))
+        timeline_ws.append_row(TIMELINE_COLUMNS)
+        timeline_ws.freeze(rows=1)
 
-    # timeline 시트 초기화
-    timeline_ws = game_ss.add_worksheet("timeline", rows=500, cols=len(TIMELINE_COLUMNS))
-    timeline_ws.append_row(TIMELINE_COLUMNS)
-    timeline_ws.freeze(rows=1)
+    # 게임목록 워크시트에 등록
+    game_list_ws = _ensure_game_list_ws(ss)
 
-    # 마스터 시트에 게임 등록
-    master_ss = get_or_create_master_sheet(client)
-    master_ws = master_ss.worksheet("게임목록")
-    master_ws.append_row([
+    # 이미 등록되어 있는지 확인
+    existing = game_list_ws.get_all_records()
+    if any(str(g.get("appid")) == str(appid) for g in existing):
+        return  # 중복 등록 방지
+
+    game_list_ws.append_row([
         str(appid),
         name,
         name_en,
         release_date,
-        "*",            # last_cursor: 처음부터 수집
-        "",             # last_pickaxe_run
-        0,              # total_archived
-        game_ss.id,
+        "*",   # last_cursor: 처음부터 수집
+        "",    # last_pickaxe_run
+        0,     # total_archived
         "active",
     ])
-
-    return game_ss.id
 
 
 def update_master_after_collect(
@@ -179,27 +191,24 @@ def update_master_after_collect(
     new_cursor: str,
     added_count: int,
 ) -> None:
-    """리뷰 수집 완료 후 마스터 시트의 cursor와 통계를 업데이트합니다."""
-    master_ss = get_or_create_master_sheet(client)
-    master_ws = master_ss.worksheet("게임목록")
-    records = master_ws.get_all_records()
+    """리뷰 수집 완료 후 게임목록 시트의 cursor와 통계를 업데이트합니다."""
+    ss = _get_master_spreadsheet(client)
+    ws = _ensure_game_list_ws(ss)
+    records = ws.get_all_records()
 
-    for i, row in enumerate(records, start=2):  # 헤더가 1행이므로 2행부터
+    for i, row in enumerate(records, start=2):  # 헤더=1행, 데이터=2행~
         if str(row.get("appid")) == str(appid):
-            new_total = int(row.get("total_archived", 0)) + added_count
+            new_total = int(row.get("total_archived") or 0) + added_count
             now_iso = datetime.now(timezone.utc).isoformat()
-            # E=last_cursor, F=last_pickaxe_run, G=total_archived
-            master_ws.update(f"E{i}:G{i}", [[new_cursor, now_iso, new_total]])
+            # MASTER_COLUMNS 순서: appid, name, name_en, release_date,
+            #   last_cursor(E), last_pickaxe_run(F), total_archived(G), status(H)
+            ws.update(f"E{i}:G{i}", [[new_cursor, now_iso, new_total]])
             break
 
 
 # ─────────────────────────────────────────────
 #  리뷰 적재 & 조회
 # ─────────────────────────────────────────────
-def _get_game_spreadsheet(client: gspread.Client, game_info: dict) -> gspread.Spreadsheet:
-    return client.open_by_key(game_info["spreadsheet_id"])
-
-
 def save_reviews(
     client: gspread.Client,
     appid: int,
@@ -209,28 +218,21 @@ def save_reviews(
     """
     새 리뷰를 Google Sheets에 적재합니다. 이미 있는 review_id는 건너뜁니다.
 
-    Args:
-        client: gspread 클라이언트
-        appid: Steam App ID
-        reviews: Steam API에서 받은 리뷰 원본 리스트
-        new_cursor: 이번 수집의 마지막 cursor
-
     Returns:
         실제로 새로 적재된 리뷰 수
     """
-    game_info = get_game_info(client, appid)
-    if not game_info:
-        raise ValueError(
-            f"appid {appid}가 마스터 시트에 없습니다. register_game()을 먼저 호출하세요."
-        )
+    ss = _get_master_spreadsheet(client)
+    review_ws_name = f"reviews_{appid}"
 
-    ss = _get_game_spreadsheet(client, game_info)
-    review_ws = ss.worksheet("reviews")
+    try:
+        review_ws = ss.worksheet(review_ws_name)
+    except gspread.WorksheetNotFound:
+        review_ws = ss.add_worksheet(review_ws_name, rows=1000, cols=len(REVIEW_COLUMNS))
+        review_ws.append_row(REVIEW_COLUMNS)
+        review_ws.freeze(rows=1)
 
     # 기존 review_id 조회 (중복 방지)
-    existing_ids: set[str] = set()
-    existing_rows = review_ws.col_values(1)[1:]  # 헤더 제외, review_id 컬럼
-    existing_ids.update(r for r in existing_rows if r)
+    existing_ids: set[str] = set(r for r in review_ws.col_values(1)[1:] if r)
 
     new_rows: list[list] = []
     collected_at = datetime.now(timezone.utc).isoformat()
@@ -249,7 +251,7 @@ def save_reviews(
             str(rev.get("votes_up", 0)),
             str(rev.get("votes_funny", 0)),
             str(rev.get("weighted_vote_score", 0)),
-            rev.get("review", ""),                          # 전문 저장 (잘리지 않음)
+            rev.get("review", ""),
             str(rev.get("timestamp_created", "")),
             str(rev.get("timestamp_updated", "")),
             str(author.get("playtime_at_review", 0)),
@@ -261,7 +263,6 @@ def save_reviews(
         ])
 
     if new_rows:
-        # Google Sheets API 한 번 호출로 일괄 적재 (효율적)
         review_ws.append_rows(new_rows, value_input_option="RAW")
 
     update_master_after_collect(client, appid, new_cursor, len(new_rows))
@@ -278,32 +279,21 @@ def load_reviews(
     """
     Google Sheets에서 리뷰를 로드합니다.
 
-    steam-review-bot에서 이 함수를 import하면,
-    Steam API를 다시 호출하지 않고 아카이브된 데이터를 재활용할 수 있습니다.
-
     Args:
-        client: gspread 클라이언트
-        appid: Steam App ID
         since_ts: 이 Unix timestamp 이후 작성된 리뷰만 반환 (0이면 전체)
         language: 특정 언어 코드로 필터링 (None이면 전체)
         max_rows: 최대 반환 행 수 (0이면 전체)
-
-    Returns:
-        REVIEW_COLUMNS 스키마의 dict 리스트
     """
-    game_info = get_game_info(client, appid)
-    if not game_info or not game_info.get("spreadsheet_id"):
+    ss = _get_master_spreadsheet(client)
+    try:
+        review_ws = ss.worksheet(f"reviews_{appid}")
+    except gspread.WorksheetNotFound:
         return []
 
-    ss = _get_game_spreadsheet(client, game_info)
-    review_ws = ss.worksheet("reviews")
     records = review_ws.get_all_records()
 
     if since_ts:
-        records = [
-            r for r in records
-            if int(r.get("timestamp_created") or 0) > since_ts
-        ]
+        records = [r for r in records if int(r.get("timestamp_created") or 0) > since_ts]
     if language:
         records = [r for r in records if r.get("language") == language]
     if max_rows:
@@ -325,11 +315,11 @@ def get_last_cursor(client: gspread.Client, appid: int) -> str:
 # ─────────────────────────────────────────────
 def load_timeline_events(client: gspread.Client, appid: int) -> list[dict]:
     """게임의 타임라인 이벤트를 모두 로드합니다."""
-    game_info = get_game_info(client, appid)
-    if not game_info or not game_info.get("spreadsheet_id"):
+    ss = _get_master_spreadsheet(client)
+    try:
+        ws = ss.worksheet(f"timeline_{appid}")
+    except gspread.WorksheetNotFound:
         return []
-    ss = _get_game_spreadsheet(client, game_info)
-    ws = ss.worksheet("timeline")
     return ws.get_all_records()
 
 
@@ -345,64 +335,50 @@ def save_timeline_events(
     Args:
         overwrite: True면 전체 덮어쓰기, False면 event_id 기준 upsert
     """
-    game_info = get_game_info(client, appid)
-    if not game_info:
-        raise ValueError(f"appid {appid}가 마스터 시트에 없습니다.")
+    ss = _get_master_spreadsheet(client)
+    timeline_ws_name = f"timeline_{appid}"
 
-    ss = _get_game_spreadsheet(client, game_info)
-    ws = ss.worksheet("timeline")
+    try:
+        ws = ss.worksheet(timeline_ws_name)
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet(timeline_ws_name, rows=500, cols=len(TIMELINE_COLUMNS))
+        ws.append_row(TIMELINE_COLUMNS)
+        ws.freeze(rows=1)
+
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    def _event_row(e: dict) -> list:
+        return [
+            e.get("event_id", ""),
+            e.get("name", ""),
+            e.get("date", ""),
+            e.get("period_end", ""),
+            e.get("type", ""),
+            e.get("type_label", ""),
+            str(e.get("sentiment_pct", "")),
+            str(e.get("review_count", "")),
+            e.get("description", ""),
+            " | ".join(e.get("key_issues", [])) if isinstance(e.get("key_issues"), list) else e.get("key_issues", ""),
+            " | ".join(e.get("top_langs", [])) if isinstance(e.get("top_langs"), list) else e.get("top_langs", ""),
+            e.get("kr_summary", ""),
+            e.get("color", ""),
+            str(e.get("user_edited", False)),
+            e.get("created_at", now_iso),
+            now_iso,
+        ]
 
     if overwrite:
         ws.clear()
         ws.append_row(TIMELINE_COLUMNS)
-        rows = []
-        for e in events:
-            rows.append([
-                e.get("event_id", ""),
-                e.get("name", ""),
-                e.get("date", ""),
-                e.get("period_end", ""),
-                e.get("type", ""),
-                e.get("type_label", ""),
-                str(e.get("sentiment_pct", "")),
-                str(e.get("review_count", "")),
-                e.get("description", ""),
-                " | ".join(e.get("key_issues", [])) if isinstance(e.get("key_issues"), list) else e.get("key_issues", ""),
-                " | ".join(e.get("top_langs", [])) if isinstance(e.get("top_langs"), list) else e.get("top_langs", ""),
-                e.get("kr_summary", ""),
-                e.get("color", ""),
-                str(e.get("user_edited", False)),
-                e.get("created_at", now_iso),
-                now_iso,
-            ])
-        if rows:
-            ws.append_rows(rows, value_input_option="RAW")
+        if events:
+            ws.append_rows([_event_row(e) for e in events], value_input_option="RAW")
     else:
-        # upsert: event_id가 있으면 해당 행 업데이트, 없으면 추가
         existing = ws.get_all_records()
-        existing_ids = {r["event_id"]: i + 2 for i, r in enumerate(existing)}  # 행 번호 (헤더=1행)
+        existing_ids = {r["event_id"]: i + 2 for i, r in enumerate(existing)}
 
         for e in events:
             eid = e.get("event_id", "")
-            row_data = [
-                eid,
-                e.get("name", ""),
-                e.get("date", ""),
-                e.get("period_end", ""),
-                e.get("type", ""),
-                e.get("type_label", ""),
-                str(e.get("sentiment_pct", "")),
-                str(e.get("review_count", "")),
-                e.get("description", ""),
-                " | ".join(e.get("key_issues", [])) if isinstance(e.get("key_issues"), list) else e.get("key_issues", ""),
-                " | ".join(e.get("top_langs", [])) if isinstance(e.get("top_langs"), list) else e.get("top_langs", ""),
-                e.get("kr_summary", ""),
-                e.get("color", ""),
-                str(e.get("user_edited", False)),
-                e.get("created_at", now_iso),
-                now_iso,
-            ]
+            row_data = _event_row(e)
             if eid and eid in existing_ids:
                 row_num = existing_ids[eid]
                 ws.update(f"A{row_num}:P{row_num}", [row_data])
@@ -418,33 +394,28 @@ def update_event_field(
     value: str,
 ) -> bool:
     """
-    특정 이벤트의 단일 필드를 업데이트합니다. (유저 수정 기능용)
+    특정 이벤트의 단일 필드를 업데이트합니다.
 
     Returns:
         업데이트 성공 여부
     """
-    game_info = get_game_info(client, appid)
-    if not game_info:
-        return False
-
-    ss = _get_game_spreadsheet(client, game_info)
-    ws = ss.worksheet("timeline")
-    records = ws.get_all_records()
-
     if field not in TIMELINE_COLUMNS:
         raise ValueError(f"알 수 없는 필드: {field}")
 
-    col_idx = TIMELINE_COLUMNS.index(field) + 1  # 1-indexed
+    ss = _get_master_spreadsheet(client)
+    try:
+        ws = ss.worksheet(f"timeline_{appid}")
+    except gspread.WorksheetNotFound:
+        return False
+
+    records = ws.get_all_records()
+    col_idx = TIMELINE_COLUMNS.index(field) + 1
 
     for i, row in enumerate(records, start=2):
         if row.get("event_id") == event_id:
             ws.update_cell(i, col_idx, value)
-            # updated_at도 함께 갱신
-            updated_col = TIMELINE_COLUMNS.index("updated_at") + 1
-            ws.update_cell(i, updated_col, datetime.now(timezone.utc).isoformat())
-            # user_edited 플래그 설정
-            edited_col = TIMELINE_COLUMNS.index("user_edited") + 1
-            ws.update_cell(i, edited_col, "True")
+            ws.update_cell(i, TIMELINE_COLUMNS.index("updated_at") + 1, datetime.now(timezone.utc).isoformat())
+            ws.update_cell(i, TIMELINE_COLUMNS.index("user_edited") + 1, "True")
             return True
 
     return False
