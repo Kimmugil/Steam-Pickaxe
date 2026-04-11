@@ -85,6 +85,15 @@ def _build_news_text(news_items: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _sanitize_json(text: str) -> str:
+    """흔한 JSON 오류를 사전에 수정합니다."""
+    # trailing comma 제거
+    text = re.sub(r",\s*}", "}", text)
+    text = re.sub(r",\s*]", "]", text)
+    # null → 0 또는 빈 문자열 치환 (숫자 필드 한정 처리는 후처리에서)
+    return text
+
+
 def _parse_json_array(raw: str) -> list[dict]:
     """
     Gemini 응답 텍스트에서 JSON 배열을 추출합니다.
@@ -106,16 +115,23 @@ def _parse_json_array(raw: str) -> list[dict]:
     except json.JSONDecodeError:
         pass
 
-    # 3. 첫 번째 [ 부터 마지막 ] 까지 탐욕적 추출
+    # 3. 첫 번째 [ 부터 마지막 ] 까지 탐욕적 추출 + 정제 후 재시도
     start = raw.find("[")
     end   = raw.rfind("]")
     if start != -1 and end != -1 and end > start:
+        candidate = raw[start : end + 1]
+        for attempt in (candidate, _sanitize_json(candidate)):
+            try:
+                return json.loads(attempt)
+            except json.JSONDecodeError:
+                pass
+        # 마지막 시도: 오류 메시지 포함
         try:
-            return json.loads(raw[start : end + 1])
+            return json.loads(candidate)
         except json.JSONDecodeError as e:
             raise ValueError(
                 f"JSON 파싱 실패: {e}\n"
-                f"추출된 텍스트 앞부분: {raw[start : start + 400]}"
+                f"추출된 텍스트 앞부분: {candidate[:400]}"
             )
 
     raise ValueError(f"JSON 배열을 찾을 수 없습니다.\n응답 앞부분: {raw[:300]}")
@@ -175,9 +191,11 @@ def analyze_reviews_to_timeline(
    - crisis: 급격한 부정 반응 급증
    - controversy: 정책/운영 논란
    - recovery: 반등/개선
-3. sentiment_pct는 해당 기간의 리뷰 데이터 기반으로 계산하세요.
-4. key_issues는 3개 이내, 한국어로 작성하세요.
-5. top_langs는 해당 기간 리뷰에서 많이 쓰인 언어 2~3개.
+3. sentiment_pct는 해당 기간의 리뷰 데이터 기반으로 계산하세요. null 금지 — 추정값이라도 숫자로 넣으세요.
+4. review_count도 추정값이라도 숫자로. null 금지.
+5. key_issues는 3개 이내, 한국어로 작성하세요.
+6. top_langs는 해당 기간 리뷰에서 많이 쓰인 언어 2~3개.
+7. 모든 문자열 값에 쌍따옴표(")를 포함하지 마세요. 따옴표가 필요하면 홑따옴표(')를 쓰세요.
 
 ## 출력 형식 (JSON 배열만 출력, 설명 텍스트 없이)
 [
@@ -199,7 +217,8 @@ def analyze_reviews_to_timeline(
         prompt,
         generation_config=genai.GenerationConfig(
             temperature=0.3,
-            max_output_tokens=4096,
+            max_output_tokens=8192,
+            response_mime_type="application/json",  # Gemini가 유효한 JSON만 반환하도록 강제
         ),
     )
 
@@ -220,8 +239,8 @@ def analyze_reviews_to_timeline(
             "period_end":  period_end,
             "type":        event_type,
             "type_label":  EVENT_TYPE_LABELS.get(event_type, event_type),
-            "sentiment_pct": int(e.get("sentiment_pct") or 50),
-            "review_count":  int(e.get("review_count") or 0),
+            "sentiment_pct": int(e.get("sentiment_pct") or 50) if e.get("sentiment_pct") is not None else 50,
+            "review_count":  int(e.get("review_count") or 0) if e.get("review_count") is not None else 0,
             "description": e.get("description", ""),
             "key_issues":  e.get("key_issues", []),
             "top_langs":   e.get("top_langs", []),
