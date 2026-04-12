@@ -113,6 +113,8 @@ div[data-testid="stRadio"]>div{display:flex;flex-wrap:wrap;gap:6px!important;}
 div[data-testid="stRadio"] label{border:1.5px solid #1E1E1E!important;border-radius:10px!important;
   padding:5px 12px!important;background:#FFFFFF!important;cursor:pointer!important;font-size:12px!important;}
 div[data-testid="stRadio"] label:has(input:checked){background:#1E1E1E!important;color:#FFFFFF!important;}
+div[data-testid="stRadio"] label:has(input:checked) *{color:#FFFFFF!important;}
+div[data-testid="stRadio"] label:has(input:checked) p{color:#FFFFFF!important;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -133,7 +135,10 @@ def _fetch_review_raw(appid: int) -> dict:
     try:
         r = requests.get(
             _STEAM_REVIEWS.format(appid=appid),
-            params={"json": 1, "num_per_page": 0, "language": "all"},
+            params={
+                "json": 1, "num_per_page": 0,
+                "language": "all", "purchase_type": "all", "filter": "all",
+            },
             timeout=6,
         )
         s = r.json().get("query_summary", {})
@@ -218,9 +223,19 @@ def steam_game_detail(appid: int) -> dict:
             result["name_en"]      = data.get("name", str(appid))
             result["release_date"] = data.get("release_date", {}).get("date", "")
             result["thumbnail"]    = data.get("header_image", _thumb(appid))
+            # recommendations.total 이 가장 신뢰도 높은 전체 리뷰 수
+            recs_total = data.get("recommendations", {}).get("total", 0)
+            if recs_total:
+                result["total_reviews"] = recs_total
     except Exception:
         pass
-    result.update(_fetch_review_raw(appid))
+    # recommendations 없을 경우 review API 로 보완
+    review_info = _fetch_review_raw(appid)
+    if not result["total_reviews"]:
+        result.update(review_info)
+    else:
+        result["rating_pct"]   = review_info.get("rating_pct", 0)
+        result["rating_label"] = review_info.get("rating_label", "")
     return result
 
 
@@ -575,8 +590,18 @@ def get_rating_info(pct: int) -> tuple:
         return "압도적으로 부정적", "#FF6B6B", "압부"
 
 
+def sentiment_color(pct: int) -> str:
+    """긍정 비율 → 이벤트 카드/타임라인 점 색상 (파랑↔빨강 스펙트럼)."""
+    if pct >= 80: return "#BBDEFB"   # 파란색 계열
+    if pct >= 70: return "#C8E6FF"
+    if pct >= 55: return "#E3F4E4"   # 중립-긍정
+    if pct >= 40: return "#FFF9C4"   # 노란색 (복합)
+    if pct >= 25: return "#FFE0B2"   # 주황색
+    return "#FFCDD2"                  # 빨간색 계열
+
+
 def get_event_type_style(event_type: str) -> tuple:
-    """이벤트 타입 → (배경색, 텍스트색)"""
+    """이벤트 타입 → (배경색, 텍스트색) — 내부 호환용 (UI에서는 미사용)."""
     styles = {
         "launch":      ("#6DC2FF", "#1E1E1E"),
         "update":      ("#82C29A", "#1E1E1E"),
@@ -623,7 +648,7 @@ def _sheets_to_display_event(e: dict) -> dict:
         "period_end":      period_end,
         "type":            event_type,
         "type_label":      e.get("type_label", event_type),
-        "color":           e.get("color") or _EVENT_COLORS.get(event_type, "#E0E0E0"),
+        "color":           sentiment_color(int(e.get("sentiment_pct") or 50)),
         "sentiment_pct":   int(e.get("sentiment_pct") or 50),
         "review_count":    int(e.get("review_count") or 0),
         "description":     e.get("description", ""),
@@ -648,7 +673,7 @@ def create_sentiment_chart(events: list, reverse: bool = False) -> go.Figure:
     ordered = list(reversed(events)) if reverse else events
     dates = [e["date"] for e in ordered]
     pcts = [e["sentiment_pct"] for e in ordered]
-    colors = [e["color"] for e in ordered]
+    colors = [sentiment_color(e["sentiment_pct"]) for e in ordered]
     labels = [e["name"] for e in ordered]
 
     fig = go.Figure()
@@ -711,15 +736,20 @@ def create_sentiment_chart(events: list, reverse: bool = False) -> go.Figure:
 def render_game_card(game: dict, analyzed: bool = True):
     label, color, abbr = get_rating_info(game["rating_pct"])
     badge_bg = color
-    analyzed_mark = (
-        '<span style="font-size:10px;font-weight:700;background:#1E1E1E;color:#FFFFFF;'
-        'border-radius:6px;padding:2px 8px;margin-left:6px;">분석 완료</span>'
-        if analyzed else
-        '<span style="font-size:10px;font-weight:700;background:#F4F5F7;color:#757575;'
-        'border:1.5px solid #D5D5D5;border-radius:6px;padding:2px 8px;margin-left:6px;">미분석</span>'
+    rel = game.get("release_date", "")
+    rel_str = rel[:7] if len(rel) >= 7 else rel
+    st.markdown(
+        f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin-bottom:4px;">'
+        f'<img src="{game["thumbnail"]}" style="width:100%;height:140px;object-fit:cover;border-bottom:1.5px solid #1E1E1E;display:block;">'
+        f'<div style="padding:16px 18px 18px 18px;">'
+        f'<div style="font-size:15px;font-weight:700;color:#1E1E1E;word-break:keep-all;margin-bottom:4px;">{game["name"]}</div>'
+        f'<div style="font-size:11px;color:#757575;margin-bottom:10px;">{game["name_en"]} · 출시 {rel_str}</div>'
+        f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        f'<span style="font-size:11px;font-weight:700;background:{badge_bg};border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;color:#1E1E1E;">{abbr} {game["rating_pct"]}%</span>'
+        f'<span style="font-size:11px;color:#757575;background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;">리뷰 {fmt_number(game["total_reviews"])}건</span>'
+        f'</div></div></div>',
+        unsafe_allow_html=True,
     )
-    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin-bottom:4px;"><img src="{game['thumbnail']}" style="width:100%;height:140px;object-fit:cover;border-bottom:1.5px solid #1E1E1E;display:block;"><div style="padding:16px 18px 18px 18px;"><div style="display:flex;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px;"><span style="font-size:15px;font-weight:700;color:#1E1E1E;word-break:keep-all;">{game['name']}</span>{analyzed_mark}</div><div style="font-size:11px;color:#757575;margin-bottom:10px;">{game['name_en']} · 출시 {game['release_date'][:7]}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;background:{badge_bg};border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;color:#1E1E1E;">{abbr} {game['rating_pct']}%</span><span style="font-size:11px;color:#757575;background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;">리뷰 {fmt_number(game['total_reviews'])}건</span></div></div></div>""",
-        unsafe_allow_html=True)
 
     btn_label = "타임라인 보기 →" if analyzed else "분석 시작하기 →"
     if st.button(btn_label, key=f"btn_{game['appid']}"):
@@ -734,7 +764,7 @@ def render_game_card(game: dict, analyzed: bool = True):
 # ─────────────────────────────────────────────
 def render_event_card(event: dict, is_last: bool = False):
     label, _, abbr = get_rating_info(event["sentiment_pct"])
-    type_bg, type_txt = get_event_type_style(event["type"])
+    evt_color = sentiment_color(event["sentiment_pct"])
     line_html = "" if is_last else '<div style="width:2px;background:#D5D5D5;flex:1;margin-top:0;"></div>'
 
     edited_badge = ""
@@ -800,21 +830,20 @@ def render_event_card(event: dict, is_last: bool = False):
     st.markdown(
         f'<div style="display:flex;align-items:stretch;">'
         f'<div style="width:44px;min-width:44px;display:flex;flex-direction:column;align-items:center;padding-top:4px;">'
-        f'<div style="width:16px;height:16px;border-radius:50%;background:{event["color"]};border:2px solid #1E1E1E;flex-shrink:0;z-index:1;"></div>'
+        f'<div style="width:16px;height:16px;border-radius:50%;background:{evt_color};border:2px solid #1E1E1E;flex-shrink:0;z-index:1;"></div>'
         f'{line_html}</div>'
         f'<div style="flex:1;padding:0 0 28px 16px;">'
         f'<div style="font-size:11px;color:#757575;font-weight:600;margin-bottom:8px;letter-spacing:0.3px;">'
         f'{event["date"]} &nbsp;·&nbsp; {event["period"]}</div>'
         f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:22px 24px;">'
-        # 헤더: 타입 뱃지 + 이름 + 수정 뱃지 + 패치노트 링크
+        # 헤더: 이름 + 수정 뱃지 + 패치노트 링크 (타입 뱃지 제거)
         f'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">'
-        f'<span style="font-size:11px;font-weight:700;background:{type_bg};border:1.5px solid #1E1E1E;border-radius:8px;padding:3px 10px;color:{type_txt};">{event["type_label"]}</span>'
         f'<span style="font-size:17px;font-weight:700;color:#1E1E1E;word-break:keep-all;">{event["name"]}</span>'
         f'{edited_badge}{source_link_html}</div>'
         # 감성 + 리뷰 수 뱃지
         f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">'
         + (
-            f'<div class="tt" style="background:{event["color"]};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 14px;">'
+            f'<div class="tt" style="background:{evt_color};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 14px;">'
             f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{event["sentiment_pct"]}% 긍정</span>'
             f'<span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · {label}</span>'
             f'<span class="ttb">이 기간에 수집된 리뷰의 👍 비율.<br>시트 누적 리뷰 기반 실측치.<br>수집된 리뷰가 적을수록 오차가 커질 수 있습니다.</span></div>'
@@ -1078,14 +1107,18 @@ def render_game_detail(appid: int):
     # 시트 기반 analyzed_ids 사용 (mock 제거)
     analyzed_ids: set[int] = set()
 
-    # 게임 정보 조회: session_state → Steam API 순
-    game = None
+    # 게임 정보: 이름/썸네일은 session_state 우선, 리뷰 통계는 항상 Steam API (캐시 10분)
+    fresh = steam_game_detail(appid)
     cached = st.session_state.get("current_game_data", {})
     if cached and cached.get("appid") == appid:
-        game = cached
+        game = {
+            **cached,
+            "total_reviews": fresh.get("total_reviews") or cached.get("total_reviews", 0),
+            "rating_pct":    fresh.get("rating_pct")    or cached.get("rating_pct", 0),
+            "rating_label":  fresh.get("rating_label")  or cached.get("rating_label", ""),
+        }
     else:
-        with st.spinner("게임 정보를 가져오는 중..."):
-            game = steam_game_detail(appid)
+        game = fresh
 
     # ── 이벤트 소스 결정 ──
     client = None

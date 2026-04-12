@@ -58,11 +58,16 @@ def run():
         print(f"  🎮 [{name}]  appid={appid}  누적={prev_total:,}건")
 
         try:
-            # ── 증분 리뷰 수집 ──
+            # ── 리뷰 수집 ──
+            # 신규 등록 게임(누적 < 2000건)은 전체 수집, 이후엔 최대 200페이지(2만건)
+            is_initial_collect = prev_total < 2000
+            max_pages = 9999 if is_initial_collect else 200
+            if is_initial_collect:
+                print(f"     📦 초기 전체 수집 모드 (max_pages=무제한)")
             reviews, new_cursor = collect_all_reviews(
                 appid,
                 last_cursor=last_cursor,
-                max_pages=500,
+                max_pages=max_pages,
             )
 
             if reviews:
