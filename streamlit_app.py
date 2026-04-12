@@ -76,7 +76,9 @@ section[data-testid="stSidebar"]{display:none!important;}
 .stButton>button:active{transform:scale(0.98)!important;}
 div[data-testid="column"]{padding:0 6px!important;}
 .stPlotlyChart{border:1.5px solid #1E1E1E!important;border-radius:20px!important;overflow:hidden!important;background:#FFFFFF!important;}
-.stSelectbox>div>div{border:1.5px solid #1E1E1E!important;border-radius:12px!important;background:#FFFFFF!important;box-shadow:none!important;}
+.stSelectbox>div>div{border:1.5px solid #1E1E1E!important;border-radius:12px!important;background:#FFFFFF!important;box-shadow:none!important;font-size:13px!important;}
+[data-baseweb="select"] div[data-testid="stMarkdownContainer"]{font-size:13px!important;}
+.stSelectbox label{font-size:13px!important;}
 /* ── Selectbox / Multiselect 드롭다운 (portal 렌더링) ── */
 [data-baseweb="popover"]{background:#FFFFFF!important;border:1.5px solid #1E1E1E!important;border-radius:12px!important;}
 [data-baseweb="option"]{color:#1E1E1E!important;background:#FFFFFF!important;}
@@ -837,7 +839,7 @@ def render_event_card(event: dict, is_last: bool = False):
             )
         reviews_html = (
             f'<div style="margin-bottom:14px;">'
-            f'<div style="font-size:10px;font-weight:700;color:#757575;margin-bottom:2px;letter-spacing:0.5px;">💬 해당 기간 주요 리뷰</div>'
+            f'<div style="font-size:11px;font-weight:700;color:#757575;margin-bottom:2px;letter-spacing:0.5px;">💬 해당 기간 주요 리뷰</div>'
             f'{items_html}</div>'
         )
 
@@ -881,7 +883,7 @@ def render_event_card(event: dict, is_last: bool = False):
         f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">{issue_chips}</div>'
         # 유저 반응 요약
         f'<div style="background:#F4F5F7;border-radius:12px;padding:12px 16px;margin-bottom:14px;">'
-        f'<div class="tt" style="font-size:10px;font-weight:700;color:#757575;margin-bottom:4px;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:4px;">💬 유저 반응 요약'
+        f'<div class="tt" style="font-size:11px;font-weight:700;color:#757575;margin-bottom:4px;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:4px;">💬 유저 반응 요약'
         f'<span class="ttb">이 기간 수집된 전체 언어 리뷰를 Gemini AI가 분석·요약.<br>실제 리뷰 샘플과 월별 통계를 함께 참조.</span></div>'
         f'<div style="font-size:13px;color:#1E1E1E;line-height:1.7;word-break:keep-all;">{event["kr_summary"]}</div></div>'
         # 주요 리뷰 원문
@@ -949,6 +951,11 @@ def render_home():
 
         st.markdown("""<div style="margin:40px 0 16px 0;"><div style="height:1.5px;background:#1E1E1E;opacity:0.1;margin-bottom:24px;"></div><div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:32px;text-align:center;"><div style="font-size:13px;color:#757575;margin-bottom:4px;">새로운 게임의 타임라인을 만들고 싶다면</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;">위 검색창에서 게임을 검색하세요 🔍</div></div></div>""",
             unsafe_allow_html=True)
+        col_method, _ = st.columns([2, 8])
+        with col_method:
+            if st.button("📋 분석 방법론 보기 →", key="btn_methodology"):
+                st.session_state.page = "methodology"
+                st.rerun()
 
 
 # ─────────────────────────────────────────────
@@ -1198,11 +1205,15 @@ def render_game_detail(appid: int):
     label, color, abbr = get_rating_info(game.get("rating_pct", 0))
 
     # ── 뒤로가기 ──
-    col_back, _ = st.columns([1, 9])
+    col_back, _, col_method_link = st.columns([1, 7, 2])
     with col_back:
         if st.button("← 목록으로"):
             st.session_state.pop("cached_timeline", None)
             st.session_state.page = "home"
+            st.rerun()
+    with col_method_link:
+        if st.button("📋 분석 방법론", key="btn_method_detail"):
+            st.session_state.page = "methodology"
             st.rerun()
 
     # ── 게임 헤더 카드 ──
@@ -1357,8 +1368,8 @@ def render_game_detail(appid: int):
         with col_tl_hdr:
             st.markdown(
                 """<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">"""
-                """<span style="font-size:15px;font-weight:700;color:#1E1E1E;">🗓️ 민심 타임라인</span>"""
-                """<span style="font-size:12px;color:#AAAAAA;">패치별 유저 반응 실측 분석</span></div>""",
+                """<span style="font-size:16px;font-weight:700;color:#1E1E1E;">🗓️ 민심 타임라인</span>"""
+                """<span style="font-size:12px;color:#757575;">패치별 유저 반응 실측 분석</span></div>""",
                 unsafe_allow_html=True,
             )
         with col_order:
@@ -1387,6 +1398,199 @@ def render_game_detail(appid: int):
 
 
 # ─────────────────────────────────────────────
+#  PAGE: 분석 방법론
+# ─────────────────────────────────────────────
+def render_methodology():
+    col_back, _ = st.columns([1, 9])
+    with col_back:
+        if st.button("← 목록으로"):
+            st.session_state.page = "home"
+            st.rerun()
+
+    st.markdown(
+        '<div style="padding:8px 0 28px 0;">'
+        '<div style="display:flex;align-items:center;gap:14px;">'
+        '<div style="width:46px;height:46px;background:#1E1E1E;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📋</div>'
+        '<div>'
+        '<div style="font-size:24px;font-weight:900;color:#1E1E1E;line-height:1.2;">분석 방법론 & 데이터 규칙</div>'
+        '<div style="font-size:12px;color:#757575;font-weight:400;margin-top:2px;">스팀탈곡기 mk2가 데이터를 수집·분석·표시하는 방식</div>'
+        '</div></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    def _card(title: str, body: str):
+        st.markdown(
+            f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:24px 28px;margin-bottom:16px;">'
+            f'<div style="font-size:16px;font-weight:700;color:#1E1E1E;margin-bottom:14px;">{title}</div>'
+            f'{body}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    def _row(label: str, value: str, tip: str = "") -> str:
+        tip_html = f'<span class="ttb">{tip}</span>' if tip else ""
+        return (
+            f'<div class="tt" style="display:grid;grid-template-columns:180px 1fr;gap:12px;'
+            f'padding:9px 0;border-bottom:1px solid #F0F0F0;align-items:start;">'
+            f'<span style="font-size:12px;font-weight:600;color:#757575;">{label}{tip_html}</span>'
+            f'<span style="font-size:13px;color:#1E1E1E;line-height:1.7;">{value}</span>'
+            f'</div>'
+        )
+
+    def _badge(text: str, bg: str, border: str = "#1E1E1E") -> str:
+        return (
+            f'<span style="font-size:11px;font-weight:700;background:{bg};border:1.5px solid {border};'
+            f'border-radius:8px;padding:3px 10px;color:#1E1E1E;margin-right:6px;">{text}</span>'
+        )
+
+    # ── 1. 게임 등록 & 수집 ──────────────────
+    _card("1. 게임 등록 & 데이터 수집", "".join([
+        _row("최초 등록",
+             "타임라인 생성 버튼 클릭 시 마스터시트 <code>games</code> 워크시트에 등록 (status=active). "
+             "이후 스팀곡괭이(GitHub Actions)의 수집 대상이 됩니다.",
+             "마스터시트 ID: MASTER_SPREADSHEET_ID (Secrets 설정값)"),
+        _row("최초 리뷰 수집",
+             "Steam Reviews API에서 최신 순서로 <b>500건</b>을 즉시 수집. "
+             "cursor 기반 페이지네이션으로 중복 없이 수집합니다.",
+             "filter=recent, language=all, purchase_type=all, num_per_page=100 × 5페이지"),
+        _row("최초 패치노트 수집",
+             "Steam News API에서 <b>500건</b>을 수집하여 날짜 오름차순으로 정렬. "
+             "공식 채널(patch/update/announce/news 키워드 포함)에는 is_official 플래그를 부여합니다.",
+             "ISteamNews/GetNewsForApp/v0002, count=500"),
+        _row("자동 증분 수집",
+             "GitHub Actions가 <b>매일 05:00 KST (20:00 UTC)</b>에 실행. "
+             "저장된 cursor 이후의 신규 리뷰를 최대 2,000건 수집합니다.",
+             "run_pickaxe.py → collect_all_reviews(max_pages=200)"),
+        _row("초기 전체 수집 모드",
+             "누적 리뷰가 <b>2,000건 미만</b>인 게임은 전체 수집 모드(max_pages 무제한)로 동작. "
+             "초기 게임의 히스토리 전체를 빠르게 확보합니다.",
+             "prev_total < 2000 → max_pages=9999"),
+    ]))
+
+    # ── 2. 타임라인 생성 ──────────────────────
+    _card("2. 타임라인 생성 (Gemini AI 분석)", "".join([
+        _row("사용 모델",
+             "Google Gemini 2.5 Flash · max_output_tokens=32,768",
+             "response_mime_type='application/json'으로 JSON 출력 강제"),
+        _row("입력 — 리뷰 샘플",
+             "수집된 리뷰를 <b>월별로 그룹화</b>하여 최신 24개월 × 최대 2건 선발. "
+             "각 리뷰는 80자 이내로 압축. voted_up, language, timestamp 포함.",
+             "전체 리뷰를 그대로 넣으면 토큰 초과 → 월별 대표 샘플 전략"),
+        _row("입력 — 패치노트",
+             "Steam News API로 수집한 <b>전체 패치노트</b>(최대 500건). "
+             "공식 채널 여부, 날짜, 제목, 내용(300자)을 포함합니다.",
+             "fetch_steam_news(count=500) → 날짜 오름차순"),
+        _row("출력 이벤트 수",
+             "<b>8~12개</b> 이벤트. 첫 이벤트는 반드시 출시일(release_date)의 런칭 이벤트.",
+             "Gemini 프롬프트에 이벤트 범위와 런칭 이벤트를 명시"),
+        _row("이벤트 기간",
+             "각 이벤트는 <code>date</code>(시작)와 <code>period_end</code>(종료) 필드를 가짐. "
+             "첫 이벤트는 출시일, 마지막 이벤트는 분석 실행일(오늘)이 종료일.",
+             "YYYY-MM-DD 형식"),
+        _row("재분석 기준",
+             "누적 리뷰가 " + _badge("500건", "#FFF9C4") + _badge("2,000건", "#C8E6FF") +
+             _badge("10,000건", "#BBDEFB") + _badge("30,000건", "#BBDEFB") + _badge("100,000건", "#BBDEFB") +
+             " 경계를 통과할 때 자동 재분석.",
+             "REANALYZE_THRESHOLDS = [500, 2000, 10000, 30000, 100000]"),
+        _row("JSON 파싱 방어",
+             "Gemini 응답이 잘렸거나 쌍따옴표 등 특수문자가 포함된 경우 "
+             "<code>_repair_truncated_json()</code>으로 완전한 JSON 객체만 추출.",
+             "character-by-character 파싱으로 { } 균형 확인"),
+    ]))
+
+    # ── 3. 이벤트별 유저 반응 지표 ───────────
+    _card("3. 이벤트별 유저 반응 지표 계산", "".join([
+        _row("sentiment_pct (긍정 비율)",
+             "해당 이벤트의 <b>date ~ period_end</b> 기간에 수집된 리뷰 중 <code>voted_up=True</code> 비율. "
+             "Gemini 추정치가 아닌 <b>시트 누적 리뷰 기반 실측치</b>로 표시됩니다.",
+             "_apply_actual_stats_to_events() → timestamp 기반 필터링"),
+        _row("review_count (리뷰 수)",
+             "동일 기간 내 실제 수집·저장된 리뷰 수. "
+             "<b>0건</b>으로 표시되면 해당 기간 리뷰가 아직 시트에 수집되지 않은 것입니다.",
+             "수집 기간이 쌓일수록 0건 구간이 줄어듦"),
+        _row("언어 필터",
+             "언어 선택 시 해당 언어 리뷰(<code>language</code> 필드)만으로 sentiment_pct와 review_count를 재계산. "
+             "차트와 리뷰 수 모두 연동됩니다.",
+             "_calc_events_lang_filter() → language 코드 기준 필터"),
+        _row("유저 반응 요약 (kr_summary)",
+             "Gemini가 해당 기간 리뷰 샘플을 분석하여 생성한 한국어 요약. "
+             "전체 언어 리뷰를 참조하며, 비한국어 주요 리뷰는 번역 후 함께 분석합니다.",
+             "별도 번역 Gemini 호출 (batch translation)"),
+        _row("주요 리뷰 원문",
+             "Gemini가 선정한 해당 기간 대표 리뷰 최대 2건. "
+             "비한국어 리뷰는 <code>translation_kr</code> 필드로 번역문을 함께 표시.",
+             "top_reviews 필드, 리뷰 원문 최대 280자"),
+    ]))
+
+    # ── 4. 색상 체계 ─────────────────────────
+    color_rows = "".join([
+        f'<div style="display:grid;grid-template-columns:120px 48px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #F0F0F0;align-items:center;">'
+        f'<span style="font-size:12px;font-weight:600;color:#757575;">{pct_range}</span>'
+        f'<span style="display:inline-block;width:28px;height:28px;background:{bg};border:1.5px solid #1E1E1E;border-radius:8px;"></span>'
+        f'<span style="font-size:13px;color:#1E1E1E;">{label} <span style="font-size:11px;color:#757575;font-family:monospace;">{bg}</span></span>'
+        f'</div>'
+        for pct_range, bg, label in [
+            ("≥ 80%",  "#BBDEFB", "압도적으로 긍정적 / 매우 긍정적"),
+            ("70~79%", "#C8E6FF", "대체로 긍정적"),
+            ("40~69%", "#FFF9C4", "복합적"),
+            ("25~39%", "#FFE0B2", "대체로 부정적"),
+            ("< 25%",  "#FFCDD2", "압도적으로 부정적"),
+        ]
+    ])
+    _card("4. 색상 체계 (Sentiment Color System)",
+          '<div style="font-size:12px;color:#757575;margin-bottom:10px;">긍정 비율에 따라 카드·차트·도트·배지의 색상이 통일됩니다.</div>'
+          + color_rows)
+
+    # ── 5. 데이터 저장 구조 ──────────────────
+    _card("5. 데이터 저장 구조 (Google Sheets)", "".join([
+        _row("games (마스터시트)",
+             "등록된 게임 목록. appid, name, status, last_cursor, total_archived, last_pickaxe_run 등.",
+             "get_all_tracked_games() / register_game()"),
+        _row("{appid}_reviews",
+             "각 게임별 수집된 리뷰 raw data. "
+             "reviewid, language, voted_up, timestamp_created, votes_up, text 등.",
+             "save_reviews() / load_reviews() — max 50,000행"),
+        _row("{appid}_timeline",
+             "현재 활성 타임라인 이벤트 목록. "
+             "name, date, period_end, type, sentiment_pct, review_count, description, key_issues, top_langs, kr_summary, source_url, top_reviews, generation_uuid.",
+             "save_timeline_events(overwrite=True) / load_timeline_events()"),
+        _row("{appid}_tl_history",
+             "이전 버전 타임라인 저장소. "
+             "uuid, created_at, based_on_reviews, based_on_news, event_count, events_json.",
+             "save_timeline_version() / load_timeline_versions() — 버전 선택 드롭다운 기능"),
+    ]))
+
+    # ── 6. 자동화 파이프라인 ─────────────────
+    _card("6. 자동화 파이프라인 (GitHub Actions)", "".join([
+        _row("실행 주기",
+             "<b>매일 05:00 KST (20:00 UTC)</b> — cron: '0 20 * * *'",
+             ".github/workflows/daily_collect.yml"),
+        _row("실행 스크립트",
+             "<code>python run_pickaxe.py</code> — status=active인 전체 게임 순회",
+             ""),
+        _row("수집 → 재분석 조건",
+             "신규 리뷰 수집 후 누적 총량이 재분석 기준선을 통과하면 자동으로 Gemini 재분석 실행. "
+             "재분석 시 시트 전체 리뷰(최대 5,000건 샘플)를 사용합니다.",
+             "_should_reanalyze(prev_total, new_total) → analyze_reviews_to_timeline()"),
+        _row("Sheets 요청 제한 대응",
+             "Google Sheets API 429 Too Many Requests 오류 시 <code>BackoffHTTPClient</code>가 "
+             "자동 대기 후 재시도합니다.",
+             "gspread.http_client.BackoffHTTPClient"),
+    ]))
+
+    # 하단 안내
+    st.markdown(
+        '<div style="background:#F4F5F7;border:1.5px solid #D5D5D5;border-radius:16px;padding:16px 22px;margin-top:8px;">'
+        '<div style="font-size:12px;color:#757575;line-height:1.8;">'
+        '이 문서는 스팀탈곡기 mk2 코드베이스를 기준으로 작성되었습니다. '
+        '구현 상세는 <code>src/steam_pickaxe.py</code> · <code>src/gemini_analyzer.py</code> · '
+        '<code>src/sheets_manager.py</code> · <code>run_pickaxe.py</code>를 참조하세요.'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ─────────────────────────────────────────────
 #  MAIN
 # ─────────────────────────────────────────────
 def main():
@@ -1401,6 +1605,8 @@ def main():
         render_home()
     elif st.session_state.page == "game":
         render_game_detail(st.session_state.current_game)
+    elif st.session_state.page == "methodology":
+        render_methodology()
 
 
 main()
