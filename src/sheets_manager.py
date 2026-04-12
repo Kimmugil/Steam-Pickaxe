@@ -88,10 +88,17 @@ TL_HISTORY_COLUMNS = ["uuid", "created_at", "based_on_reviews", "based_on_news",
 #  클라이언트 & 스프레드시트 열기
 # ─────────────────────────────────────────────
 def get_client() -> gspread.Client:
-    """Google Sheets 인증 클라이언트를 반환합니다."""
+    """Google Sheets 인증 클라이언트를 반환합니다. 429 자동 재시도 포함."""
     creds_dict = get_google_credentials()
     creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
-    return gspread.authorize(creds)
+    try:
+        from gspread.http_client import BackoffHTTPClient
+        gc = gspread.Client(auth=creds, http_client=BackoffHTTPClient)
+        gc.login()
+        return gc
+    except Exception:
+        # gspread 버전 호환 폴백
+        return gspread.authorize(creds)
 
 
 def _get_master_spreadsheet(client: gspread.Client) -> gspread.Spreadsheet:

@@ -1088,8 +1088,20 @@ def render_game_detail(appid: int):
             st.rerun()
 
     # ── 게임 헤더 카드 ──
-    st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin:12px 0 20px 0;display:grid;grid-template-columns:300px 1fr;"><img src="{game['thumbnail']}" style="width:100%;height:100%;min-height:175px;object-fit:cover;display:block;border-right:1.5px solid #1E1E1E;"><div style="padding:24px 28px;"><div style="font-size:22px;font-weight:900;color:#1E1E1E;margin-bottom:6px;word-break:keep-all;">{game['name']}</div><div style="font-size:13px;color:#757575;margin-bottom:16px;">{game.get('name_en','')} &nbsp;·&nbsp; 출시 {game.get('release_date','—')}</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><div style="background:{color};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{abbr}</span><span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · 전체 {game.get('rating_pct',0)}% 긍정</span></div><div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">총 리뷰 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(game.get('total_reviews',0))}건</span></div></div></div></div>""",
-        unsafe_allow_html=True)
+    _steam_url = f"https://store.steampowered.com/app/{appid}/"
+    st.markdown(
+        f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;overflow:hidden;margin:12px 0 20px 0;display:grid;grid-template-columns:300px 1fr;">'
+        f'<img src="{game["thumbnail"]}" style="width:100%;height:100%;min-height:175px;object-fit:cover;display:block;border-right:1.5px solid #1E1E1E;">'
+        f'<div style="padding:24px 28px;">'
+        f'<div style="font-size:22px;font-weight:900;color:#1E1E1E;margin-bottom:6px;word-break:keep-all;">{game["name"]}</div>'
+        f'<div style="font-size:13px;color:#757575;margin-bottom:16px;">{game.get("name_en","")} &nbsp;·&nbsp; 출시 {game.get("release_date","—")} &nbsp;·&nbsp; <span style="font-family:monospace;font-size:12px;">App {appid}</span></div>'
+        f'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
+        f'<div style="background:{color};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{abbr}</span><span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · 전체 {game.get("rating_pct",0)}% 긍정</span></div>'
+        f'<div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 16px;"><span style="font-size:12px;color:#757575;">총 리뷰 </span><span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(game.get("total_reviews",0))}건</span></div>'
+        f'<a href="{_steam_url}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#1E1E1E;background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 14px;text-decoration:none;white-space:nowrap;">🔗 Steam 페이지 →</a>'
+        f'</div></div></div>',
+        unsafe_allow_html=True,
+    )
 
     # ── 초기 분석 안내 배너 ──
     if is_real_data and is_initial:
