@@ -79,7 +79,7 @@ def _build_news_text(news_items: list[dict]) -> tuple[str, dict[int, str]]:
         return "(Steam 뉴스 없음)", {}
     lines = []
     url_map: dict[int, str] = {}
-    for i, item in enumerate(news_items[:25], start=1):
+    for i, item in enumerate(news_items[:100], start=1):
         ts = item.get("date", 0)
         if ts:
             dt = datetime.fromtimestamp(int(ts), tz=timezone.utc)
@@ -145,8 +145,12 @@ def _calc_actual_stats(
 
 
 def _sanitize_json(text: str) -> str:
+    # trailing commas
     text = re.sub(r",\s*}", "}", text)
     text = re.sub(r",\s*]", "]", text)
+    # unescaped double quotes inside string values: replace " preceded by non-\ with \"
+    # only inside string context — simple heuristic: replace " that appear mid-value
+    # Use a safer approach: parse field by field via _repair_truncated_json
     return text
 
 
@@ -277,22 +281,24 @@ def analyze_reviews_to_timeline(
 - Steam 총 리뷰 수: {total_reviews:,}건
 - 이번 분석 리뷰: {len(reviews)}건
 
-## Steam 공식 뉴스 / 패치노트 (번호 포함, 최신 25개)
+## Steam 공식 뉴스 / 패치노트 (번호 포함, 전체)
 {news_text}
 
 ## 월별 리뷰 통계 및 샘플
 {monthly_text}
 
 ## 분석 지시사항
-1. 5~8개의 주요 이벤트를 시간순(오래된 것 먼저)으로 식별하세요.
-2. 이벤트 유형: launch(출시, 반드시 1개), update(업데이트/DLC/시즌), crisis(부정 급증), controversy(정책/운영 논란), recovery(반등/회복)
-3. sentiment_pct: 해당 기간 리뷰 기반 긍정 비율. null 금지, 추정값이라도 숫자.
-4. review_count: 해당 기간 리뷰 수. null 금지, 추정값이라도 숫자.
-5. source_news_index: 이 이벤트의 근거가 되는 위 뉴스 번호(정수). 없으면 0.
-6. key_issues: 3개 이내, 한국어로.
-7. top_langs: 해당 기간 주요 언어 2~3개.
-8. kr_summary: 해당 기간 전체 유저의 주요 반응 요약 (60자 이내, 한국어로 작성).
-9. 모든 문자열에 쌍따옴표(") 사용 금지. 필요시 홑따옴표(') 사용.
+1. 출시일({release_date})부터 현재까지 전체 기간을 커버하는 8~12개 이벤트를 시간순(오래된 것 먼저)으로 식별하세요.
+2. 반드시 출시 시점을 첫 번째 이벤트로 포함하세요. 마지막 이벤트는 가장 최근 패치 또는 현재까지로 설정하세요.
+3. 패치노트 기반으로 이벤트를 구성하되, 패치노트가 없는 구간은 리뷰 추이 변동을 근거로 이벤트를 추정하세요.
+4. sentiment_pct: 해당 기간 리뷰 기반 긍정 비율. null 금지, 추정값이라도 숫자.
+5. review_count: 해당 기간 리뷰 수. null 금지, 0 가능 (수집 전 기간).
+6. source_news_index: 이 이벤트의 근거가 되는 위 뉴스 번호(정수). 없으면 0.
+7. key_issues: 3개 이내, 한국어로.
+8. top_langs: 해당 기간 주요 언어 2~3개.
+9. kr_summary: 해당 기간 전체 유저의 주요 반응 요약 (60자 이내, 한국어로 작성).
+10. 모든 문자열 값에 쌍따옴표(") 절대 사용 금지. 홑따옴표(')만 사용하거나 아예 생략.
+11. description은 반드시 100자 이내로 작성하고 특수문자 최소화.
 
 ## 출력 형식 (JSON 배열만, 설명 텍스트 없이)
 [

@@ -292,36 +292,46 @@ def collect_reviews_since(
 # ─────────────────────────────────────────────
 #  스팀 뉴스 (이벤트 탐지용)
 # ─────────────────────────────────────────────
-def fetch_steam_news(appid: int, count: int = 50) -> list[dict]:
+def fetch_steam_news(appid: int, count: int = 500) -> list[dict]:
     """
     Steam News API에서 공식 패치노트/공지를 가져옵니다.
-    타임라인 이벤트 자동 탐지에 활용합니다.
+    최대 500건까지 가져와 전체 기간 타임라인 생성에 활용합니다.
 
     Returns:
-        뉴스 항목 리스트 [{title, url, date, contents}, ...]
+        뉴스 항목 리스트 [{title, url, date, contents}, ...] (날짜 오름차순)
     """
+    all_items: list[dict] = []
     try:
         resp = requests.get(
             NEWS_API_URL,
             params={
-                "appid":    appid,
-                "count":    count,
-                "maxlength": 500,
-                "format":   "json",
+                "appid":     appid,
+                "count":     count,
+                "maxlength": 300,
+                "format":    "json",
             },
             timeout=DEFAULT_TIMEOUT,
         )
         resp.raise_for_status()
-        items = resp.json().get("appnews", {}).get("newsitems", [])
-        return [
-            {
-                "title":    item.get("title", ""),
-                "url":      item.get("url", ""),
-                "date":     item.get("date", 0),       # Unix timestamp
-                "contents": item.get("contents", ""),
+        raw = resp.json().get("appnews", {}).get("newsitems", [])
+        for item in raw:
+            # feedname/feedlabel 기반으로 공식 공지/패치노트만 포함
+            feedlabel = item.get("feedlabel", "").lower()
+            feedname  = item.get("feedname",  "").lower()
+            is_official = any(k in feedlabel or k in feedname for k in
+                              ("patch", "update", "announce", "news", "official",
+                               "steam", "store.steampowered"))
+            all_items.append({
+                "title":     item.get("title", ""),
+                "url":       item.get("url", ""),
+                "date":      item.get("date", 0),
+                "contents":  (item.get("contents") or "")[:300],
                 "feedlabel": item.get("feedlabel", ""),
-            }
-            for item in items
-        ]
+                "is_official": is_official,
+            })
     except Exception:
         return []
+
+    # 날짜 오름차순 (오래된 것 먼저 — 타임라인 생성에 적합)
+    all_items.sort(key=lambda x: int(x.get("date") or 0))
+    return all_items

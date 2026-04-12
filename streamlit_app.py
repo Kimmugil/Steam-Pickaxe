@@ -575,29 +575,28 @@ TIMELINE_MAP = {
 #  UTILITY FUNCTIONS
 # ─────────────────────────────────────────────
 def get_rating_info(pct: int) -> tuple:
-    """긍정 비율 → (라벨, 색상, 약칭)"""
+    """긍정 비율 → (라벨, 색상, 약칭) — 색상은 sentiment_color()와 일치."""
     if pct >= 95:
-        return "압도적으로 긍정적", "#82C29A", "압긍"
+        return "압도적으로 긍정적", "#BBDEFB", "압긍"
     elif pct >= 80:
-        return "매우 긍정적", "#A8D5BA", "매긍"
+        return "매우 긍정적", "#BBDEFB", "매긍"
     elif pct >= 70:
-        return "대체로 긍정적", "#C8E6C9", "대긍"
+        return "대체로 긍정적", "#C8E6FF", "대긍"
     elif pct >= 40:
-        return "복합적", "#FFD166", "복합"
+        return "복합적", "#FFF9C4", "복합"
     elif pct >= 25:
-        return "대체로 부정적", "#FF9F9F", "대부"
+        return "대체로 부정적", "#FFE0B2", "대부"
     else:
-        return "압도적으로 부정적", "#FF6B6B", "압부"
+        return "압도적으로 부정적", "#FFCDD2", "압부"
 
 
 def sentiment_color(pct: int) -> str:
-    """긍정 비율 → 이벤트 카드/타임라인 점 색상 (파랑↔빨강 스펙트럼)."""
-    if pct >= 80: return "#BBDEFB"   # 파란색 계열
+    """긍정 비율 → 카드/차트 색상 (파랑=긍정, 빨강=부정)."""
+    if pct >= 80: return "#BBDEFB"
     if pct >= 70: return "#C8E6FF"
-    if pct >= 55: return "#E3F4E4"   # 중립-긍정
-    if pct >= 40: return "#FFF9C4"   # 노란색 (복합)
-    if pct >= 25: return "#FFE0B2"   # 주황색
-    return "#FFCDD2"                  # 빨간색 계열
+    if pct >= 40: return "#FFF9C4"
+    if pct >= 25: return "#FFE0B2"
+    return "#FFCDD2"
 
 
 def get_event_type_style(event_type: str) -> tuple:
@@ -671,58 +670,73 @@ def fmt_number(n: int) -> str:
 def create_sentiment_chart(events: list, reverse: bool = False) -> go.Figure:
     """민심 추이 Plotly 차트 생성"""
     ordered = list(reversed(events)) if reverse else events
-    dates = [e["date"] for e in ordered]
-    pcts = [e["sentiment_pct"] for e in ordered]
-    colors = [sentiment_color(e["sentiment_pct"]) for e in ordered]
-    labels = [e["name"] for e in ordered]
+    indices = list(range(len(ordered)))  # 숫자 x축 (날짜 대신)
+    pcts    = [e["sentiment_pct"] for e in ordered]
+    colors  = [sentiment_color(e["sentiment_pct"]) for e in ordered]
+    # hover용 커스텀 데이터: 이름, 날짜, period
+    custom  = [
+        f"{e['name']}<br>{e.get('date','')} ~ {e.get('period_end','')}"
+        for e in ordered
+    ]
 
     fig = go.Figure()
 
-    fig.add_hrect(y0=70, y1=105, fillcolor="#82C29A", opacity=0.06, line_width=0)
-    fig.add_hrect(y0=40, y1=70, fillcolor="#FFD166", opacity=0.08, line_width=0)
-    fig.add_hrect(y0=0,  y1=40, fillcolor="#FF9F9F", opacity=0.08, line_width=0)
+    # 배경 구간 (파란/노란/빨간 — sentiment_color와 동일 스펙트럼)
+    fig.add_hrect(y0=70, y1=105, fillcolor="#BBDEFB", opacity=0.15, line_width=0)
+    fig.add_hrect(y0=40, y1=70,  fillcolor="#FFF9C4", opacity=0.20, line_width=0)
+    fig.add_hrect(y0=0,  y1=40,  fillcolor="#FFCDD2", opacity=0.18, line_width=0)
 
-    for y_val, txt, col in [(97, "압도적 긍정", "#4A9B6A"), (82, "매우 긍정", "#5A8A6A"),
-                             (55, "복합적",     "#A07820"), (30, "대체로 부정", "#A06060")]:
-        fig.add_annotation(
-            x=dates[0], y=y_val, text=txt, showarrow=False,
-            font=dict(size=10, color=col), xanchor="left", yanchor="middle"
-        )
+    # 구간 레이블 (왼쪽 y축 대신 텍스트로)
+    if indices:
+        for y_val, txt, col in [
+            (90, "긍정적", "#1565C0"),
+            (55, "복합적", "#A07820"),
+            (20, "부정적", "#B71C1C"),
+        ]:
+            fig.add_annotation(
+                x=indices[0], y=y_val, text=txt, showarrow=False,
+                font=dict(size=9, color=col, family="Pretendard Variable"),
+                xanchor="left", yanchor="middle", xshift=-36,
+            )
 
     fig.add_trace(go.Scatter(
-        x=dates, y=pcts,
+        x=indices, y=pcts,
         mode="lines+markers",
         line=dict(color="#1E1E1E", width=2, shape="spline"),
-        marker=dict(color=colors, size=13, line=dict(color="#1E1E1E", width=1.5)),
+        marker=dict(color=colors, size=14, line=dict(color="#1E1E1E", width=1.5)),
         hovertemplate="<b>%{customdata}</b><br>긍정 비율: %{y}%<extra></extra>",
-        customdata=labels,
+        customdata=custom,
     ))
 
-    for i, (d, p, lbl) in enumerate(zip(dates, pcts, labels)):
+    for i, (idx, p) in enumerate(zip(indices, pcts)):
         fig.add_annotation(
-            x=d, y=p + 4, text=f"{p}%",
-            showarrow=False, font=dict(size=10, color="#1E1E1E", family="Pretendard Variable"),
-            yanchor="bottom"
+            x=idx, y=p + 5, text=f"{p}%",
+            showarrow=False,
+            font=dict(size=10, color="#1E1E1E", family="Pretendard Variable"),
+            yanchor="bottom",
         )
 
+    # 이벤트 이름 x축 레이블
     fig.update_layout(
         plot_bgcolor="#FFFFFF",
         paper_bgcolor="#FFFFFF",
         height=300,
-        margin=dict(l=40, r=20, t=30, b=60),
+        margin=dict(l=44, r=20, t=30, b=80),
         xaxis=dict(
             showgrid=False,
             linecolor="#1E1E1E", linewidth=1.5,
-            tickfont=dict(size=10, color="#1E1E1E"),
-            tickangle=-35,
+            tickmode="array",
+            tickvals=indices,
+            ticktext=[e["name"] for e in ordered],
+            tickfont=dict(size=10, color="#1E1E1E", family="Pretendard Variable"),
+            tickangle=-25,
+            showticklabels=True,
         ),
         yaxis=dict(
-            showgrid=True, gridcolor="#F0F0F0", gridwidth=1,
+            showgrid=False,
+            showticklabels=False,
             linecolor="#1E1E1E", linewidth=1.5,
-            range=[0, 110],
-            ticksuffix="%",
-            tickfont=dict(size=10, color="#1E1E1E"),
-            tickvals=[0, 25, 40, 70, 80, 95, 100],
+            range=[0, 115],
         ),
         showlegend=False,
         hoverlabel=dict(bgcolor="#1E1E1E", font_color="#FFFFFF", bordercolor="#1E1E1E"),
@@ -1007,37 +1021,38 @@ def _run_analysis_pipeline(game: dict):
     """즉시 수집 → Gemini 분석 → 시트 저장 → 타임라인 페이지 이동."""
     import json as _json
     appid = game["appid"]
-    # 버전 선택 상태 초기화 (재생성 후 최신 버전으로 돌아가도록)
     st.session_state.pop(f"ver_{appid}", None)
-    prog  = st.empty()
+    toast = st.empty()   # 우상단 토스트
     done: list[str] = []
 
     def _render(current: str = "", error: str = ""):
-        rows = "".join(
-            f'<div style="display:flex;align-items:center;gap:10px;padding:7px 0;'
-            f'border-bottom:1px solid #F0F0F0;">'
-            f'<span>✅</span><span style="font-size:13px;color:#1E1E1E;">{s}</span></div>'
+        if error:
+            icon, bg, border, txt_color = "❌", "#FFF0F0", "#FFCDD2", "#B71C1C"
+            headline = "오류 발생"
+            body = f'<div style="font-size:12px;color:#B71C1C;margin-top:6px;word-break:break-all;">{error}</div>'
+        elif current:
+            icon, bg, border, txt_color = "⏳", "#FFFDE7", "#FFE082", "#5D4037"
+            headline = current
+            body = ""
+        else:
+            icon, bg, border, txt_color = "✅", "#E8F5E9", "#A5D6A7", "#1B5E20"
+            headline = "타임라인 생성 완료!"
+            body = ""
+        steps_html = "".join(
+            f'<div style="font-size:11px;color:#555;padding:2px 0;">'
+            f'✓ {s}</div>'
             for s in done
         )
-        if current:
-            rows += (
-                f'<div style="display:flex;align-items:center;gap:10px;padding:7px 0;">'
-                f'<span>⏳</span><span style="font-size:13px;color:#757575;">{current}</span></div>'
-            )
-        if error:
-            rows += (
-                f'<div style="background:#FFF0F0;border:1.5px solid #FFCDD2;border-radius:12px;'
-                f'padding:12px 16px;margin-top:10px;font-size:13px;color:#B71C1C;">'
-                f'오류: {error}</div>'
-            )
-        hdr_color = "#FF4444" if error else ("#1E1E1E" if current else "#2E7D32")
-        hdr_icon  = "❌" if error else ("⚙️" if current else "✅")
-        hdr_text  = "오류 발생" if error else ("타임라인 생성 중..." if current else "타임라인 생성 완료!")
-        prog.markdown(
-            f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;'
-            f'padding:24px 28px;margin:12px 0;">'
-            f'<div style="font-size:15px;font-weight:700;color:{hdr_color};margin-bottom:14px;">'
-            f'{hdr_icon} {hdr_text}</div>{rows}</div>',
+        toast.markdown(
+            f'<div style="position:fixed;top:16px;right:16px;z-index:99999;'
+            f'background:{bg};border:1.5px solid {border};border-radius:16px;'
+            f'padding:14px 18px;min-width:240px;max-width:320px;'
+            f'box-shadow:0 4px 20px rgba(0,0,0,0.15);">'
+            f'<div style="font-size:13px;font-weight:700;color:{txt_color};'
+            f'display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+            f'{icon} {headline}</div>'
+            f'{steps_html}{body}'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
@@ -1299,22 +1314,14 @@ def render_game_detail(appid: int):
         _MAIN_LANGS = ["전체", "한국어", "영어", "중국어 간체", "중국어 번체", "기타"]
         _MAIN_LANG_CODES = {"한국어": "koreana", "영어": "english", "중국어 간체": "schinese", "중국어 번체": "tchinese"}
 
-        col_order, col_lang = st.columns([2, 8])
-        with col_order:
-            order_opt = st.selectbox(
-                label="정렬",
-                options=["최신순 (위→아래)", "과거순 (위→아래)"],
-                key="timeline_order",
-                label_visibility="collapsed",
-            )
-        with col_lang:
-            lang_filter = st.radio(
-                "언어",
-                options=_MAIN_LANGS,
-                horizontal=True,
-                key=f"lang_filter_{appid}",
-                label_visibility="collapsed",
-            )
+        # 언어 필터만 민심 추이 아래에
+        lang_filter = st.radio(
+            "언어",
+            options=_MAIN_LANGS,
+            horizontal=True,
+            key=f"lang_filter_{appid}",
+            label_visibility="collapsed",
+        )
 
         # 기타 언어 드롭다운
         lang_code_for_chart: str | None = None
@@ -1341,13 +1348,27 @@ def render_game_detail(appid: int):
         else:
             events_for_chart = events
 
-        reverse_order = order_opt.startswith("최신순")
         fig = create_sentiment_chart(events_for_chart, reverse=False)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-        # ── 타임라인 ──
-        st.markdown("""<div style="margin:32px 0 20px 0;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:700;color:#1E1E1E;">🗓️ 민심 타임라인</div><div style="font-size:12px;color:#757575;">이벤트별 유저 반응 분석</div></div>""",
-            unsafe_allow_html=True)
+        # ── 타임라인 (정렬 토글은 여기에) ──
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        col_tl_hdr, col_order = st.columns([5, 3])
+        with col_tl_hdr:
+            st.markdown(
+                """<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">"""
+                """<span style="font-size:15px;font-weight:700;color:#1E1E1E;">🗓️ 민심 타임라인</span>"""
+                """<span style="font-size:12px;color:#AAAAAA;">패치별 유저 반응 실측 분석</span></div>""",
+                unsafe_allow_html=True,
+            )
+        with col_order:
+            order_opt = st.selectbox(
+                label="정렬",
+                options=["최신순 (위→아래)", "과거순 (위→아래)"],
+                key="timeline_order",
+                label_visibility="collapsed",
+            )
+        reverse_order = order_opt.startswith("최신순")
 
         col_tl, _ = st.columns([8, 2])
         with col_tl:
