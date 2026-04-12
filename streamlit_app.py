@@ -13,6 +13,7 @@ try:
         register_game as _sheets_register_game,
         get_all_tracked_games as _sheets_get_all_games,
         save_reviews as _sheets_save_reviews,
+        load_reviews as _sheets_load_reviews,
         load_timeline_events as _sheets_load_timeline,
         save_timeline_events as _sheets_save_timeline,
         save_timeline_version as _sheets_save_tl_version,
@@ -90,7 +91,13 @@ details>summary{background:#F4F5F7!important;color:#1E1E1E!important;border-radi
 details{border:1.5px solid #1E1E1E!important;border-radius:16px!important;background:#FFFFFF!important;}
 details p,details span,details li,details div{color:#1E1E1E!important;}
 /* ── 모든 마크다운 텍스트 ── */
-[data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] span,[data-testid="stMarkdownContainer"] li{color:#1E1E1E!important;}
+[data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] li{color:#1E1E1E!important;}
+[data-testid="stMarkdownContainer"] span:not([style*="background"]){color:#1E1E1E!important;}
+/* 어두운 배경 배지 텍스트 강제 화이트 */
+[data-testid="stMarkdownContainer"] span[style*="background:#1E1E1E"]{color:#FFFFFF!important;}
+/* 버튼 포커스 상태 */
+.stButton>button:focus,.stButton>button:focus-visible{background:#FFFFFF!important;color:#1E1E1E!important;box-shadow:none!important;outline:none!important;}
+.stButton>button:active{background:#1E1E1E!important;color:#FFFFFF!important;transform:scale(0.98)!important;}
 /* ── Alert / Toast ── */
 [data-testid="stAlert"] p,[data-testid="stAlert"] span{color:#1E1E1E!important;}
 </style>""", unsafe_allow_html=True)
@@ -205,7 +212,99 @@ def steam_game_detail(appid: int) -> dict:
 
 
 # ─────────────────────────────────────────────
-#  MOCK DATA — 분석 완료된 게임들
+#  UTILITY — 시트에서 타임라인 생성 게임 로드 & 언어 필터
+# ─────────────────────────────────────────────
+STEAM_LANG_KO = {
+    "koreana":   "한국어",  "english":  "영어",    "schinese": "중국어 간체",
+    "tchinese":  "중국어 번체", "japanese": "일본어", "russian":  "러시아어",
+    "portuguese": "포르투갈어", "brazilian": "브라질 포르투갈어",
+    "french":    "프랑스어",  "german":   "독일어",  "spanish":  "스페인어",
+    "latam":     "스페인어(중남미)", "italian": "이탈리아어", "polish": "폴란드어",
+    "dutch":     "네덜란드어", "thai":    "태국어",  "turkish":  "터키어",
+    "vietnamese": "베트남어", "arabic":  "아랍어",  "indonesian": "인도네시아어",
+    "hungarian": "헝가리어", "czech":   "체코어",   "romanian": "루마니아어",
+    "swedish":   "스웨덴어", "norwegian": "노르웨이어", "ukrainian": "우크라이나어",
+}
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _load_analyzed_games() -> list[dict]:
+    """시트에 타임라인이 생성된 active 게임 목록 (2분 캐시)."""
+    if not sheets_ready():
+        return []
+    try:
+        client = get_sheets_client()
+        tracked = _sheets_get_all_games(client)
+        result = []
+        for g in tracked:
+            if g.get("status") != "active":
+                continue
+            if int(g.get("total_archived") or 0) == 0:
+                continue
+            appid = int(g.get("appid", 0))
+            if not appid:
+                continue
+            steam_info = steam_game_detail(appid)
+            result.append({
+                "appid":         appid,
+                "name":          g.get("name", str(appid)),
+                "name_en":       g.get("name_en", str(appid)),
+                "thumbnail":     steam_info.get("thumbnail", _thumb(appid)),
+                "release_date":  g.get("release_date", ""),
+                "total_reviews": steam_info.get("total_reviews", int(g.get("total_archived") or 0)),
+                "rating_pct":    steam_info.get("rating_pct", 0),
+                "rating_label":  steam_info.get("rating_label", ""),
+                "last_analyzed": g.get("last_pickaxe_run", ""),
+            })
+        return result
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_reviews_cached(appid: int) -> list[dict]:
+    """언어별 민심 계산용 리뷰 로드 (5분 캐시, 최대 50,000건)."""
+    if not sheets_ready():
+        return []
+    try:
+        return _sheets_load_reviews(get_sheets_client(), appid)
+    except Exception:
+        return []
+
+
+def _calc_events_lang_filter(
+    events: list[dict], reviews: list[dict], lang_code: str
+) -> list[dict]:
+    """언어 필터 적용 이벤트 리스트 반환 (차트 전용, sentiment_pct/review_count 재계산)."""
+    from datetime import datetime, timezone as _tz
+    result = []
+    for evt in events:
+        date_start = evt.get("date", "")
+        date_end   = evt.get("period_end", "")
+        try:
+            start_ts = int(datetime.fromisoformat(date_start + "T00:00:00+00:00").timestamp())
+            end_ts   = int(datetime.fromisoformat(date_end   + "T23:59:59+00:00").timestamp())
+        except Exception:
+            result.append(evt)
+            continue
+        period = [
+            r for r in reviews
+            if start_ts <= int(r.get("timestamp_created") or 0) <= end_ts
+            and r.get("language") == lang_code
+        ]
+        new_evt = dict(evt)
+        if period:
+            pos = sum(1 for r in period if str(r.get("voted_up", "")).lower() in ("true", "1"))
+            new_evt["sentiment_pct"] = round(pos / len(period) * 100)
+            new_evt["review_count"]  = len(period)
+        else:
+            new_evt["review_count"] = 0
+        result.append(new_evt)
+    return result
+
+
+# ─────────────────────────────────────────────
+#  MOCK DATA (하위 호환 — 홈 화면은 시트 데이터 우선)
 # ─────────────────────────────────────────────
 ANALYZED_GAMES = [
     {
@@ -612,19 +711,29 @@ def render_event_card(event: dict, is_last: bool = False):
     if top_reviews:
         items_html = ""
         for r in top_reviews[:2]:
-            voted  = "👍" if r.get("voted_up") else "👎"
-            lang   = r.get("language", "")
-            text   = (r.get("text") or "")[:280]
-            v_up   = r.get("votes_up", 0)
+            voted        = "👍" if r.get("voted_up") else "👎"
+            lang         = r.get("language", "")
+            lang_label   = STEAM_LANG_KO.get(lang, lang)
+            text         = (r.get("text") or "")[:280]
+            v_up         = r.get("votes_up", 0)
+            translation  = r.get("translation_kr", "")
+            is_korean    = lang in ("koreana",)
+            trans_html   = (
+                f'<div style="font-size:11px;color:#888;font-style:italic;margin-top:5px;'
+                f'border-left:2px solid #D5D5D5;padding-left:8px;line-height:1.6;">'
+                f'🇰🇷 {translation}</div>'
+                if (not is_korean and translation) else ""
+            )
             items_html += (
                 f'<div style="padding:10px 0;border-top:1px solid #EFEFEF;">'
                 f'<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;">'
                 f'<span style="font-size:13px;">{voted}</span>'
                 f'<span style="font-size:10px;background:#F4F5F7;border:1px solid #D5D5D5;'
-                f'border-radius:6px;padding:1px 7px;color:#555;">{lang}</span>'
+                f'border-radius:6px;padding:1px 7px;color:#555;">{lang_label}</span>'
                 f'<span style="font-size:10px;color:#AAAAAA;">추천 {v_up}개</span>'
                 f'</div>'
                 f'<div style="font-size:12px;color:#333;line-height:1.65;">{text}</div>'
+                f'{trans_html}'
                 f'</div>'
             )
         reviews_html = (
@@ -661,7 +770,7 @@ def render_event_card(event: dict, is_last: bool = False):
         f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">{issue_chips}</div>'
         # 유저 반응 요약
         f'<div style="background:#F4F5F7;border-radius:12px;padding:12px 16px;margin-bottom:14px;">'
-        f'<div style="font-size:10px;font-weight:700;color:#757575;margin-bottom:4px;letter-spacing:0.5px;">🇰🇷 한국어 유저 반응 요약</div>'
+        f'<div style="font-size:10px;font-weight:700;color:#757575;margin-bottom:4px;letter-spacing:0.5px;">💬 유저 반응 요약</div>'
         f'<div style="font-size:13px;color:#1E1E1E;line-height:1.7;word-break:keep-all;">{event["kr_summary"]}</div></div>'
         # 주요 리뷰 원문
         f'{reviews_html}'
@@ -692,13 +801,15 @@ def render_home():
     with col_hint:
         st.markdown("""<div style="font-size:11px;color:#AAAAAA;margin-top:6px;text-align:center;">Steam 검색은 <b>영어 게임명</b>으로 입력하면 더 정확합니다 &nbsp;·&nbsp; 한글 검색 시 결과가 없을 수 있어요</div>""", unsafe_allow_html=True)
 
-    if search_query and len(search_query.strip()) > 0:
-        analyzed_ids = {g["appid"] for g in ANALYZED_GAMES}
+    # 타임라인 생성된 게임 목록 (시트 우선, 없으면 빈 리스트)
+    analyzed_games = _load_analyzed_games()
+    analyzed_ids   = {g["appid"] for g in analyzed_games}
 
+    if search_query and len(search_query.strip()) > 0:
         with st.spinner("🔍  Steam에서 검색 중..."):
             results = steam_search(search_query.strip())
 
-        # 분석 완료 게임을 앞으로 정렬
+        # 타임라인 보유 게임 앞으로 정렬
         results_sorted = sorted(results, key=lambda g: g["appid"] not in analyzed_ids)
 
         st.markdown(f"""<div style="margin:24px 0 12px 0;font-size:13px;color:#757575;font-weight:500;">"{search_query}" Steam 검색 결과 — {len(results_sorted)}개 게임</div>""",
@@ -712,12 +823,16 @@ def render_home():
             st.markdown(f"""<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:20px;padding:48px;text-align:center;"><div style="font-size:28px;margin-bottom:14px;">🔍</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;margin-bottom:8px;">"{search_query}"에 해당하는 게임을 찾지 못했습니다</div><div style="font-size:13px;color:#757575;line-height:1.8;word-break:keep-all;">Steam 검색 API는 <b style="color:#1E1E1E;">영어 게임명</b>으로 검색할 때 가장 정확합니다.<br>예) 붉은사막 → <b style="color:#1E1E1E;">Crimson Desert</b> &nbsp;·&nbsp; 검은사막 → <b style="color:#1E1E1E;">Black Desert</b></div></div>""",
                 unsafe_allow_html=True)
     else:
-        st.markdown("""<div style="margin:28px 0 14px 0;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:700;color:#1E1E1E;">분석 완료된 게임</div><div style="width:8px;height:8px;background:#82C29A;border-radius:50%;border:1.5px solid #1E1E1E;"></div><div style="font-size:12px;color:#757575;">클릭하면 타임라인을 바로 확인할 수 있습니다</div></div>""",
+        st.markdown("""<div style="margin:28px 0 14px 0;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:700;color:#1E1E1E;">타임라인이 생성된 게임</div><div style="width:8px;height:8px;background:#82C29A;border-radius:50%;border:1.5px solid #1E1E1E;"></div><div style="font-size:12px;color:#757575;">클릭하면 타임라인을 바로 확인할 수 있습니다</div></div>""",
             unsafe_allow_html=True)
-        cols = st.columns(4)
-        for i, game in enumerate(ANALYZED_GAMES):
-            with cols[i % 4]:
-                render_game_card(game, analyzed=True)
+        if analyzed_games:
+            cols = st.columns(4)
+            for i, game in enumerate(analyzed_games):
+                with cols[i % 4]:
+                    render_game_card(game, analyzed=True)
+        else:
+            st.markdown("""<div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:48px;text-align:center;"><div style="font-size:32px;margin-bottom:12px;">⚙️</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;margin-bottom:6px;">아직 생성된 타임라인이 없습니다</div><div style="font-size:13px;color:#757575;word-break:keep-all;">위 검색창에서 게임을 찾아 타임라인을 생성해보세요.</div></div>""",
+                unsafe_allow_html=True)
 
         st.markdown("""<div style="margin:40px 0 16px 0;"><div style="height:1.5px;background:#1E1E1E;opacity:0.1;margin-bottom:24px;"></div><div style="background:#FFFFFF;border:1.5px dashed #D5D5D5;border-radius:20px;padding:32px;text-align:center;"><div style="font-size:13px;color:#757575;margin-bottom:4px;">새로운 게임의 타임라인을 만들고 싶다면</div><div style="font-size:15px;font-weight:700;color:#1E1E1E;">위 검색창에서 게임을 검색하세요 🔍</div></div></div>""",
             unsafe_allow_html=True)
@@ -836,16 +951,6 @@ def _run_analysis_pipeline(game: dict):
         news = _steam_news(appid, count=50)
         done.append(f"패치노트 {len(news)}건 수집 완료")
 
-        _render("🤖 Gemini AI 분석 중... (1~2분 소요)")
-        events, gen_uuid = _gemini_analyze(
-            game_name=game["name"],
-            release_date=game.get("release_date", ""),
-            total_reviews=game.get("total_reviews", 0),
-            reviews=reviews,
-            steam_news=news,
-        )
-        done.append(f"이벤트 {len(events)}개 탐지 완료  ·  UUID {gen_uuid}")
-
         _render("💾 Google Sheets에 저장 중...")
         client = get_sheets_client()
         _sheets_register_game(
@@ -854,6 +959,23 @@ def _run_analysis_pipeline(game: dict):
             game.get("release_date", ""),
         )
         _sheets_save_reviews(client, appid, reviews, final_cursor)
+
+        # 시트에 쌓인 전체 리뷰 로드 → Gemini에 전달
+        all_reviews = _sheets_load_reviews(client, appid)
+        total_for_analysis = all_reviews if all_reviews else reviews
+        done.append(f"시트 누적 리뷰 {len(total_for_analysis):,}건 기반으로 분석 준비")
+
+        _render("🤖 Gemini AI 분석 중... (1~2분 소요)")
+        events, gen_uuid = _gemini_analyze(
+            game_name=game["name"],
+            release_date=game.get("release_date", ""),
+            total_reviews=game.get("total_reviews", 0),
+            reviews=total_for_analysis,
+            steam_news=news,
+        )
+        done.append(f"이벤트 {len(events)}개 탐지 완료  ·  UUID {gen_uuid}")
+
+        _render("💾 타임라인 저장 중...")
         _sheets_save_timeline(client, appid, events, overwrite=True)
 
         from datetime import datetime, timezone as _tz
@@ -861,7 +983,7 @@ def _run_analysis_pipeline(game: dict):
             client, appid,
             uuid=gen_uuid,
             created_at=datetime.now(_tz.utc).isoformat(),
-            based_on_reviews=len(reviews),
+            based_on_reviews=len(total_for_analysis),
             based_on_news=len(news),
             event_count=len(events),
             events_json=_json.dumps(events, ensure_ascii=False),
@@ -883,17 +1005,17 @@ def _run_analysis_pipeline(game: dict):
 # ─────────────────────────────────────────────
 def render_game_detail(appid: int):
     import json as _json
-    analyzed_ids = {g["appid"] for g in ANALYZED_GAMES}
+    # 시트 기반 analyzed_ids 사용 (mock 제거)
+    analyzed_ids: set[int] = set()
 
-    # 게임 정보 조회: ANALYZED_GAMES → session_state → Steam API 순
-    game = next((g for g in ANALYZED_GAMES if g["appid"] == appid), None)
-    if game is None:
-        cached = st.session_state.get("current_game_data", {})
-        if cached and cached.get("appid") == appid:
-            game = cached
-        else:
-            with st.spinner("게임 정보를 가져오는 중..."):
-                game = steam_game_detail(appid)
+    # 게임 정보 조회: session_state → Steam API 순
+    game = None
+    cached = st.session_state.get("current_game_data", {})
+    if cached and cached.get("appid") == appid:
+        game = cached
+    else:
+        with st.spinner("게임 정보를 가져오는 중..."):
+            game = steam_game_detail(appid)
 
     # ── 이벤트 소스 결정 ──
     client = None
@@ -903,11 +1025,6 @@ def render_game_detail(appid: int):
         events = [_sheets_to_display_event(e) for e in raw_events]
         is_real_data   = True
         is_initial     = True
-        reviewed_count = sum(e.get("review_count", 0) for e in events)
-    elif appid in analyzed_ids:
-        events = TIMELINE_MAP.get(appid, [])
-        is_real_data   = False
-        is_initial     = False
         reviewed_count = sum(e.get("review_count", 0) for e in events)
     elif sheets_ready():
         client = get_sheets_client()
@@ -981,71 +1098,76 @@ def render_game_detail(appid: int):
             unsafe_allow_html=True)
 
     if events:
-        # ── 메타 정보 + 컨트롤 (차트 위) ──
+        # ── 언어별 민심 계산용 리뷰 (캐시) ──
+        chart_reviews: list[dict] = []
+        if is_real_data:
+            chart_reviews = _load_reviews_cached(appid)
+
+        # ── 메타 정보 + 재생성 버튼 ──
         uuid_badge = (
             f'<span style="font-size:11px;font-family:monospace;background:#F4F5F7;'
             f'border:1px solid #D5D5D5;border-radius:6px;padding:2px 8px;color:#555;">'
             f'UUID {active_uuid}</span>'
             if active_uuid else ""
         )
-        st.markdown(
-            f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:16px;'
-            f'padding:14px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:16px;">'
-            f'<span style="font-size:12px;color:#757575;font-weight:600;">총 이벤트</span>'
-            f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{len(events)}개</span>'
-            f'<span style="display:inline-block;width:1.5px;height:18px;background:#E0E0E0;"></span>'
-            f'<span style="font-size:12px;color:#757575;font-weight:600;">분석 기반 리뷰</span>'
-            f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(active_count)}건</span>'
-            f'<span style="display:inline-block;width:1.5px;height:18px;background:#E0E0E0;"></span>'
-            f'<span style="font-size:12px;color:#757575;font-weight:600;">자동 업데이트</span>'
-            f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">매일 05:00 KST</span>'
-            f'{(" &nbsp;" + uuid_badge) if uuid_badge else ""}'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        col_meta, col_regen_btn = st.columns([7, 3])
+        with col_meta:
+            st.markdown(
+                f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:16px;'
+                f'padding:14px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;height:100%;">'
+                f'<span style="font-size:12px;color:#757575;font-weight:600;">총 이벤트</span>'
+                f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{len(events)}개</span>'
+                f'<span style="display:inline-block;width:1.5px;height:18px;background:#E0E0E0;"></span>'
+                f'<span style="font-size:12px;color:#757575;font-weight:600;">분석 기반 리뷰</span>'
+                f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(active_count)}건</span>'
+                f'<span style="display:inline-block;width:1.5px;height:18px;background:#E0E0E0;"></span>'
+                f'<span style="font-size:12px;color:#757575;font-weight:600;">자동 업데이트</span>'
+                f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">매일 05:00 KST</span>'
+                f'{(" &nbsp;" + uuid_badge) if uuid_badge else ""}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with col_regen_btn:
+            if is_real_data and sheets_ready():
+                if st.button("🔄 현재 기준으로 타임라인 재생성", key=f"regen_{appid}"):
+                    st.session_state.pop(f"ver_widget_{appid}", None)
+                    _run_analysis_pipeline(game)
 
-        # ── 버전 선택 + 재생성 버튼 ──
-        if is_real_data and (len(versions) >= 2 or sheets_ready()):
+        # ── 버전 선택 (히스토리 2개 이상) ──
+        if is_real_data and len(versions) >= 2:
             def _ver_label(v: dict) -> str:
                 dt  = (v.get("created_at", "") or "")[:10]
                 rv  = fmt_number(int(v.get("based_on_reviews") or 0))
                 cnt = v.get("event_count", "?")
                 uid = v.get("uuid", "")
                 return f"{dt} · 리뷰 {rv}건 · 이벤트 {cnt}개 · {uid}"
-
-            col_ver, col_regen = st.columns([6, 4])
+            ver_labels = [_ver_label(v) for v in versions]
+            cur_idx    = next((i for i, v in enumerate(versions) if v.get("uuid") == active_uuid), 0)
+            widget_key = f"ver_widget_{appid}"
+            if widget_key not in st.session_state:
+                st.session_state[widget_key] = ver_labels[cur_idx]
+            col_ver, _ = st.columns([6, 4])
             with col_ver:
-                if len(versions) >= 2:
-                    ver_labels = [_ver_label(v) for v in versions]
-                    # 현재 선택된 UUID에 해당하는 index 찾기
-                    cur_idx = next((i for i, v in enumerate(versions) if v.get("uuid") == active_uuid), 0)
-                    widget_key = f"ver_widget_{appid}"
-                    # 위젯 상태가 없거나 리셋이 필요할 때 초기화
-                    if widget_key not in st.session_state:
-                        st.session_state[widget_key] = ver_labels[cur_idx]
-                    chosen_label = st.selectbox(
-                        "버전 선택",
-                        options=ver_labels,
-                        key=widget_key,
-                        label_visibility="collapsed",
-                    )
-                    chosen_idx  = ver_labels.index(chosen_label) if chosen_label in ver_labels else 0
-                    chosen_uuid = versions[chosen_idx].get("uuid", "")
-                    if chosen_uuid != active_uuid:
-                        st.session_state[sel_ver_key] = chosen_uuid
-                        st.rerun()
-            with col_regen:
-                if sheets_ready():
-                    st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
-                    if st.button("🔄 현재 기준으로 타임라인 재생성", key=f"regen_{appid}"):
-                        st.session_state.pop(f"ver_widget_{appid}", None)
-                        _run_analysis_pipeline(game)
+                chosen_label = st.selectbox(
+                    "버전 선택",
+                    options=ver_labels,
+                    key=widget_key,
+                    label_visibility="collapsed",
+                )
+            chosen_idx  = ver_labels.index(chosen_label) if chosen_label in ver_labels else 0
+            chosen_uuid = versions[chosen_idx].get("uuid", "")
+            if chosen_uuid != active_uuid:
+                st.session_state[sel_ver_key] = chosen_uuid
+                st.rerun()
 
-        # ── 민심 추이 차트 ──
-        st.markdown("""<div style="margin:20px 0 12px 0;font-size:16px;font-weight:700;color:#1E1E1E;">📈 민심 추이</div>""",
+        # ── 민심 추이 헤더 + 정렬/언어 필터 ──
+        st.markdown("""<div style="margin:20px 0 10px 0;font-size:16px;font-weight:700;color:#1E1E1E;">📈 민심 추이</div>""",
             unsafe_allow_html=True)
 
-        col_order, _ = st.columns([2, 8])
+        _MAIN_LANGS = ["전체", "한국어", "영어", "중국어 간체", "중국어 번체", "기타"]
+        _MAIN_LANG_CODES = {"한국어": "koreana", "영어": "english", "중국어 간체": "schinese", "중국어 번체": "tchinese"}
+
+        col_order, col_lang = st.columns([2, 8])
         with col_order:
             order_opt = st.selectbox(
                 label="정렬",
@@ -1053,9 +1175,42 @@ def render_game_detail(appid: int):
                 key="timeline_order",
                 label_visibility="collapsed",
             )
-        reverse_order = order_opt.startswith("최신순")
+        with col_lang:
+            lang_filter = st.radio(
+                "언어",
+                options=_MAIN_LANGS,
+                horizontal=True,
+                key=f"lang_filter_{appid}",
+                label_visibility="collapsed",
+            )
 
-        fig = create_sentiment_chart(events, reverse=False)
+        # 기타 언어 드롭다운
+        lang_code_for_chart: str | None = None
+        if lang_filter == "기타" and chart_reviews:
+            known = set(_MAIN_LANG_CODES.values())
+            extra_codes = sorted({r.get("language", "") for r in chart_reviews if r.get("language") and r.get("language") not in known})
+            if extra_codes:
+                extra_labels = [STEAM_LANG_KO.get(c, c) for c in extra_codes]
+                col_extra, _ = st.columns([3, 7])
+                with col_extra:
+                    sel_extra = st.selectbox(
+                        "언어 선택",
+                        options=extra_labels,
+                        key=f"extra_lang_{appid}",
+                        label_visibility="collapsed",
+                    )
+                lang_code_for_chart = extra_codes[extra_labels.index(sel_extra)] if sel_extra in extra_labels else None
+        elif lang_filter in _MAIN_LANG_CODES:
+            lang_code_for_chart = _MAIN_LANG_CODES[lang_filter]
+
+        # 언어 필터 적용
+        if lang_code_for_chart and chart_reviews:
+            events_for_chart = _calc_events_lang_filter(events, chart_reviews, lang_code_for_chart)
+        else:
+            events_for_chart = events
+
+        reverse_order = order_opt.startswith("최신순")
+        fig = create_sentiment_chart(events_for_chart, reverse=False)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         # ── 타임라인 ──

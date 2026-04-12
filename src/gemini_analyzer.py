@@ -223,7 +223,7 @@ def analyze_reviews_to_timeline(
 - 게임명: {game_name}
 - 출시일: {release_date}
 - Steam 총 리뷰 수: {total_reviews:,}건
-- 이번 분석 리뷰: {len(reviews)}건 (초기 샘플)
+- 이번 분석 리뷰: {len(reviews)}건
 
 ## Steam 공식 뉴스 / 패치노트 (번호 포함, 최신 25개)
 {news_text}
@@ -239,7 +239,7 @@ def analyze_reviews_to_timeline(
 5. source_news_index: 이 이벤트의 근거가 되는 위 뉴스 번호(정수). 없으면 0.
 6. key_issues: 3개 이내, 한국어로.
 7. top_langs: 해당 기간 주요 언어 2~3개.
-8. kr_summary: 한국어 유저의 주요 반응 요약 (60자 이내).
+8. kr_summary: 해당 기간 전체 유저의 주요 반응 요약 (60자 이내, 한국어로 작성).
 9. 모든 문자열에 쌍따옴표(") 사용 금지. 필요시 홑따옴표(') 사용.
 
 ## 출력 형식 (JSON 배열만, 설명 텍스트 없이)
@@ -254,7 +254,7 @@ def analyze_reviews_to_timeline(
     "description": "이벤트 설명 (120자 이내, 한국어)",
     "key_issues": ["이슈1", "이슈2"],
     "top_langs": ["한국어", "영어"],
-    "kr_summary": "한국어 유저 반응 요약",
+    "kr_summary": "이 기간 전체 유저 반응 요약",
     "source_news_index": 3
   }}
 ]"""
@@ -311,5 +311,48 @@ def analyze_reviews_to_timeline(
             "created_at":      now_iso,
             "updated_at":      now_iso,
         })
+
+    # ── 비한국어 리뷰 일괄 번역 ──
+    _LANG_KO = {
+        "english": "영어", "schinese": "중국어 간체", "tchinese": "중국어 번체",
+        "japanese": "일본어", "russian": "러시아어", "portuguese": "포르투갈어",
+        "brazilian": "브라질 포르투갈어", "french": "프랑스어", "german": "독일어",
+        "spanish": "스페인어", "latam": "스페인어(중남미)", "italian": "이탈리아어",
+        "polish": "폴란드어", "dutch": "네덜란드어", "thai": "태국어", "turkish": "터키어",
+    }
+    to_translate: list[tuple[int, int, str, str]] = []
+    for ei, evt in enumerate(events):
+        for ri, rev in enumerate(evt.get("top_reviews", [])):
+            lang = rev.get("language", "")
+            if lang not in ("koreana",) and (rev.get("text") or "").strip():
+                to_translate.append((ei, ri, (rev["text"] or "")[:200], lang))
+
+    if to_translate:
+        items_str = "\n".join(
+            f'[{i}] ({_LANG_KO.get(lang, lang)}) {text}'
+            for i, (_, _, text, lang) in enumerate(to_translate)
+        )
+        trans_prompt = (
+            "아래 게임 리뷰들을 자연스러운 한국어로 번역하세요.\n"
+            "JSON 배열만 출력 (설명 없이): [{\"idx\": 0, \"kr\": \"번역문\"}, ...]\n\n"
+            f"리뷰:\n{items_str}"
+        )
+        try:
+            trans_resp = model.generate_content(
+                trans_prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.2,
+                    max_output_tokens=2048,
+                    response_mime_type="application/json",
+                ),
+            )
+            trans_list = _parse_json_array(trans_resp.text.strip())
+            for t in trans_list:
+                idx = int(t.get("idx", -1))
+                if 0 <= idx < len(to_translate):
+                    ei, ri, _, _ = to_translate[idx]
+                    events[ei]["top_reviews"][ri]["translation_kr"] = t.get("kr", "")
+        except Exception:
+            pass  # 번역 실패는 치명적이지 않음
 
     return events, gen_uuid
