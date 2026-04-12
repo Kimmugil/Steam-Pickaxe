@@ -48,18 +48,21 @@ def _group_by_month(reviews: list[dict]) -> dict[str, list[dict]]:
 
 
 def _build_monthly_text(groups: dict[str, list]) -> str:
-    """월별 통계 + 샘플 리뷰 텍스트를 생성합니다 (프롬프트 삽입용)."""
+    """월별 통계 + 샘플 리뷰 텍스트를 생성합니다 (프롬프트 삽입용, 최근 24개월)."""
     lines = []
-    for month, revs in groups.items():
+    # 최근 24개월만 사용해 프롬프트 크기 제한
+    month_keys = sorted(groups.keys())[-24:]
+    for month in month_keys:
+        revs = groups[month]
         pos = sum(
             1 for r in revs
             if str(r.get("voted_up", "")).lower() in ("true", "1")
         )
         pct = round(pos / len(revs) * 100) if revs else 0
-        samples = sorted(revs, key=lambda r: int(r.get("votes_up") or 0), reverse=True)[:3]
+        samples = sorted(revs, key=lambda r: int(r.get("votes_up") or 0), reverse=True)[:2]
         excerpts = []
         for s in samples:
-            text = (s.get("review") or "")[:120].replace("\n", " ").strip()
+            text = (s.get("review") or "")[:80].replace("\n", " ").strip()
             icon = "👍" if str(s.get("voted_up", "")).lower() in ("true", "1") else "👎"
             if text:
                 excerpts.append(f"  {icon} [{s.get('language','?')}] {text}")
@@ -147,6 +150,54 @@ def _sanitize_json(text: str) -> str:
     return text
 
 
+def _repair_truncated_json(text: str) -> list[dict]:
+    """잘린 JSON 배열에서 완전한 오브젝트만 파싱하여 복구합니다."""
+    start = text.find("[")
+    if start == -1:
+        raise ValueError("JSON 배열 시작점 없음")
+    fragment = text[start:]
+    objects: list[dict] = []
+    i = 0
+    while i < len(fragment):
+        if fragment[i] == "{":
+            depth = 0
+            in_str = False
+            esc = False
+            j = i
+            found = False
+            while j < len(fragment):
+                c = fragment[j]
+                if esc:
+                    esc = False
+                elif c == "\\" and in_str:
+                    esc = True
+                elif c == '"':
+                    in_str = not in_str
+                elif not in_str:
+                    if c == "{":
+                        depth += 1
+                    elif c == "}":
+                        depth -= 1
+                        if depth == 0:
+                            try:
+                                obj = json.loads(fragment[i: j + 1])
+                                if isinstance(obj, dict):
+                                    objects.append(obj)
+                            except Exception:
+                                pass
+                            i = j + 1
+                            found = True
+                            break
+                j += 1
+            if not found:
+                break
+        else:
+            i += 1
+    if not objects:
+        raise ValueError("완전한 JSON 오브젝트 없음")
+    return objects
+
+
 def _parse_json_array(raw: str) -> list[dict]:
     """Gemini 응답 텍스트에서 JSON 배열을 추출합니다."""
     # 1. ```json ... ``` 코드 블록
@@ -175,15 +226,16 @@ def _parse_json_array(raw: str) -> list[dict]:
                 return json.loads(attempt)
             except json.JSONDecodeError:
                 pass
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                f"JSON 파싱 실패: {e}\n"
-                f"추출된 텍스트 앞부분: {candidate[:400]}"
-            )
 
-    raise ValueError(f"JSON 배열을 찾을 수 없습니다.\n응답 앞부분: {raw[:300]}")
+    # 4. 잘린 JSON 복구 (max_output_tokens 도달 시 대응)
+    try:
+        recovered = _repair_truncated_json(raw)
+        if recovered:
+            return recovered
+    except Exception:
+        pass
+
+    raise ValueError(f"JSON 파싱 실패 (복구 불가)\n응답 앞부분: {raw[:400]}")
 
 
 # ─────────────────────────────────────────────
@@ -263,7 +315,7 @@ def analyze_reviews_to_timeline(
         prompt,
         generation_config=genai.GenerationConfig(
             temperature=0.3,
-            max_output_tokens=8192,
+            max_output_tokens=32768,   # gemini-2.5-flash 사고 토큰 여유분 포함
             response_mime_type="application/json",
         ),
     )

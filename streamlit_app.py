@@ -100,6 +100,19 @@ details p,details span,details li,details div{color:#1E1E1E!important;}
 .stButton>button:active{background:#1E1E1E!important;color:#FFFFFF!important;transform:scale(0.98)!important;}
 /* ── Alert / Toast ── */
 [data-testid="stAlert"] p,[data-testid="stAlert"] span{color:#1E1E1E!important;}
+/* ── 툴팁 ── */
+.tt{position:relative;display:inline-flex;align-items:center;cursor:default;}
+.tt .ttb{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);
+  background:#1E1E1E;color:#FFFFFF;padding:8px 12px;border-radius:10px;font-size:11px;
+  font-weight:400;line-height:1.65;white-space:normal;min-width:200px;max-width:280px;
+  z-index:9999;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,0.25);}
+.tt:hover .ttb{display:block;}
+.tt-icon{font-size:10px;color:#AAAAAA;margin-left:4px;cursor:help;}
+/* 라디오 버튼 */
+div[data-testid="stRadio"]>div{display:flex;flex-wrap:wrap;gap:6px!important;}
+div[data-testid="stRadio"] label{border:1.5px solid #1E1E1E!important;border-radius:10px!important;
+  padding:5px 12px!important;background:#FFFFFF!important;cursor:pointer!important;font-size:12px!important;}
+div[data-testid="stRadio"] label:has(input:checked){background:#1E1E1E!important;color:#FFFFFF!important;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -301,6 +314,48 @@ def _calc_events_lang_filter(
             new_evt["review_count"] = 0
         result.append(new_evt)
     return result
+
+
+def _apply_actual_stats_to_events(events: list[dict], reviews: list[dict]) -> list[dict]:
+    """
+    시트에 쌓인 전체 리뷰를 기반으로 각 이벤트의 review_count·sentiment_pct를 실측치로 교체.
+    해당 기간 리뷰가 없으면 review_count=0 (수집 전 기간임을 의미).
+    """
+    from datetime import datetime, timezone as _tz
+    if not reviews:
+        return events
+    result = []
+    for evt in events:
+        date_start = evt.get("date", "")
+        date_end   = evt.get("period_end", "")
+        try:
+            start_ts = int(datetime.fromisoformat(date_start + "T00:00:00+00:00").timestamp())
+            end_ts   = int(datetime.fromisoformat(date_end   + "T23:59:59+00:00").timestamp())
+        except Exception:
+            result.append(evt)
+            continue
+        period = [
+            r for r in reviews
+            if start_ts <= int(r.get("timestamp_created") or 0) <= end_ts
+        ]
+        new_evt = dict(evt)
+        new_evt["review_count_actual"] = len(period)  # 실측값 별도 보존
+        if period:
+            pos = sum(1 for r in period if str(r.get("voted_up", "")).lower() in ("true", "1"))
+            new_evt["review_count"]  = len(period)
+            new_evt["sentiment_pct"] = round(pos / len(period) * 100)
+        else:
+            new_evt["review_count"] = 0  # 수집된 리뷰 없음 (미수집 기간)
+        result.append(new_evt)
+    return result
+
+
+def _tt(text: str, tip: str) -> str:
+    """툴팁 HTML 래퍼 반환."""
+    return (
+        f'<span class="tt">{text}'
+        f'<span class="ttb">{tip}</span></span>'
+    )
 
 
 # ─────────────────────────────────────────────
@@ -758,25 +813,40 @@ def render_event_card(event: dict, is_last: bool = False):
         f'{edited_badge}{source_link_html}</div>'
         # 감성 + 리뷰 수 뱃지
         f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">'
-        f'<div style="background:{event["color"]};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 14px;">'
-        f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{event["sentiment_pct"]}% 긍정</span>'
-        f'<span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · {label}</span></div>'
-        f'<div style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 14px;">'
-        f'<span style="font-size:12px;color:#757575;">리뷰 </span>'
-        f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(event["review_count"])}건</span></div></div>'
+        + (
+            f'<div class="tt" style="background:{event["color"]};border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 14px;">'
+            f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{event["sentiment_pct"]}% 긍정</span>'
+            f'<span style="font-size:12px;color:#1E1E1E;opacity:0.55;"> · {label}</span>'
+            f'<span class="ttb">이 기간에 수집된 리뷰의 👍 비율.<br>시트 누적 리뷰 기반 실측치.<br>수집된 리뷰가 적을수록 오차가 커질 수 있습니다.</span></div>'
+        )
+        + (
+            (
+                f'<div class="tt" style="background:#F4F5F7;border:1.5px solid #1E1E1E;border-radius:10px;padding:6px 14px;">'
+                f'<span style="font-size:12px;color:#757575;">리뷰 </span>'
+                f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(event["review_count"])}건</span>'
+                f'<span class="ttb">이 기간(날짜 기준)에 실제 작성된 리뷰 수.<br>시트 누적 리뷰의 timestamp 기반 실측치.<br>0건 = 해당 기간 리뷰 아직 미수집.</span></div>'
+            ) if event["review_count"] > 0 else (
+                f'<div class="tt" style="background:#F9F9F9;border:1.5px dashed #CCCCCC;border-radius:10px;padding:6px 14px;">'
+                f'<span style="font-size:12px;color:#AAAAAA;">리뷰 수집 전 기간</span>'
+                f'<span class="ttb">이 기간 리뷰가 아직 시트에 수집되지 않았습니다.<br>스팀곡괭이가 매일 05:00 KST에 누적 수집하며<br>리뷰가 쌓이면 수치가 채워집니다.</span></div>'
+            )
+        )
+        + f'</div>'
         # 설명
         f'<p style="font-size:13px;color:#444;line-height:1.75;margin:0 0 14px 0;word-break:keep-all;">{event["description"]}</p>'
         # 이슈 칩
         f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">{issue_chips}</div>'
         # 유저 반응 요약
         f'<div style="background:#F4F5F7;border-radius:12px;padding:12px 16px;margin-bottom:14px;">'
-        f'<div style="font-size:10px;font-weight:700;color:#757575;margin-bottom:4px;letter-spacing:0.5px;">💬 유저 반응 요약</div>'
+        f'<div class="tt" style="font-size:10px;font-weight:700;color:#757575;margin-bottom:4px;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:4px;">💬 유저 반응 요약'
+        f'<span class="ttb">이 기간 수집된 전체 언어 리뷰를 Gemini AI가 분석·요약.<br>실제 리뷰 샘플과 월별 통계를 함께 참조.</span></div>'
         f'<div style="font-size:13px;color:#1E1E1E;line-height:1.7;word-break:keep-all;">{event["kr_summary"]}</div></div>'
         # 주요 리뷰 원문
         f'{reviews_html}'
         # 언어 분포
-        f'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
-        f'<span style="font-size:11px;color:#757575;font-weight:600;">TOP 리뷰 언어</span>{lang_chips}</div>'
+        f'<div class="tt" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">'
+        f'<span style="font-size:11px;color:#757575;font-weight:600;">TOP 리뷰 언어</span>{lang_chips}'
+        f'<span class="ttb">이 기간 수집된 리뷰 중 votes_up 상위 리뷰들의 언어 분포.<br>Gemini AI가 분석에 활용한 주요 언어.</span></div>'
         f'</div></div></div>',
         unsafe_allow_html=True,
     )
@@ -1115,6 +1185,13 @@ def render_game_detail(appid: int):
         if is_real_data:
             chart_reviews = _load_reviews_cached(appid)
 
+        # ── 실측치로 이벤트 통계 갱신 ──
+        if chart_reviews:
+            events = _apply_actual_stats_to_events(events, chart_reviews)
+
+        # ── 분석 기반 리뷰 수 = 시트 실적재 수 ──
+        actual_archived = len(chart_reviews) if chart_reviews else active_count
+
         # ── 메타 정보 + 재생성 버튼 ──
         uuid_badge = (
             f'<span style="font-size:11px;font-family:monospace;background:#F4F5F7;'
@@ -1127,14 +1204,17 @@ def render_game_detail(appid: int):
             st.markdown(
                 f'<div style="background:#FFFFFF;border:1.5px solid #1E1E1E;border-radius:16px;'
                 f'padding:14px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;height:100%;">'
-                f'<span style="font-size:12px;color:#757575;font-weight:600;">총 이벤트</span>'
-                f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{len(events)}개</span>'
+                + _tt('<span style="font-size:12px;color:#757575;font-weight:600;">총 이벤트</span>',
+                      'Gemini AI가 리뷰 트렌드+Steam 뉴스 기반으로 탐지한 주요 이벤트 수.')
+                + f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{len(events)}개</span>'
                 f'<span style="display:inline-block;width:1.5px;height:18px;background:#E0E0E0;"></span>'
-                f'<span style="font-size:12px;color:#757575;font-weight:600;">분석 기반 리뷰</span>'
-                f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(active_count)}건</span>'
+                + _tt('<span style="font-size:12px;color:#757575;font-weight:600;">시트 적재 리뷰</span>',
+                      f'Google Sheets에 실제 수집·저장된 리뷰 수.<br>이 리뷰들로 각 이벤트의 sentiment·리뷰수를 실측 계산합니다.<br>Steam 전체 리뷰: {fmt_number(game.get("total_reviews",0))}건')
+                + f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">{fmt_number(actual_archived)}건</span>'
                 f'<span style="display:inline-block;width:1.5px;height:18px;background:#E0E0E0;"></span>'
-                f'<span style="font-size:12px;color:#757575;font-weight:600;">자동 업데이트</span>'
-                f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">매일 05:00 KST</span>'
+                + _tt('<span style="font-size:12px;color:#757575;font-weight:600;">자동 업데이트</span>',
+                      '스팀곡괭이(GitHub Actions)가 매일 05:00 KST에 신규 리뷰를 증분 수집.<br>누적 기준(500→2000→10000→...)에 도달할 때마다 타임라인 재분석.')
+                + f'<span style="font-size:13px;font-weight:700;color:#1E1E1E;">매일 05:00 KST</span>'
                 f'{(" &nbsp;" + uuid_badge) if uuid_badge else ""}'
                 f'</div>',
                 unsafe_allow_html=True,
@@ -1173,8 +1253,15 @@ def render_game_detail(appid: int):
                 st.rerun()
 
         # ── 민심 추이 헤더 + 정렬/언어 필터 ──
-        st.markdown("""<div style="margin:20px 0 10px 0;font-size:16px;font-weight:700;color:#1E1E1E;">📈 민심 추이</div>""",
-            unsafe_allow_html=True)
+        st.markdown(
+            _tt(
+                '<span style="margin:20px 0 10px 0;font-size:16px;font-weight:700;color:#1E1E1E;display:inline-block;">📈 민심 추이</span>',
+                '각 이벤트 기간의 긍정 리뷰 비율(%) 추이.<br>'
+                '시트에 수집된 리뷰의 voted_up 기반 실측치.<br>'
+                '언어 필터 선택 시 해당 언어 리뷰만으로 재계산.'
+            ),
+            unsafe_allow_html=True,
+        )
 
         _MAIN_LANGS = ["전체", "한국어", "영어", "중국어 간체", "중국어 번체", "기타"]
         _MAIN_LANG_CODES = {"한국어": "koreana", "영어": "english", "중국어 간체": "schinese", "중국어 번체": "tchinese"}
