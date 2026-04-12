@@ -79,7 +79,7 @@ def run():
                         news        = fetch_steam_news(appid)
                         game_detail = fetch_game_info(appid) or {}
 
-                        events = analyze_reviews_to_timeline(
+                        events, gen_uuid = analyze_reviews_to_timeline(
                             game_name     = name,
                             release_date  = game.get("release_date", ""),
                             total_reviews = game_detail.get("total_reviews", new_total),
@@ -87,7 +87,7 @@ def run():
                             steam_news    = news,
                         )
                         save_timeline_events(client, appid, events, overwrite=True)
-                        print(f"     ✅ 타임라인 {len(events)}개 이벤트 저장")
+                        print(f"     ✅ 타임라인 {len(events)}개 이벤트 저장  ·  UUID {gen_uuid}")
                     except Exception as ge:
                         print(f"     ⚠️  Gemini 재분석 실패 (수집은 성공): {ge}")
                 else:

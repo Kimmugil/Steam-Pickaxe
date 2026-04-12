@@ -10,6 +10,7 @@ Google Sheets 연동 모듈
 서비스 계정은 파일을 생성하지 않으며, 워크시트 추가/읽기/쓰기만 합니다.
 """
 
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timezone
@@ -58,23 +59,29 @@ REVIEW_COLUMNS = [
 
 # 타임라인 이벤트 컬럼
 TIMELINE_COLUMNS = [
-    "event_id",         # 이벤트 고유 ID (evt_001)
-    "name",             # 이벤트명
-    "date",             # 이벤트 발생일 (YYYY-MM-DD)
-    "period_end",       # 영향 기간 종료일
-    "type",             # launch / update / crisis / controversy / recovery
-    "type_label",       # 한글 표시명
-    "sentiment_pct",    # 긍정 비율 (%)
-    "review_count",     # 해당 기간 리뷰 수
-    "description",      # 이벤트 설명
-    "key_issues",       # 주요 이슈 (파이프 | 구분)
-    "top_langs",        # TOP 언어 (파이프 | 구분)
-    "kr_summary",       # 한국어 유저 반응 요약
-    "color",            # 카드 색상 코드
-    "user_edited",      # 유저가 수정했는지 여부 (TRUE/FALSE)
-    "created_at",       # 최초 생성 시각 (ISO)
-    "updated_at",       # 최근 수정 시각 (ISO)
+    "event_id",          # 이벤트 고유 ID (evt_001)
+    "name",              # 이벤트명
+    "date",              # 이벤트 발생일 (YYYY-MM-DD)
+    "period_end",        # 영향 기간 종료일
+    "type",              # launch / update / crisis / controversy / recovery
+    "type_label",        # 한글 표시명
+    "sentiment_pct",     # 긍정 비율 (%)
+    "review_count",      # 해당 기간 리뷰 수
+    "description",       # 이벤트 설명
+    "key_issues",        # 주요 이슈 (파이프 | 구분)
+    "top_langs",         # TOP 언어 (파이프 | 구분)
+    "kr_summary",        # 한국어 유저 반응 요약
+    "color",             # 카드 색상 코드
+    "user_edited",       # 유저가 수정했는지 여부 (TRUE/FALSE)
+    "source_url",        # 이벤트 근거 패치노트/뉴스 URL
+    "top_reviews",       # 해당 기간 대표 리뷰 JSON 배열 문자열
+    "generation_uuid",   # 타임라인 생성 UUID (8자)
+    "created_at",        # 최초 생성 시각 (ISO)
+    "updated_at",        # 최근 수정 시각 (ISO)
 ]
+
+# 타임라인 버전 히스토리 워크시트 컬럼
+TL_HISTORY_COLUMNS = ["uuid", "created_at", "based_on_reviews", "based_on_news", "event_count", "events_json"]
 
 
 # ─────────────────────────────────────────────
@@ -347,7 +354,15 @@ def save_timeline_events(
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    n_cols = len(TIMELINE_COLUMNS)
+    last_col = chr(ord("A") + n_cols - 1)  # e.g. "S" for 19 columns
+
     def _event_row(e: dict) -> list:
+        top_reviews_val = e.get("top_reviews", [])
+        if isinstance(top_reviews_val, list):
+            top_reviews_str = json.dumps(top_reviews_val, ensure_ascii=False)
+        else:
+            top_reviews_str = str(top_reviews_val)
         return [
             e.get("event_id", ""),
             e.get("name", ""),
@@ -363,6 +378,9 @@ def save_timeline_events(
             e.get("kr_summary", ""),
             e.get("color", ""),
             str(e.get("user_edited", False)),
+            e.get("source_url", ""),
+            top_reviews_str,
+            e.get("generation_uuid", ""),
             e.get("created_at", now_iso),
             now_iso,
         ]
@@ -381,7 +399,7 @@ def save_timeline_events(
             row_data = _event_row(e)
             if eid and eid in existing_ids:
                 row_num = existing_ids[eid]
-                ws.update(f"A{row_num}:P{row_num}", [row_data])
+                ws.update(f"A{row_num}:{last_col}{row_num}", [row_data])
             else:
                 ws.append_row(row_data, value_input_option="RAW")
 
@@ -419,3 +437,38 @@ def update_event_field(
             return True
 
     return False
+
+
+# ─────────────────────────────────────────────
+#  타임라인 버전 히스토리
+# ─────────────────────────────────────────────
+def save_timeline_version(
+    client: gspread.Client,
+    appid: int,
+    uuid: str,
+    created_at: str,
+    based_on_reviews: int,
+    based_on_news: int,
+    event_count: int,
+    events_json: str,
+) -> None:
+    """타임라인 생성 이력을 저장합니다."""
+    ss = _get_master_spreadsheet(client)
+    ws_name = f"tl_hist_{appid}"
+    try:
+        ws = ss.worksheet(ws_name)
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet(ws_name, rows=100, cols=len(TL_HISTORY_COLUMNS))
+        ws.append_row(TL_HISTORY_COLUMNS)
+        ws.freeze(rows=1)
+    ws.append_row([uuid, created_at, based_on_reviews, based_on_news, event_count, events_json])
+
+
+def load_timeline_versions(client: gspread.Client, appid: int) -> list[dict]:
+    """타임라인 버전 이력을 최신순으로 반환합니다."""
+    ss = _get_master_spreadsheet(client)
+    try:
+        ws = ss.worksheet(f"tl_hist_{appid}")
+        return list(reversed(ws.get_all_records()))
+    except gspread.WorksheetNotFound:
+        return []
