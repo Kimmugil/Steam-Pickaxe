@@ -51,12 +51,14 @@ function doPost(e) {
     // appid는 "_" 기준 두 번째 토큰
     var parts = fileName.split("_");
     var appid = parts.length >= 3 ? parts[2] : fileName;
+    // DriveApp.searchFiles()는 'folderId' in parents 문법 미지원 →
+    // folder.searchFiles()로 폴더 내에서 직접 검색
+    var folder = DriveApp.getFolderById(folderId);
     var searchQuery = "name contains 'RAW_REVIEWS_" + appid + "'"
-                    + " and '" + folderId + "' in parents"
                     + " and trashed=false"
                     + " and mimeType='application/vnd.google-apps.spreadsheet'";
 
-    var existingFiles = DriveApp.searchFiles(searchQuery);
+    var existingFiles = folder.searchFiles(searchQuery);
     if (existingFiles.hasNext()) {
       // 이미 존재하면 기존 파일 재사용 (멱등성 보장)
       var existingFile = existingFiles.next();
@@ -74,7 +76,7 @@ function doPost(e) {
     }
 
     // ── 3. 지정된 폴더에 스프레드시트 신규 생성 (내 계정으로 실행) ────────
-    var folder = DriveApp.getFolderById(folderId);
+    // folder는 위 2단계에서 이미 가져옴
     var newSS  = SpreadsheetApp.create(fileName);          // 내 Drive에 생성
     var file   = DriveApp.getFileById(newSS.getId());
 
