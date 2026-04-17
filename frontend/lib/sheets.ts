@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { unstable_cache } from "next/cache";
 import type { Game, TimelineRow, CcuRow, ConfigMap } from "@/types";
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
@@ -205,3 +206,26 @@ export async function appendCcuRows(appid: string, newRows: string[][]) {
     requestBody: { values: newRows },
   });
 }
+
+// ── ui_text (CMS) ─────────────────────────────────────
+// Google Sheets의 ui_text 탭을 읽어 { key: value } 맵으로 반환.
+// unstable_cache로 60초 TTL 캐싱 — Sheets API 호출 횟수 최소화.
+
+async function _fetchUiText(): Promise<Record<string, string>> {
+  try {
+    const rows = await readSheet("ui_text");
+    const map: Record<string, string> = {};
+    // 헤더 행(row[0]) 제외, key/value 파싱
+    rows.slice(1).forEach((r) => {
+      if (r[0]?.trim()) map[r[0].trim()] = r[1] ?? "";
+    });
+    return map;
+  } catch {
+    // ui_text 탭이 아직 없거나 API 오류 → 빈 객체 반환 (폴백 처리는 클라이언트)
+    return {};
+  }
+}
+
+export const getUiText = unstable_cache(_fetchUiText, ["ui-text"], {
+  revalidate: 60, // 60초마다 Sheets에서 재조회
+});

@@ -3,7 +3,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Toast, { useToast } from "@/components/shared/Toast";
-import { UI_TEXT } from "@/lib/ui-text";
+import { useUiText } from "@/contexts/UiTextContext";
 
 interface SearchResult {
   appid: string;
@@ -24,6 +24,7 @@ function extractAppIdFromUrl(input: string): string | null {
 }
 
 export default function SearchBox() {
+  const { t } = useUiText();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -37,7 +38,7 @@ export default function SearchBox() {
     const raw = query.trim();
     if (!raw) return;
 
-    // Steam Store URL → AppID 자동 추출 (Item 6)
+    // Steam Store URL → AppID 자동 추출
     const extracted = extractAppIdFromUrl(raw);
     const searchQuery = extracted ?? raw;
 
@@ -50,12 +51,12 @@ export default function SearchBox() {
     setLoading(false);
 
     if (data.error === "already_registered") {
-      show(UI_TEXT.SEARCH_ALREADY_REGISTERED, "info");
+      show(t("SEARCH_ALREADY_REGISTERED"), "info");
       setTimeout(() => router.push(`/game/${data.appid}`), 1200);
       return;
     }
     if (data.error === "not_game") {
-      show(UI_TEXT.SEARCH_NOT_GAME, "warning");
+      show(t("SEARCH_NOT_GAME"), "warning");
       return;
     }
     if (!data.appid) {
@@ -81,14 +82,14 @@ export default function SearchBox() {
     setRegistering(false);
 
     if (data.ok) {
-      show(UI_TEXT.REGISTER_SUCCESS(result.name), "success");
+      show(t("REGISTER_SUCCESS", { name: result.name }), "success");
       setResult(null);
       setQuery("");
       setTimeout(() => router.refresh(), 1500);
     } else if (data.quota_exceeded) {
-      show(UI_TEXT.REGISTER_QUOTA_EXCEEDED, "error");
+      show(t("REGISTER_QUOTA_EXCEEDED"), "error");
     } else {
-      show(data.error ?? UI_TEXT.REGISTER_ERROR, "error");
+      show(data.error ?? t("REGISTER_ERROR"), "error");
     }
   }
 
@@ -99,7 +100,7 @@ export default function SearchBox() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={UI_TEXT.SEARCH_PLACEHOLDER}
+          placeholder={t("SEARCH_PLACEHOLDER")}
           className="flex-1 bg-bg-card border border-border-default rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue transition-colors"
         />
         <button
@@ -107,24 +108,24 @@ export default function SearchBox() {
           disabled={loading || !query.trim()}
           className="px-5 py-3 bg-accent-blue text-white rounded-lg font-medium hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? UI_TEXT.SEARCH_BTN_LOADING : UI_TEXT.SEARCH_BTN}
+          {loading ? t("SEARCH_BTN_LOADING") : t("SEARCH_BTN")}
         </button>
       </form>
 
-      {/* 한글 검색 안내 (Item 5) */}
+      {/* 한글 검색 안내 */}
       <p className="mt-2 text-xs text-text-muted text-center">
-        {UI_TEXT.SEARCH_HINT}
+        {t("SEARCH_HINT")}
       </p>
 
       {notFound && (
         <p className="mt-3 text-text-muted text-sm text-center">
-          {UI_TEXT.SEARCH_NOT_FOUND}
+          {t("SEARCH_NOT_FOUND")}
         </p>
       )}
 
       {result && (
         <div className="mt-4 bg-bg-card border border-border-default rounded-xl overflow-hidden">
-          {/* 썸네일 — 전체 너비로 크게 표시 (Item 3) */}
+          {/* 썸네일 — 전체 너비, Steam 공식 비율 */}
           <div className="relative w-full aspect-[460/215] bg-bg-secondary">
             <Image
               src={result.thumbnail}
@@ -142,48 +143,44 @@ export default function SearchBox() {
                 {result.name}
               </p>
 
-              {/* AppID */}
               <p className="text-xs text-text-secondary">
-                <span className="text-text-muted">{UI_TEXT.RESULT_LABEL_APPID}:</span>{" "}
+                <span className="text-text-muted">{t("RESULT_LABEL_APPID")}:</span>{" "}
                 {result.appid}
               </p>
 
-              {/* 출시일 (Item 7) */}
               {result.release_date && (
                 <p className="text-xs text-text-secondary">
-                  <span className="text-text-muted">{UI_TEXT.RESULT_LABEL_RELEASE}:</span>{" "}
+                  <span className="text-text-muted">{t("RESULT_LABEL_RELEASE")}:</span>{" "}
                   {result.release_date}
                 </p>
               )}
 
-              {/* 개발사 (Item 7) */}
               {result.developers && result.developers.length > 0 && (
                 <p className="text-xs text-text-secondary">
-                  <span className="text-text-muted">{UI_TEXT.RESULT_LABEL_DEVELOPER}:</span>{" "}
+                  <span className="text-text-muted">{t("RESULT_LABEL_DEVELOPER")}:</span>{" "}
                   {result.developers.join(", ")}
                 </p>
               )}
 
-              {/* 배급사 (Item 7) */}
-              {result.publishers && result.publishers.length > 0 &&
-                // 배급사가 개발사와 동일하면 생략
+              {result.publishers &&
+                result.publishers.length > 0 &&
                 result.publishers.join(",") !== result.developers?.join(",") && (
-                <p className="text-xs text-text-secondary">
-                  <span className="text-text-muted">{UI_TEXT.RESULT_LABEL_PUBLISHER}:</span>{" "}
-                  {result.publishers.join(", ")}
-                </p>
-              )}
+                  <p className="text-xs text-text-secondary">
+                    <span className="text-text-muted">{t("RESULT_LABEL_PUBLISHER")}:</span>{" "}
+                    {result.publishers.join(", ")}
+                  </p>
+                )}
 
-              {/* 리뷰 통계 */}
-              {result.positiveRate !== undefined && result.totalReviews !== undefined && (
-                <p className="text-xs text-text-secondary">
-                  <span className="text-text-muted">{UI_TEXT.RESULT_LABEL_POSITIVE_RATE}:</span>{" "}
-                  {result.positiveRate}%
-                  <span className="mx-1 text-text-muted">·</span>
-                  <span className="text-text-muted">{UI_TEXT.RESULT_LABEL_REVIEWS}:</span>{" "}
-                  {result.totalReviews.toLocaleString()}건
-                </p>
-              )}
+              {result.positiveRate !== undefined &&
+                result.totalReviews !== undefined && (
+                  <p className="text-xs text-text-secondary">
+                    <span className="text-text-muted">{t("RESULT_LABEL_POSITIVE_RATE")}:</span>{" "}
+                    {result.positiveRate}%
+                    <span className="mx-1 text-text-muted">·</span>
+                    <span className="text-text-muted">{t("RESULT_LABEL_REVIEWS")}:</span>{" "}
+                    {result.totalReviews.toLocaleString()}건
+                  </p>
+                )}
             </div>
 
             <button
@@ -191,7 +188,7 @@ export default function SearchBox() {
               disabled={registering}
               className="shrink-0 px-4 py-2 bg-accent-green/20 border border-accent-green/40 text-accent-green rounded-lg text-sm font-medium hover:bg-accent-green/30 disabled:opacity-40 transition-colors"
             >
-              {registering ? UI_TEXT.REGISTER_BTN_LOADING : UI_TEXT.REGISTER_BTN}
+              {registering ? t("REGISTER_BTN_LOADING") : t("REGISTER_BTN")}
             </button>
           </div>
         </div>
