@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getConfig, setConfigValue, getTimeline, getGame } from "@/lib/sheets";
+import type { Game, TimelineRow } from "@/types";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -64,7 +65,7 @@ ${context}`,
   }
 }
 
-function buildContext(game: Record<string, unknown>, rows: Record<string, unknown>[]): string {
+function buildContext(game: Game, rows: TimelineRow[]): string {
   const parts: string[] = [
     `게임명: ${game.name_kr || game.name}`,
     `총 리뷰: ${game.totalReviews}건`,
