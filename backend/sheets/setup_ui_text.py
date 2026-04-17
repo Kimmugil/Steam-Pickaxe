@@ -90,6 +90,11 @@ DEFAULT_TEXT: list[tuple[str, str, str]] = [
     # 내비게이션
     ("NAV_BRAND",               "⚡ 스팀 탈곡기 Pro",                                       "사이트 브랜드명 (Navbar 좌측)"),
     ("NAV_GUIDE",               "분석 방법 가이드",                                         "가이드 페이지 링크 텍스트"),
+
+    # 풀 고갈 오류 (error_pool_empty 상태)
+    ("POOL_EMPTY_MSG",          "곳간 용량 부족! 농장주(김무길)에게 곳간을 늘려달라고 하세요.", "Sheet_Pool 소진 시 표시 메시지"),
+    ("POOL_EMPTY_RETRY_BTN",    "곳간 보충 후 재시도",                                      "풀 고갈 카드의 재시도 버튼"),
+    ("POOL_EMPTY_RETRY_SUCCESS","재시도 요청 완료. 다음 수집 실행 시 자동으로 처리됩니다.", "재시도 성공 토스트 메시지"),
 ]
 
 HEADERS = ["key", "value", "description"]
@@ -108,10 +113,10 @@ def setup_ui_text_tab():
     # 탭 존재 확인
     try:
         ws = ss.worksheet("ui_text")
-        print("✅ ui_text 탭이 이미 존재합니다.")
+        print("[OK] ui_text 탭이 이미 존재합니다.")
     except gspread.WorksheetNotFound:
         ws = ss.add_worksheet(title="ui_text", rows=200, cols=3)
-        print("🆕 ui_text 탭을 새로 생성했습니다.")
+        print("[NEW] ui_text 탭을 새로 생성했습니다.")
 
     # 현재 데이터 조회
     existing_data = ws.get_all_values()
@@ -121,7 +126,7 @@ def setup_ui_text_tab():
         ws.clear()
         all_rows = [HEADERS] + [[k, v, d] for k, v, d in DEFAULT_TEXT]
         ws.update(all_rows, "A1")
-        print(f"✅ 헤더 + {len(DEFAULT_TEXT)}개 기본값 삽입 완료.")
+        print(f"[OK] 헤더 + {len(DEFAULT_TEXT)}개 기본값 삽입 완료.")
         return
 
     # 헤더가 있으면 기존 키 확인 후 신규 키만 추가
@@ -133,9 +138,9 @@ def setup_ui_text_tab():
     ]
     if new_rows:
         ws.append_rows(new_rows)
-        print(f"➕ 신규 키 {len(new_rows)}개 추가: {[r[0] for r in new_rows]}")
+        print(f"[ADD] 신규 키 {len(new_rows)}개 추가: {[r[0] for r in new_rows]}")
     else:
-        print("ℹ️  추가할 신규 키 없음. 모든 키가 이미 존재합니다.")
+        print("[INFO] 추가할 신규 키 없음. 모든 키가 이미 존재합니다.")
     print("완료! Google Sheets에서 value 열을 수정하면 60초 내 웹 UI에 반영됩니다.")
 
 

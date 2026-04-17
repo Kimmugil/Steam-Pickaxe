@@ -77,6 +77,11 @@ const FALLBACK: Record<string, string> = {
   // 내비게이션
   NAV_BRAND: "⚡ 스팀 탈곡기 Pro",
   NAV_GUIDE: "분석 방법 가이드",
+
+  // 풀 고갈 오류 (error_pool_empty 상태)
+  POOL_EMPTY_MSG: "곳간 용량 부족! 농장주(김무길)에게 곳간을 늘려달라고 하세요.",
+  POOL_EMPTY_RETRY_BTN: "곳간 보충 후 재시도",
+  POOL_EMPTY_RETRY_SUCCESS: "재시도 요청 완료. 다음 수집 실행 시 자동으로 처리됩니다.",
 };
 
 // ── Context 타입 ──────────────────────────────────────────────────────────────

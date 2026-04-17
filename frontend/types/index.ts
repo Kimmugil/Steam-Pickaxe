@@ -1,4 +1,4 @@
-export type GameStatus = "active" | "collecting" | "archived";
+export type GameStatus = "active" | "collecting" | "archived" | "error_pool_empty";
 
 export interface Game {
   appid: string;

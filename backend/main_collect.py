@@ -2,12 +2,14 @@
 일일 수집 진입점 (GitHub Actions: collect.yml)
 - active/collecting 상태인 모든 게임의 리뷰 + 뉴스 수집
 - collecting 완료 시 active로 상태 전환
+- Sheet_Pool을 통해 사전 할당된 시트에 RAW 리뷰 저장
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sheets.master_sheet import get_spreadsheet, get_all_games, update_game
-from sheets.raw_reviews import get_or_create_raw_spreadsheet, append_reviews
+from sheets.raw_reviews import open_raw_spreadsheet, append_reviews
+from sheets.sheet_pool import allocate_sheet, get_pool_status
 from collectors.steam_reviews import collect_reviews_batch, get_total_review_count
 from collectors.steam_news import fetch_news, classify_news, parse_news_item
 from collectors.steam_meta import fetch_app_details, parse_game_meta
@@ -18,7 +20,6 @@ import json
 from datetime import datetime, timezone
 from config import MASTER_SPREADSHEET_ID
 
-GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "")
 MAX_PAGES_PER_RUN = 450  # 약 36,000건 / 6시간 GitHub Actions 제한 대응
 
 
@@ -26,10 +27,16 @@ def run():
     ss = get_spreadsheet()
     games = get_all_games(ss)
 
+    # 풀 현황 로깅
+    pool_info = get_pool_status(ss)
+    print(f"[POOL 현황] 전체={pool_info['total']} / 사용중={pool_info['used']} / 여유={pool_info['empty']}")
+
     for game in games:
         status = game.get("status", "")
         appid = str(game.get("appid", ""))
 
+        # error_pool_empty 상태도 재시도 대상에서 제외
+        # (관리자가 풀을 보충하고 retry-pool API로 상태를 collecting으로 되돌린 후에만 재시도)
         if status not in ("active", "collecting"):
             continue
 
@@ -53,7 +60,7 @@ def run():
                 "active_players_2weeks": spy_meta["active_players_2weeks"],
                 "peak_ccu": peak_ccu,
             })
-            print(f"메타데이터 갱신 완료")
+            print("메타데이터 갱신 완료")
 
         # 2. 뉴스/패치노트 수집 (active 상태에서만)
         if status == "active":
@@ -71,9 +78,30 @@ def run():
         )
 
         if reviews:
-            raw_ss = get_or_create_raw_spreadsheet(GDRIVE_FOLDER_ID, appid, game.get("name", appid))
+            # ── Sheet Pool에서 시트 할당 ──────────────────────────────────────
+            # 서비스 계정은 파일을 생성할 수 없으므로(Drive 0GB 할당량 제한),
+            # 관리자가 사전 생성한 시트를 Sheet_Pool 탭에서 꺼내 사용합니다.
+            sheet_id = allocate_sheet(ss, appid)
+
+            if sheet_id is None:
+                # 풀 고갈 — 크래시 없이 우아하게 처리
+                print(f"[POOL EMPTY] {game.get('name')} (AppID={appid})")
+                print("[POOL EMPTY] Sheet_Pool에 여유 시트가 없습니다. status=error_pool_empty로 설정.")
+                print("[POOL EMPTY] 관리자가 Sheet_Pool 탭에 새 시트를 추가한 후 retry 필요.")
+                update_game(ss, appid, {"status": "error_pool_empty"})
+                continue  # 이 게임은 건너뜀, 다음 게임으로 진행
+
+            # 할당된 시트 열기 (파일 생성 없음)
+            try:
+                raw_ss = open_raw_spreadsheet(sheet_id)
+            except Exception as e:
+                print(f"[ERROR] 시트 열기 실패 (sheet_id={sheet_id}): {e}")
+                print("[ERROR] 서비스 계정이 해당 시트에 편집 권한이 있는지 확인하세요.")
+                update_game(ss, appid, {"status": "error_pool_empty"})
+                continue
+
             added = append_reviews(raw_ss, reviews)
-            print(f"리뷰 {added}건 신규 추가")
+            print(f"리뷰 {added}건 신규 추가 (시트: {sheet_id})")
 
             collected = int(game.get("collected_reviews_count", 0) or 0) + added
             updates = {
@@ -85,8 +113,10 @@ def run():
             if next_cursor == last_cursor or next_cursor == "*":
                 updates["status"] = "active"
                 updates["last_cursor"] = ""
-                print(f"수집 완료 → active 전환")
+                print("수집 완료 → active 전환")
+
             update_game(ss, appid, updates)
+
         else:
             # 리뷰 없음 = 이미 최신
             if status == "collecting":
@@ -122,9 +152,10 @@ def _collect_news(ss, appid: str, game_name: str):
 
     if added:
         print(f"뉴스/패치 {added}건 추가")
-        # 마지막 이벤트 날짜 업데이트
-        all_official = [r for r in get_timeline(ss, appid)
-                        if r.get("event_type") in ("official", "manual") and r.get("date")]
+        all_official = [
+            r for r in get_timeline(ss, appid)
+            if r.get("event_type") in ("official", "manual") and r.get("date")
+        ]
         if all_official:
             last_date = max(r["date"] for r in all_official)
             update_game(ss, appid, {"last_event_date": last_date})

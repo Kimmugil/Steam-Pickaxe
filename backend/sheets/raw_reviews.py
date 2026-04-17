@@ -1,19 +1,27 @@
 """
-RAW_REVIEWS_{appid} 스프레드시트 읽기/쓰기
-게임별 별도 파일, 연도별 탭 분리
-프론트엔드가 직접 읽지 않음 — AI 분석 시에만 백엔드가 사용
+raw_reviews.py — RAW 리뷰 시트 읽기/쓰기
+
+[중요] 이 모듈은 더 이상 스프레드시트 파일을 생성하지 않습니다.
+서비스 계정의 Drive 저장 공간이 0GB이므로 파일 생성 시 403 오류가 발생합니다.
+대신 Sheet_Pool 시스템을 통해 관리자가 사전 생성한 시트를 사용합니다.
+
+사용 흐름:
+  1. sheet_pool.allocate_sheet(ss_master, appid) → sheet_id 반환
+  2. open_raw_spreadsheet(sheet_id) → gspread.Spreadsheet 반환
+  3. append_reviews(raw_ss, reviews) → 리뷰 데이터 추가
 """
+
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 from typing import Optional
 import sys, os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import get_google_creds
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
 ]
 
 RAW_HEADERS = [
@@ -21,58 +29,36 @@ RAW_HEADERS = [
     "timestamp_created", "playtime_at_review", "votes_up", "votes_funny",
 ]
 
-def get_client() -> gspread.Client:
+
+def _get_client() -> gspread.Client:
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
     return gspread.authorize(creds)
 
-def get_or_create_raw_spreadsheet(drive_folder_id: str, appid: str, name: str) -> gspread.Spreadsheet:
+
+def open_raw_spreadsheet(sheet_id: str) -> gspread.Spreadsheet:
     """
-    서비스 계정 My Drive 용량 문제를 피하기 위해,
-    파일 생성부터 사용자 공유 폴더에 직접 수행.
+    Sheet_Pool에서 할당된 sheet_id로 스프레드시트를 엽니다.
+    파일 생성을 하지 않으므로 Drive 저장 공간 초과 문제 없음.
+
+    Args:
+        sheet_id: 스프레드시트 ID (URL이 아닌 순수 ID여야 함 — sheet_pool이 정규화함)
+
+    Raises:
+        gspread.exceptions.SpreadsheetNotFound: 해당 시트 접근 불가
     """
-    client = get_client()
-    title = f"RAW_REVIEWS_{appid}_{name}"
+    client = _get_client()
+    return client.open_by_key(sheet_id)
 
-    from googleapiclient.discovery import build
-    from google.oauth2.service_account import Credentials as SACredentials
-    sa_creds = SACredentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
-    drive_service = build("drive", "v3", credentials=sa_creds)
-
-    # 1. 폴더 내 기존 파일 검색 (appid 기준, 게임명 변경에도 안전)
-    if drive_folder_id:
-        query = (
-            f"name contains 'RAW_REVIEWS_{appid}' "
-            f"and '{drive_folder_id}' in parents "
-            f"and trashed=false"
-        )
-        results = drive_service.files().list(q=query, fields="files(id,name)").execute()
-        existing = results.get("files", [])
-        if existing:
-            return client.open_by_key(existing[0]["id"])
-
-        # 2. 없으면 사용자 폴더에 직접 생성 (서비스 계정 My Drive 사용 안 함)
-        file_metadata = {
-            "name": title,
-            "mimeType": "application/vnd.google-apps.spreadsheet",
-            "parents": [drive_folder_id],
-        }
-        file = drive_service.files().create(
-            body=file_metadata,
-            fields="id",
-            supportsAllDrives=True,
-        ).execute()
-        return client.open_by_key(file["id"])
-
-    # folder_id 없으면 서비스 계정 Drive에 생성 (fallback)
-    return client.create(title)
 
 def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksheet:
+    """연도별 탭 반환. 없으면 헤더 포함 신규 생성."""
     tab_name = f"reviews_{year}"
     try:
         ws = ss.worksheet(tab_name)
     except gspread.WorksheetNotFound:
         ws = ss.add_worksheet(title=tab_name, rows=300000, cols=len(RAW_HEADERS))
         ws.append_row(RAW_HEADERS)
+        # 새 시트 기본 탭(Sheet1) 제거
         try:
             default_ws = ss.worksheet("Sheet1")
             ss.del_worksheet(default_ws)
@@ -80,16 +66,24 @@ def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksh
             pass
     return ws
 
+
 def get_existing_ids(ss: gspread.Spreadsheet, year: int) -> set:
+    """해당 연도 탭의 recommendationid 집합 반환 (중복 방지용)."""
     try:
         ws = get_or_create_year_tab(ss, year)
-        col = ws.col_values(1)[1:]
+        col = ws.col_values(1)[1:]  # 헤더 제외
         return set(col)
     except Exception:
         return set()
 
+
 def append_reviews(ss: gspread.Spreadsheet, reviews: list[dict]) -> int:
-    """중복 제외 후 신규 리뷰만 추가, 추가된 건수 반환"""
+    """
+    중복을 제외한 신규 리뷰만 연도별 탭에 추가합니다.
+
+    Returns:
+        int: 실제로 추가된 리뷰 건수
+    """
     by_year: dict[int, list] = {}
     for r in reviews:
         ts = int(r.get("timestamp_created", 0))
@@ -120,8 +114,14 @@ def append_reviews(ss: gspread.Spreadsheet, reviews: list[dict]) -> int:
             added += len(new_rows)
     return added
 
-def get_reviews_in_range(ss: gspread.Spreadsheet, start_ts: int, end_ts: int, years: list[int]) -> list[dict]:
-    """특정 기간의 리뷰를 가져와 Gemini 분석용으로 반환"""
+
+def get_reviews_in_range(
+    ss: gspread.Spreadsheet,
+    start_ts: int,
+    end_ts: int,
+    years: list[int],
+) -> list[dict]:
+    """특정 기간의 리뷰를 가져와 Gemini 분석용으로 반환."""
     results = []
     for year in years:
         try:

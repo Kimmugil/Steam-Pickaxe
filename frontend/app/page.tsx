@@ -19,7 +19,10 @@ export default async function HomePage() {
   const [games, uiText] = await Promise.all([getGames(), getUiText()]);
 
   const activeGames = games.filter((g) => g.status === "active");
-  const collectingGames = games.filter((g) => g.status === "collecting");
+  // error_pool_empty도 수집 대기열에 표시 (관리자가 재시도 가능하도록)
+  const collectingGames = games.filter(
+    (g) => g.status === "collecting" || g.status === "error_pool_empty"
+  );
 
   // 서버 컴포넌트용 간단한 텍스트 조회 헬퍼
   const t = (key: string) => uiText[key] ?? key;
