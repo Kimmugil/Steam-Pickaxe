@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { appendGame, getAllGames } from "@/lib/sheets";
 import { getSteamReviewSummary } from "@/lib/steam";
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN!;
+const GITHUB_TOKEN = process.env.GH_PAT!;
 const GITHUB_REPO = process.env.GITHUB_REPO ?? "Kimmugil/Steam-Pickaxe";
 
 export async function POST(req: NextRequest) {

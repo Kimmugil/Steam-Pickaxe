@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConfig, appendTimelineRow, deleteTimelineRowsByEventId, getTimeline } from "@/lib/sheets";
 import { v4 as uuidv4 } from "uuid";
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN!;
+const GITHUB_TOKEN = process.env.GH_PAT!;
 const GITHUB_REPO = process.env.GITHUB_REPO ?? "Kimmugil/Steam-Pickaxe";
 
 export async function POST(req: NextRequest) {
