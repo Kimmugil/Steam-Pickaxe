@@ -36,7 +36,7 @@ export default function GuidePage() {
       title: "데이터 원천 수집 기준 및 Steam API 파라미터",
       content: (
         <ul className="space-y-2 list-none">
-          <li><span className="text-accent-blue font-mono text-xs">Endpoint:</span> store.steampowered.com/appreviews/{"{"appid{"}"}</li>
+          <li><span className="text-accent-blue font-mono text-xs">Endpoint:</span> store.steampowered.com/appreviews/&#123;appid&#125;</li>
           <li><span className="text-accent-blue font-mono text-xs">파라미터:</span> filter=recent · purchase_type=all · language=all · num_per_page=<strong>80</strong></li>
           <li>⚠️ num_per_page=100 설정 시 일부 게임에서 리뷰 드롭 버그 발생 — 반드시 80으로 고정</li>
           <li>커서 기반 페이지네이션. 이전 커서=현재 커서 감지 시 수집 완료로 판단.</li>
