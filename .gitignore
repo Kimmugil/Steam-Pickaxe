@@ -27,5 +27,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Streamlit 캐시
-.streamlit/secrets.toml
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/.env.local
+frontend/.env
