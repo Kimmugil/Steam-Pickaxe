@@ -1,8 +1,7 @@
 import SearchBox from "@/components/home/SearchBox";
 import GameCard from "@/components/home/GameCard";
-import QueueCard from "@/components/home/QueueCard";
+import QueueCardWrapper from "@/components/home/QueueCardWrapper";
 import { getAllGames } from "@/lib/sheets";
-import type { Game } from "@/types";
 
 export const revalidate = 60; // 60초마다 재검증
 
@@ -43,7 +42,7 @@ export default async function HomePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {collectingGames.map((game) => (
-              <QueueCardWrapper key={game.appid} game={game} />
+              <QueueCardWrapper key={String(game.appid)} game={game} />
             ))}
           </div>
         </section>
@@ -73,8 +72,3 @@ export default async function HomePage() {
   );
 }
 
-// QueueCard는 Client Component이므로 래퍼로 분리
-function QueueCardWrapper({ game }: { game: Game }) {
-  "use client";
-  return <QueueCard game={game} onCancelled={() => window.location.reload()} />;
-}

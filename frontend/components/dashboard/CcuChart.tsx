@@ -168,7 +168,6 @@ export default function CcuChart({
             dot={false}
             activeDot={{ r: 4 }}
             connectNulls={false}
-            strokeDasharray={(d: unknown) => (d as {isGap?: boolean}).isGap ? "4 4" : undefined}
           />
 
           {compareGame && compareFiltered.length > 0 && (
