@@ -14,22 +14,20 @@ async function getGames() {
 }
 
 export default async function HomePage() {
-  // 서버 컴포넌트는 React Context를 쓸 수 없으므로 getUiText() 직접 호출.
-  // layout.tsx와 동일한 unstable_cache 키를 사용하므로 추가 Sheets API 호출 없음.
   const [games, uiText] = await Promise.all([getGames(), getUiText()]);
 
   const activeGames = games.filter((g) => g.status === "active");
-  // error_pool_empty도 수집 대기열에 표시 (관리자가 재시도 가능하도록)
+  // error_pool_empty도 대기열에 표시 (관리자가 재시도 버튼 사용 가능)
   const collectingGames = games.filter(
     (g) => g.status === "collecting" || g.status === "error_pool_empty"
   );
 
-  // 서버 컴포넌트용 간단한 텍스트 조회 헬퍼
   const t = (key: string) => uiText[key] ?? key;
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-10">
-      {/* 헤더 */}
+
+      {/* ── 헤더 ──────────────────────────────────────────────────────── */}
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-text-primary mb-2">
           {t("HOME_TITLE")}
@@ -37,25 +35,31 @@ export default async function HomePage() {
         <p className="text-text-secondary text-base">{t("HOME_SUBTITLE")}</p>
       </div>
 
-      {/* 검색 (Client Component — useUiText() 사용) */}
+      {/* ── 검색창 ────────────────────────────────────────────────────── */}
       <SearchBox />
 
-      {/* 수집 대기열 */}
+      {/* ── 수집 대기열 (비어있으면 완전히 숨김) ─────────────────────── */}
       {collectingGames.length > 0 && (
         <section className="mt-12">
-          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 bg-accent-blue rounded-full animate-pulse" />
-            {t("QUEUE_SECTION_TITLE")}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {collectingGames.map((game) => (
-              <QueueCardWrapper key={String(game.appid)} game={game} />
-            ))}
+          {/* 시각적으로 구분된 "작업장" 컨테이너 */}
+          <div className="border border-dashed border-border-default rounded-2xl p-5 bg-bg-secondary">
+            <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 bg-accent-blue rounded-full animate-pulse" />
+              {t("QUEUE_SECTION_TITLE")}
+              <span className="ml-1 text-xs font-normal text-text-muted">
+                {collectingGames.length}개 처리 중
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {collectingGames.map((game) => (
+                <QueueCardWrapper key={String(game.appid)} game={game} />
+              ))}
+            </div>
           </div>
         </section>
       )}
 
-      {/* 분석 완료 게임 목록 */}
+      {/* ── 분석 완료 게임 목록 ───────────────────────────────────────── */}
       <section className="mt-12">
         <h2 className="text-lg font-semibold text-text-primary mb-4">
           {t("GAMES_SECTION_TITLE")}

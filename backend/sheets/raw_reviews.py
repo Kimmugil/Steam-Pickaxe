@@ -1,24 +1,32 @@
 """
 raw_reviews.py — RAW 리뷰 시트 읽기/쓰기
 
-[중요] 이 모듈은 더 이상 스프레드시트 파일을 생성하지 않습니다.
-서비스 계정의 Drive 저장 공간이 0GB이므로 파일 생성 시 403 오류가 발생합니다.
-대신 Sheet_Pool 시스템을 통해 관리자가 사전 생성한 시트를 사용합니다.
+[파일 생성 방식]
+서비스 계정은 Drive 저장 공간이 0GB이므로 직접 파일 생성이 불가능합니다.
+대신 Google Apps Script(GAS) 웹앱에 HTTP POST 요청을 보내,
+관리자(김무길) 계정 권한으로 파일을 생성하고 서비스 계정에 편집 권한을 부여합니다.
 
-사용 흐름:
-  1. sheet_pool.allocate_sheet(ss_master, appid) → sheet_id 반환
-  2. open_raw_spreadsheet(sheet_id) → gspread.Spreadsheet 반환
-  3. append_reviews(raw_ss, reviews) → 리뷰 데이터 추가
+흐름:
+  1. get_or_create_raw_spreadsheet(folder_id, appid, name)
+     → GAS 웹앱 POST → 관리자 계정으로 파일 생성 + 서비스 계정에 Editor 권한 부여
+     → spreadsheetId 반환
+  2. gspread 클라이언트로 해당 시트 열기 (서비스 계정 편집 권한으로 읽기/쓰기)
+  3. append_reviews() / get_reviews_in_range() 등 기존 함수 그대로 사용
+
+환경변수:
+  GAS_WEBAPP_URL  — gas/DEPLOY_GUIDE.md 참조하여 배포 후 등록
+  GOOGLE_SERVICE_ACCOUNT_JSON — 서비스 계정 JSON (기존과 동일)
 """
 
 import gspread
+import requests
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 from typing import Optional
 import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from config import get_google_creds
+from config import get_google_creds, GAS_WEBAPP_URL
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -29,25 +37,95 @@ RAW_HEADERS = [
     "timestamp_created", "playtime_at_review", "votes_up", "votes_funny",
 ]
 
+# 서비스 계정 이메일 (GAS에 편집 권한 부여 요청 시 사용)
+def _get_service_account_email() -> str:
+    creds_info = get_google_creds()
+    return creds_info.get("client_email", "")
+
 
 def _get_client() -> gspread.Client:
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
     return gspread.authorize(creds)
 
 
-def open_raw_spreadsheet(sheet_id: str) -> gspread.Spreadsheet:
+def get_or_create_raw_spreadsheet(
+    drive_folder_id: str,
+    appid: str,
+    name: str,
+) -> gspread.Spreadsheet:
     """
-    Sheet_Pool에서 할당된 sheet_id로 스프레드시트를 엽니다.
-    파일 생성을 하지 않으므로 Drive 저장 공간 초과 문제 없음.
+    RAW 리뷰 스프레드시트를 가져오거나 새로 생성합니다.
+
+    파일 생성은 GAS 웹앱에 위임합니다:
+    - GAS가 관리자 계정으로 파일 생성 → 서비스 계정에 편집 권한 부여
+    - 서비스 계정은 gspread로 열기만 수행 (Drive 할당량 소모 없음)
 
     Args:
-        sheet_id: 스프레드시트 ID (URL이 아닌 순수 ID여야 함 — sheet_pool이 정규화함)
+        drive_folder_id: 파일을 저장할 Google Drive 폴더 ID
+        appid: Steam AppID
+        name: 게임 이름 (파일명에 포함)
+
+    Returns:
+        gspread.Spreadsheet: 열린 스프레드시트 객체
 
     Raises:
-        gspread.exceptions.SpreadsheetNotFound: 해당 시트 접근 불가
+        RuntimeError: GAS_WEBAPP_URL 미설정 또는 GAS 호출 실패
     """
+    file_name = f"RAW_REVIEWS_{appid}_{name}"
+    sa_email  = _get_service_account_email()
+
+    if not GAS_WEBAPP_URL:
+        raise RuntimeError(
+            "[raw_reviews] GAS_WEBAPP_URL 환경변수가 설정되지 않았습니다.\n"
+            "gas/DEPLOY_GUIDE.md를 참고해 GAS 웹앱을 배포하고\n"
+            ".env 및 GitHub Secrets에 GAS_WEBAPP_URL을 추가하세요."
+        )
+
+    # ── GAS 웹앱에 파일 생성 요청 ────────────────────────────────────────────
+    payload = {
+        "folderId":             drive_folder_id,
+        "fileName":             file_name,
+        "serviceAccountEmail":  sa_email,
+    }
+
+    try:
+        resp = requests.post(
+            GAS_WEBAPP_URL,
+            json=payload,
+            timeout=30,
+            # GAS 웹앱은 리다이렉트를 사용하므로 follow_redirects 필요
+            allow_redirects=True,
+        )
+        resp.raise_for_status()
+        result = resp.json()
+    except requests.exceptions.Timeout:
+        raise RuntimeError("[raw_reviews] GAS 웹앱 요청 시간 초과 (30초). 나중에 재시도하세요.")
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"[raw_reviews] GAS 웹앱 HTTP 오류: {e}")
+    except ValueError:
+        raise RuntimeError(f"[raw_reviews] GAS 응답 파싱 실패. 응답: {resp.text[:200]}")
+
+    if not result.get("ok"):
+        raise RuntimeError(f"[raw_reviews] GAS 웹앱 오류: {result.get('error', '알 수 없는 오류')}")
+
+    spreadsheet_id = result.get("spreadsheetId")
+    if not spreadsheet_id:
+        raise RuntimeError("[raw_reviews] GAS 응답에 spreadsheetId가 없습니다.")
+
+    reused = result.get("reused", False)
+    print(f"[RAW SHEET] {'재사용' if reused else '신규 생성'}: {spreadsheet_id} ({file_name})")
+
+    # ── 서비스 계정으로 시트 열기 ─────────────────────────────────────────────
     client = _get_client()
-    return client.open_by_key(sheet_id)
+    return client.open_by_key(spreadsheet_id)
+
+
+def open_raw_spreadsheet(sheet_id: str) -> gspread.Spreadsheet:
+    """
+    알려진 sheet_id로 RAW 스프레드시트를 직접 엽니다.
+    (GAS를 거치지 않고 이미 할당된 시트를 열 때 사용)
+    """
+    return _get_client().open_by_key(sheet_id)
 
 
 def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksheet:
@@ -58,7 +136,6 @@ def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksh
     except gspread.WorksheetNotFound:
         ws = ss.add_worksheet(title=tab_name, rows=300000, cols=len(RAW_HEADERS))
         ws.append_row(RAW_HEADERS)
-        # 새 시트 기본 탭(Sheet1) 제거
         try:
             default_ws = ss.worksheet("Sheet1")
             ss.del_worksheet(default_ws)
@@ -68,10 +145,10 @@ def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksh
 
 
 def get_existing_ids(ss: gspread.Spreadsheet, year: int) -> set:
-    """해당 연도 탭의 recommendationid 집합 반환 (중복 방지용)."""
+    """해당 연도 탭의 recommendationid 집합 반환 (중복 방지)."""
     try:
         ws = get_or_create_year_tab(ss, year)
-        col = ws.col_values(1)[1:]  # 헤더 제외
+        col = ws.col_values(1)[1:]
         return set(col)
     except Exception:
         return set()
@@ -121,7 +198,7 @@ def get_reviews_in_range(
     end_ts: int,
     years: list[int],
 ) -> list[dict]:
-    """특정 기간의 리뷰를 가져와 Gemini 분석용으로 반환."""
+    """특정 기간의 리뷰를 Gemini 분석용으로 반환."""
     results = []
     for year in years:
         try:
