@@ -5,11 +5,11 @@ import DashboardClient from "./DashboardClient";
 export const revalidate = 300;
 
 interface PageProps {
-  params: { appid: string };
+  params: Promise<{ appid: string }>;
 }
 
 export default async function GamePage({ params }: PageProps) {
-  const { appid } = params;
+  const { appid } = await params;
 
   const [game, timelineRows, ccuRows, allGames] = await Promise.all([
     getGame(appid),
