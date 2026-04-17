@@ -18,11 +18,14 @@ async function fetchByAppId(appid: string) {
   const d = info.data;
   return {
     appid,
-    name: d.name,
-    thumbnail: d.header_image,
-    type: d.type,
+    name: d.name as string,
+    thumbnail: d.header_image as string,
+    type: d.type as string,
     totalReviews: 0,
     positiveRate: 0,
+    release_date: (d.release_date?.date as string | undefined) ?? undefined,
+    developers: (d.developers as string[] | undefined) ?? undefined,
+    publishers: (d.publishers as string[] | undefined) ?? undefined,
   };
 }
 

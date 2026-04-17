@@ -26,28 +26,45 @@ def get_client() -> gspread.Client:
     return gspread.authorize(creds)
 
 def get_or_create_raw_spreadsheet(drive_folder_id: str, appid: str, name: str) -> gspread.Spreadsheet:
+    """
+    서비스 계정 My Drive 용량 문제를 피하기 위해,
+    파일 생성부터 사용자 공유 폴더에 직접 수행.
+    """
     client = get_client()
     title = f"RAW_REVIEWS_{appid}_{name}"
-    try:
-        files = client.list_spreadsheet_files()
-        for f in files:
-            if f["name"] == title:
-                return client.open_by_key(f["id"])
-    except Exception:
-        pass
-    ss = client.create(title)
+
+    from googleapiclient.discovery import build
+    from google.oauth2.service_account import Credentials as SACredentials
+    sa_creds = SACredentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
+    drive_service = build("drive", "v3", credentials=sa_creds)
+
+    # 1. 폴더 내 기존 파일 검색 (appid 기준, 게임명 변경에도 안전)
     if drive_folder_id:
-        from googleapiclient.discovery import build
-        from google.oauth2.service_account import Credentials as SACredentials
-        sa_creds = SACredentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
-        drive_service = build("drive", "v3", credentials=sa_creds)
-        file_id = ss.id
-        drive_service.files().update(
-            fileId=file_id,
-            addParents=drive_folder_id,
-            fields="id, parents",
+        query = (
+            f"name contains 'RAW_REVIEWS_{appid}' "
+            f"and '{drive_folder_id}' in parents "
+            f"and trashed=false"
+        )
+        results = drive_service.files().list(q=query, fields="files(id,name)").execute()
+        existing = results.get("files", [])
+        if existing:
+            return client.open_by_key(existing[0]["id"])
+
+        # 2. 없으면 사용자 폴더에 직접 생성 (서비스 계정 My Drive 사용 안 함)
+        file_metadata = {
+            "name": title,
+            "mimeType": "application/vnd.google-apps.spreadsheet",
+            "parents": [drive_folder_id],
+        }
+        file = drive_service.files().create(
+            body=file_metadata,
+            fields="id",
+            supportsAllDrives=True,
         ).execute()
-    return ss
+        return client.open_by_key(file["id"])
+
+    # folder_id 없으면 서비스 계정 Drive에 생성 (fallback)
+    return client.create(title)
 
 def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksheet:
     tab_name = f"reviews_{year}"

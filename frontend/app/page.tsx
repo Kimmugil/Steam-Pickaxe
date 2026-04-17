@@ -2,6 +2,7 @@ import SearchBox from "@/components/home/SearchBox";
 import GameCard from "@/components/home/GameCard";
 import QueueCardWrapper from "@/components/home/QueueCardWrapper";
 import { getAllGames } from "@/lib/sheets";
+import { UI_TEXT } from "@/lib/ui-text";
 
 export const revalidate = 60; // 60초마다 재검증
 
@@ -23,11 +24,9 @@ export default async function HomePage() {
       {/* 헤더 */}
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-text-primary mb-2">
-          Steam 게임 마켓 인텔리전스
+          {UI_TEXT.HOME_TITLE}
         </h1>
-        <p className="text-text-secondary text-base">
-          업데이트 민심 · 트래픽 · 언어권 반응을 한눈에 꿰뚫는 스팀 분석 대시보드
-        </p>
+        <p className="text-text-secondary text-base">{UI_TEXT.HOME_SUBTITLE}</p>
       </div>
 
       {/* 검색 */}
@@ -38,7 +37,7 @@ export default async function HomePage() {
         <section className="mt-12">
           <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
             <span className="w-2 h-2 bg-accent-blue rounded-full animate-pulse" />
-            데이터 수집 대기열
+            {UI_TEXT.QUEUE_SECTION_TITLE}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {collectingGames.map((game) => (
@@ -51,14 +50,16 @@ export default async function HomePage() {
       {/* 분석 완료 게임 목록 */}
       <section className="mt-12">
         <h2 className="text-lg font-semibold text-text-primary mb-4">
-          분석 완료된 게임
-          <span className="ml-2 text-sm text-text-muted font-normal">{activeGames.length}개</span>
+          {UI_TEXT.GAMES_SECTION_TITLE}
+          <span className="ml-2 text-sm text-text-muted font-normal">
+            {activeGames.length}개
+          </span>
         </h2>
         {activeGames.length === 0 ? (
           <div className="text-center py-20 text-text-muted">
-            <p className="text-4xl mb-4">🎮</p>
-            <p>아직 등록된 게임이 없습니다.</p>
-            <p className="text-sm mt-1">위 검색창에서 Steam 게임을 검색하고 등록해 보세요.</p>
+            <p className="text-4xl mb-4">{UI_TEXT.GAMES_EMPTY_ICON}</p>
+            <p>{UI_TEXT.GAMES_EMPTY_TITLE}</p>
+            <p className="text-sm mt-1">{UI_TEXT.GAMES_EMPTY_SUBTITLE}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -71,4 +72,3 @@ export default async function HomePage() {
     </div>
   );
 }
-

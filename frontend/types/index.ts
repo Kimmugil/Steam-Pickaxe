@@ -62,6 +62,10 @@ export interface SteamSearchResult {
   type: string;
   totalReviews?: number;
   positiveRate?: number;
+  /** Steam appdetails 추가 메타데이터 */
+  release_date?: string;
+  developers?: string[];
+  publishers?: string[];
 }
 
 export interface TopReview {
