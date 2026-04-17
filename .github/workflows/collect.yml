@@ -30,6 +30,7 @@ jobs:
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
         run: |
           cd backend
           python main_collect.py
