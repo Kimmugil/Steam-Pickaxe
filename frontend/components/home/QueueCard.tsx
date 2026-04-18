@@ -135,7 +135,6 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
 
   const total = Number(game.total_reviews_count) || 0;
   const collected = Number(game.collected_reviews_count) || 0;
-  const pct = total > 0 ? Math.min(100, Math.round((collected / total) * 100)) : 0;
   const remaining = total - collected;
   const etaMin = remaining > 0 ? Math.round(remaining / 800) : 0;
   const etaStr =
@@ -195,19 +194,14 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
           <p className="text-xs text-text-muted truncate mt-0.5">{game.name}</p>
         )}
 
-        {/* 진행률 바 */}
-        <div className="mt-3">
-          <div className="flex justify-between text-xs text-text-secondary mb-1">
-            <span>{collected.toLocaleString()} / {total.toLocaleString()}건</span>
-            <span>{pct}%</span>
-          </div>
-          <div className="h-2 bg-bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent-blue rounded-full transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-xs text-text-muted mt-1.5">
+        {/* 수집 현황 */}
+        <div className="mt-3 space-y-1">
+          {total > 0 && (
+            <p className="text-xs text-text-secondary">
+              리뷰 {collected.toLocaleString()} / {total.toLocaleString()}건
+            </p>
+          )}
+          <p className="text-xs text-text-muted">
             {t("QUEUE_ETA_LABEL")}: {etaStr}
             <span className="ml-1 text-[10px] opacity-60">{t("QUEUE_ETA_SUFFIX")}</span>
           </p>

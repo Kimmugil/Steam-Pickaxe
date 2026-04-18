@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { appendGame, getAllGames } from "@/lib/sheets";
 import { getSteamReviewSummary } from "@/lib/steam";
 
@@ -32,6 +33,9 @@ export async function POST(req: NextRequest) {
       collected_reviews_count: 0,
       totalReviews: reviewSummary.total,
     });
+
+    // 홈 페이지 캐시 즉시 무효화 → router.refresh() 시 새 게임이 바로 보임
+    revalidatePath("/");
 
     // GitHub Actions 수집 트리거
     if (GITHUB_TOKEN) {

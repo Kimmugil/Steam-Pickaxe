@@ -134,7 +134,9 @@ def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksh
     try:
         ws = ss.worksheet(tab_name)
     except gspread.WorksheetNotFound:
-        ws = ss.add_worksheet(title=tab_name, rows=300000, cols=len(RAW_HEADERS))
+        # 초기 5000행으로 생성 — append_rows가 자동으로 행을 확장함
+        # (300000행으로 생성하면 Google Sheets 10M 셀 한도에 곧 도달)
+        ws = ss.add_worksheet(title=tab_name, rows=5000, cols=len(RAW_HEADERS))
         ws.append_row(RAW_HEADERS)
         try:
             default_ws = ss.worksheet("Sheet1")

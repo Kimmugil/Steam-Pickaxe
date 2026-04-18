@@ -84,7 +84,8 @@ export default function SearchBox() {
       show(t("REGISTER_SUCCESS", { name: result.name }), "success");
       setResult(null);
       setQuery("");
-      setTimeout(() => router.refresh(), 1500);
+      // 즉시 서버 데이터 갱신 → 대기열에 바로 표시
+      router.refresh();
     } else if (data.quota_exceeded) {
       show(t("REGISTER_QUOTA_EXCEEDED"), "error");
     } else {
