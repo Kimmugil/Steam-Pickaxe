@@ -14,11 +14,13 @@ from sheets.game_sheet import (
     open_game_sheet, get_timeline as gs_get_timeline,
     append_timeline_row as gs_append_timeline,
     update_timeline_row as gs_update_timeline,
+    cleanup_stale_launch_buckets,
 )
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
 from analyzers.bucketer import build_buckets, filter_reviews_for_bucket, sample_reviews
 from analyzers.gemini_analyzer import (
-    analyze_bucket, analyze_patch_summary, generate_ai_briefing,
+    analyze_bucket, analyze_patch_summary, generate_event_title_kr,
+    generate_ai_briefing,
     generate_ccu_peaktime_comment, generate_language_cross_analysis, LANGUAGE_NAMES
 )
 from datetime import datetime, timezone
@@ -58,12 +60,46 @@ def run():
         timeline_rows = gs_get_timeline(game_ss)
         buckets = build_buckets(timeline_rows)
 
+        # 공식 이벤트가 존재하면 구형 랜덤 UUID 런칭 버킷 잔여 행 정리
+        has_officials = any(
+            r.get("event_type") in ("official", "manual")
+            for r in timeline_rows
+        )
+        if has_officials:
+            cleanup_stale_launch_buckets(game_ss)
+            # 정리 후 재조회
+            timeline_rows = gs_get_timeline(game_ss)
+
         # 미분석 구간 식별 (language_scope=all, sentiment_rate가 없는 행)
         analyzed_ids = {
             r["event_id"]
             for r in timeline_rows
             if r.get("language_scope") == "all" and r.get("sentiment_rate") != ""
         }
+
+        # ── 직전 이벤트 재분석 조건 ─────────────────────────────
+        # 마지막 버킷이 미분석(새 이벤트 추가)이거나,
+        # 마지막 버킷의 수집 리뷰가 0건인 경우
+        # → 바로 앞 버킷을 재분석 대상에 포함
+        # (직전 이벤트의 end_ts가 새 이벤트 날짜로 잘려 리뷰 수가 달라지기 때문)
+        if len(buckets) >= 2:
+            last_id = buckets[-1]["event_id"]
+            last_is_new = last_id not in analyzed_ids
+
+            # 마지막 버킷 리뷰 수 확인 (0건이면 재분석 필요)
+            last_review_count = next(
+                (int(r.get("review_count", 0) or 0)
+                 for r in timeline_rows
+                 if r.get("event_id") == last_id and r.get("language_scope") == "all"),
+                -1,  # 행 자체가 없으면 -1 (미분석)
+            )
+            last_has_no_reviews = last_review_count == 0
+
+            if last_is_new or last_has_no_reviews:
+                preceding_id = buckets[-2]["event_id"]
+                if preceding_id in analyzed_ids:
+                    analyzed_ids.discard(preceding_id)
+                    print(f"  [재분석 예약] 직전 이벤트: {buckets[-2]['title']}")
 
         # game_sheet_id IS the raw spreadsheet — open directly, no GAS needed
         raw_ss = open_raw_spreadsheet(game_sheet_id)
@@ -84,6 +120,20 @@ def run():
             ))
             raw_reviews = get_reviews_in_range(raw_ss, bucket["start_ts"], bucket["end_ts"], years)
 
+            # 패치 요약 — 스코프 루프 바깥에서 1회만 생성 (API 호출 최소화)
+            patch_summary = ""
+            if bucket.get("event_type") == "official":
+                patch_summary = analyze_patch_summary(name, bucket["title"], bucket.get("url", ""))
+
+            # AI 한국어 제목 — 버킷당 1회 생성
+            title_kr = generate_event_title_kr(
+                name,
+                bucket["title"],
+                bucket.get("event_type", ""),
+                patch_summary,
+            )
+            print(f"    title_kr: {title_kr}")
+
             # 언어별 분석
             scopes = ["all"] + top_languages
             for scope in scopes:
@@ -94,11 +144,6 @@ def run():
 
                 sampled = sample_reviews(scope_reviews)
                 analysis = analyze_bucket(name, bucket["title"], sampled, scope)
-
-                # 패치 요약 (all 스코프 + 공식 이벤트만)
-                patch_summary = ""
-                if scope == "all" and bucket.get("event_type") == "official":
-                    patch_summary = analyze_patch_summary(name, bucket["title"], bucket.get("url", ""))
 
                 row = {
                     "event_id": event_id,
@@ -116,6 +161,7 @@ def run():
                     "is_sale_period": bucket.get("is_sale_period", False),
                     "sale_text": bucket.get("sale_text", ""),
                     "is_free_weekend": bucket.get("is_free_weekend", False),
+                    "title_kr": title_kr,
                 }
 
                 # 기존 행 있으면 업데이트, 없으면 추가

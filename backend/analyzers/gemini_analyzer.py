@@ -74,6 +74,48 @@ def analyze_bucket(game_name: str, event_title: str, reviews: list[dict], langua
     return result if result else _empty_analysis()
 
 
+def generate_event_title_kr(
+    game_name: str,
+    title: str,
+    event_type: str,
+    patch_summary: str = "",
+) -> str:
+    """
+    이벤트 한국어 제목 생성.
+    버전 번호가 있으면 앞에 유지하고, 핵심 변경사항을 한국어로 요약한다.
+    예) "v0.20.10 던전 업데이트 : 바닥·층 개편 및 섬 컨셉 추가"
+    """
+    context = (
+        f"패치 내용 요약 (참고):\n{patch_summary}"
+        if patch_summary
+        else "(패치 요약 없음 — 원제만으로 판단)"
+    )
+
+    prompt = f"""게임명: {game_name}
+이벤트 유형: {event_type}
+원제 (영문): {title}
+{context}
+
+위 정보를 바탕으로 한국어 이벤트 제목을 생성하세요.
+
+규칙:
+- 버전 번호가 있으면 맨 앞에 그대로 표기 (예: v0.20.10)
+- 콜론(:)으로 버전/유형과 내용을 구분
+- 핵심 변경사항을 한국어로 간결하게 표현 (전체 40자 이내)
+- 좋은 예: "v0.20.10 던전 업데이트 : 바닥·층 개편 및 섬 컨셉 추가"
+- 좋은 예: "v0.7.5 신규 콘텐츠 : 길드 시스템 및 양조 레시피 추가"
+- 좋은 예: "주말 특가 이벤트"
+- 텍스트만 반환, JSON/마크다운 없이."""
+
+    model = genai.GenerativeModel(MODEL)
+    try:
+        resp = model.generate_content(prompt)
+        return resp.text.strip()[:60]
+    except Exception as e:
+        print(f"[gemini] title_kr 오류: {e}")
+        return ""
+
+
 def analyze_patch_summary(game_name: str, event_title: str, patch_url: str) -> str:
     """패치 내용 AI 요약 (공식 패치노트 URL 기반)"""
     prompt = f"""게임: {game_name}

@@ -36,6 +36,7 @@ export interface TimelineRow {
   event_type: "official" | "news" | "manual" | "free_weekend" | "launch";
   date: string;
   title: string;
+  title_kr?: string;   // AI 생성 한국어 제목
   language_scope: string;
   sentiment_rate: number | string;
   review_count: number | string;

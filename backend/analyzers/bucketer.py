@@ -28,13 +28,12 @@ def build_buckets(events: list[dict]) -> list[dict]:
     officials.sort(key=lambda e: (e.get("date", ""), e.get("event_id", "")))
 
     if not officials:
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        launch_id = str(uuid.uuid4())
+        # event_id를 고정값으로 사용해 analyze 재실행 시 중복 행 생성 방지
         return [{
-            "event_id": launch_id,
+            "event_id": "launch_bucket",
             "event_type": "launch",
             "date": "",
-            "title": "런칭~현재",
+            "title": "런칭",
             "start_ts": 0,
             "end_ts": int(datetime.now(tz=timezone.utc).timestamp()),
         }]

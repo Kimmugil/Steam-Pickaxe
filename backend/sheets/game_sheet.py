@@ -39,6 +39,7 @@ TIMELINE_HEADERS = [
     "sentiment_rate", "review_count", "ai_patch_summary",
     "ai_reaction_summary", "top_keywords", "top_reviews", "url",
     "is_sale_period", "sale_text", "is_free_weekend",
+    "title_kr",   # AI 생성 한국어 제목 (신규 — 기존 시트는 자동 마이그레이션)
 ]
 
 
@@ -58,9 +59,15 @@ def open_game_sheet(game_sheet_id: str) -> gspread.Spreadsheet:
 
 def get_or_create_timeline_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
     try:
-        return ss.worksheet("timeline")
+        ws = ss.worksheet("timeline")
+        # 신규 컬럼 마이그레이션: 헤더 행에 없는 컬럼을 오른쪽에 추가
+        current_headers = ws.row_values(1)
+        if len(current_headers) < len(TIMELINE_HEADERS):
+            for i in range(len(current_headers), len(TIMELINE_HEADERS)):
+                ws.update_cell(1, i + 1, TIMELINE_HEADERS[i])
+        return ws
     except gspread.WorksheetNotFound:
-        ws = ss.add_worksheet(title="timeline", rows=2000, cols=len(TIMELINE_HEADERS))
+        ws = ss.add_worksheet(title="timeline", rows=1000, cols=len(TIMELINE_HEADERS))
         ws.append_row(TIMELINE_HEADERS)
         return ws
 
@@ -113,6 +120,26 @@ def delete_timeline_rows_by_event(ss: gspread.Spreadsheet, event_id: str):
         ws.delete_rows(row_idx)
 
 
+@_retry_on_quota
+def cleanup_stale_launch_buckets(ss: gspread.Spreadsheet):
+    """
+    과거에 랜덤 UUID로 생성된 중복 런칭 버킷 행들을 제거합니다.
+    event_type == "launch" 이면서 event_id != "launch_bucket" 인 행을 삭제합니다.
+    공식 이벤트(officials)가 존재하는 경우에만 호출해야 합니다.
+    """
+    ws = get_or_create_timeline_tab(ss)
+    records = ws.get_all_records()
+    rows_to_delete = [
+        i + 2
+        for i, r in enumerate(records)
+        if r.get("event_type") == "launch" and str(r.get("event_id")) != "launch_bucket"
+    ]
+    if rows_to_delete:
+        print(f"  [cleanup] 구형 런칭 버킷 {len(rows_to_delete)}행 삭제")
+        for row_idx in sorted(rows_to_delete, reverse=True):
+            ws.delete_rows(row_idx)
+
+
 # ──────────────────────────────────────────────
 # ccu 탭 (개별 게임 시트)
 # ──────────────────────────────────────────────
@@ -124,7 +151,7 @@ def get_or_create_ccu_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
     try:
         return ss.worksheet("ccu")
     except gspread.WorksheetNotFound:
-        ws = ss.add_worksheet(title="ccu", rows=50000, cols=len(CCU_HEADERS))
+        ws = ss.add_worksheet(title="ccu", rows=1000, cols=len(CCU_HEADERS))
         ws.append_row(CCU_HEADERS)
         return ws
 

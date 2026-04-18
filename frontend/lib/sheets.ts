@@ -163,6 +163,7 @@ const TIMELINE_HEADERS = [
   "event_id","event_type","date","title","language_scope",
   "sentiment_rate","review_count","ai_patch_summary","ai_reaction_summary",
   "top_keywords","top_reviews","url","is_sale_period","sale_text","is_free_weekend",
+  "title_kr",
 ];
 
 /**
@@ -269,27 +270,96 @@ export async function getCcuData(appid: string, gameSheetId?: string): Promise<C
   }
 }
 
+const SHEET_CELL_LIMIT = 10_000_000;
+const CCU_TAB_CELLS = 1000 * 5; // 추가할 ccu 탭: 1000행 × 5열
+
 /**
  * 개별 게임 시트에 "ccu" 탭이 없으면 생성하고 헤더를 추가합니다.
+ *
+ * 탭 추가 전 현재 총 셀 수를 계산하고, 한도 초과 위험이 있으면
+ * 그리드 크기가 큰 탭들을 실제 데이터 행 수에 맞게 축소합니다.
  */
 async function ensureCcuTab(spreadsheetId: string) {
   const sheets = await getSheetsClient();
 
-  // 현재 탭 목록 조회
+  // 현재 탭 목록 + gridProperties 조회
   const meta = await sheets.spreadsheets.get({
     spreadsheetId,
-    fields: "sheets.properties.title",
+    fields: "sheets.properties",
   });
-  const titles = (meta.data.sheets ?? []).map(
-    (s) => s.properties?.title ?? ""
-  );
+
+  const sheetList = meta.data.sheets ?? [];
+  const titles = sheetList.map((s) => s.properties?.title ?? "");
+
+  // 현재 총 셀 수 계산
+  const totalCells = sheetList.reduce((sum, s) => {
+    const r = s.properties?.gridProperties?.rowCount ?? 0;
+    const c = s.properties?.gridProperties?.columnCount ?? 0;
+    return sum + r * c;
+  }, 0);
+
+  // 한도 초과 위험이 있으면 대형 탭들을 실제 데이터 크기로 축소
+  if (totalCells + CCU_TAB_CELLS > SHEET_CELL_LIMIT) {
+    const resizeRequests: object[] = [];
+
+    for (const s of sheetList) {
+      const rowCount = s.properties?.gridProperties?.rowCount ?? 0;
+      const colCount = s.properties?.gridProperties?.columnCount ?? 0;
+      // 그리드가 100K 셀 이하인 탭은 건드리지 않음
+      if (rowCount * colCount <= 100_000) continue;
+
+      const title = s.properties?.title ?? "";
+
+      // A열만 읽어 실제 데이터 행 수 파악 (빈 행은 반환 안 됨)
+      let dataRows = 0;
+      try {
+        const colA = await sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${title}!A:A`,
+        });
+        dataRows = (colA.data.values ?? []).length;
+      } catch {
+        // 읽기 실패 시 보수적으로 5000행으로 처리
+        dataRows = 5000;
+      }
+
+      const targetRows = Math.max(dataRows + 50, 100);
+      const targetCols = colCount; // 열 수는 유지
+
+      if (targetRows < rowCount) {
+        resizeRequests.push({
+          updateSheetProperties: {
+            properties: {
+              sheetId: s.properties!.sheetId,
+              gridProperties: { rowCount: targetRows, columnCount: targetCols },
+            },
+            fields: "gridProperties.rowCount,gridProperties.columnCount",
+          },
+        });
+      }
+    }
+
+    if (resizeRequests.length > 0) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: resizeRequests },
+      });
+    }
+  }
 
   if (!titles.includes("ccu")) {
-    // 탭 생성
+    // 탭 생성 — gridProperties를 최소로 지정해 셀 한도 초과 방지
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
-        requests: [{ addSheet: { properties: { title: "ccu" } } }],
+        requests: [{
+          addSheet: {
+            properties: {
+              title: "ccu",
+              gridProperties: { rowCount: 1000, columnCount: 5 },
+            },
+          },
+        }],
       },
     });
     // 헤더 행 추가

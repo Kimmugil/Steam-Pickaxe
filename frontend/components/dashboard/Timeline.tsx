@@ -104,6 +104,8 @@ export default function Timeline({ timelineRows }: TimelineProps) {
               );
             }
 
+            const isLaunch = row.event_type === "launch";
+
             return (
               <div
                 key={row.event_id}
@@ -113,6 +115,7 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                   <div className={`w-3.5 h-3.5 rounded-full border-2 ${
                     isFreeWeekend ? "border-accent-green bg-accent-green/30" :
                     isSale ? "border-accent-orange bg-accent-orange/30" :
+                    isLaunch ? "border-text-muted bg-bg-secondary" :
                     isPending ? "border-accent-yellow bg-accent-yellow/20" :
                     "border-accent-blue bg-accent-blue/30"
                   }`} />
@@ -134,12 +137,12 @@ export default function Timeline({ timelineRows }: TimelineProps) {
 
                   {/* 헤더 클릭 → 접기/펼치기 */}
                   <button
-                    onClick={() => !isPending && toggleExpand(row.event_id)}
-                    className={`w-full text-left ${isPending ? "cursor-default" : "group"}`}
-                    disabled={isPending}
+                    onClick={() => !isPending && !isLaunch && toggleExpand(row.event_id)}
+                    className={`w-full text-left ${isPending || isLaunch ? "cursor-default" : "group"}`}
+                    disabled={isPending || isLaunch}
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-text-muted">{row.date}</span>
+                      {row.date && <span className="text-xs text-text-muted">{row.date}</span>}
                       <span className="text-xs bg-bg-secondary border border-border-default px-1.5 py-0.5 rounded text-text-muted">
                         {EVENT_TYPE_LABELS[row.event_type] ?? row.event_type}
                       </span>
@@ -152,10 +155,20 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                         rate !== null && <Badge rate={rate} reviewCount={Number(row.review_count || 0)} size="sm" />
                       )}
                     </div>
-                    <p className={`font-medium mt-1 transition-colors ${isPending ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>
-                      {row.title}
-                      {!isPending && <span className="ml-2 text-xs text-text-muted">{isExpanded ? "▲" : "▼"}</span>}
-                    </p>
+                    {/* launch 이벤트는 제목 행을 별도로 표시하지 않음 (이벤트 타입 뱃지로 충분) */}
+                    {!isLaunch && (
+                      <div className="mt-1">
+                        {/* AI 한국어 제목 (있으면 메인 표시) */}
+                        <p className={`font-medium transition-colors ${isPending ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>
+                          {row.title_kr || row.title}
+                          {!isPending && <span className="ml-2 text-xs text-text-muted">{isExpanded ? "▲" : "▼"}</span>}
+                        </p>
+                        {/* 원제 (title_kr이 있고 원제와 다를 때만 서브텍스트로 표시) */}
+                        {row.title_kr && row.title_kr !== row.title && (
+                          <p className="text-xs text-text-muted mt-0.5">{row.title}</p>
+                        )}
+                      </div>
+                    )}
 
                     {/* 기본 표시: 키워드 */}
                     {!isPending && keywords.length > 0 && (

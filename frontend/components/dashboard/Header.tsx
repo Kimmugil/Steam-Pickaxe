@@ -10,6 +10,36 @@ function parseBool(v: boolean | string | undefined): boolean {
   return false;
 }
 
+const KR_DAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
+/**
+ * Steam API의 release_date 문자열을 한국어 형식으로 변환합니다.
+ * 입력 예: "18 Nov, 2021" / "Nov 18, 2021" / "2021-11-18"
+ * 출력 예: "2021년 11월 18일(목)"
+ */
+function formatReleaseDateKr(raw: string | undefined): string {
+  if (!raw) return "-";
+
+  let date: Date | null = null;
+
+  // ISO 형식: 2021-11-18
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+    date = new Date(raw.trim() + "T12:00:00Z");
+  } else {
+    // Steam API 형식: "18 Nov, 2021" 또는 "Nov 18, 2021"
+    const parsed = new Date(raw);
+    if (!isNaN(parsed.getTime())) date = parsed;
+  }
+
+  if (!date || isNaN(date.getTime())) return raw;
+
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + 1;
+  const d = date.getUTCDate();
+  const day = KR_DAYS[date.getUTCDay()];
+  return `${y}년 ${m}월 ${d}일(${day})`;
+}
+
 interface HeaderProps {
   game: Game;
   currentCcu?: number;
@@ -98,7 +128,7 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
         {/* 게임 기본 정보 바 */}
         <div className="mt-5 pt-4 border-t border-border-default grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <MetaItem label="장르"   value={genres.length > 0 ? genres.join(" · ") : "-"} />
-          <MetaItem label="출시일" value={game.release_date || "-"} />
+          <MetaItem label="출시일" value={formatReleaseDateKr(game.release_date)} />
           <MetaItem label="개발사" value={game.developer || "-"} />
           <MetaItem label="배급사" value={game.publisher || "-"} />
           <MetaItem label="판매가" value={game.price || (parseBool(game.is_free) ? "무료" : "-")} />
