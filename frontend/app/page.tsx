@@ -1,6 +1,7 @@
 import SearchBox from "@/components/home/SearchBox";
 import GameCard from "@/components/home/GameCard";
 import QueueCardWrapper from "@/components/home/QueueCardWrapper";
+import QueueRetriggerButton from "@/components/home/QueueRetriggerButton";
 import { getAllGames, getUiText } from "@/lib/sheets";
 
 export const revalidate = 60;
@@ -43,13 +44,16 @@ export default async function HomePage() {
         <section className="mt-12">
           {/* 시각적으로 구분된 "작업장" 컨테이너 */}
           <div className="border border-dashed border-border-default rounded-2xl p-5 bg-bg-secondary">
-            <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-accent-blue rounded-full animate-pulse" />
-              {t("QUEUE_SECTION_TITLE")}
-              <span className="ml-1 text-xs font-normal text-text-muted">
-                {collectingGames.length}개 처리 중
-              </span>
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                <span className="w-2 h-2 bg-accent-blue rounded-full animate-pulse" />
+                {t("QUEUE_SECTION_TITLE")}
+                <span className="ml-1 text-xs font-normal text-text-muted">
+                  {collectingGames.length}개 처리 중
+                </span>
+              </h2>
+              <QueueRetriggerButton />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {collectingGames.map((game) => (
                 <QueueCardWrapper key={String(game.appid)} game={game} />
