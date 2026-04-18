@@ -270,14 +270,58 @@ export async function getCcuData(appid: string, gameSheetId?: string): Promise<C
 }
 
 /**
+ * 개별 게임 시트에 "ccu" 탭이 없으면 생성하고 헤더를 추가합니다.
+ */
+async function ensureCcuTab(spreadsheetId: string) {
+  const sheets = await getSheetsClient();
+
+  // 현재 탭 목록 조회
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties.title",
+  });
+  const titles = (meta.data.sheets ?? []).map(
+    (s) => s.properties?.title ?? ""
+  );
+
+  if (!titles.includes("ccu")) {
+    // 탭 생성
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: "ccu" } } }],
+      },
+    });
+    // 헤더 행 추가
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: "ccu!A1",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [["timestamp", "ccu_value", "is_sale_period", "is_free_weekend", "is_archived_gap"]],
+      },
+    });
+  }
+}
+
+/**
  * CCU 행 일괄 추가.
  * gameSheetId가 있으면 개별 게임 시트에 쓴다.
+ * ccu 탭이 없으면 자동 생성한다.
  */
 export async function appendCcuRows(appid: string, newRows: string[][], gameSheetId?: string) {
   const sheets = await getSheetsClient();
+  const spreadsheetId = gameSheetId ?? SPREADSHEET_ID;
+  const range = gameSheetId ? "ccu" : `ccu_${appid}`;
+
+  // 개별 게임 시트의 경우 탭 존재 여부를 확인하고 없으면 생성
+  if (gameSheetId) {
+    await ensureCcuTab(gameSheetId);
+  }
+
   await sheets.spreadsheets.values.append({
-    spreadsheetId: gameSheetId ?? SPREADSHEET_ID,
-    range: gameSheetId ? "ccu" : `ccu_${appid}`,
+    spreadsheetId,
+    range,
     valueInputOption: "RAW",
     requestBody: { values: newRows },
   });
