@@ -251,22 +251,33 @@ export async function deleteTimelineRowsByEventId(
   }
 }
 
-// ── ccu_{appid} ───────────────────────────────────────
+// ── ccu (개별 게임 시트 우선, 마스터 시트 폴백) ─────────
 
-export async function getCcuData(appid: string): Promise<CcuRow[]> {
+/**
+ * CCU 데이터 조회.
+ * gameSheetId가 있으면 개별 게임 시트의 "ccu" 탭을 읽는다.
+ * 없으면 마스터 시트의 "ccu_{appid}" 탭으로 폴백(레거시).
+ */
+export async function getCcuData(appid: string, gameSheetId?: string): Promise<CcuRow[]> {
   try {
-    const rows = await readSheet(`ccu_${appid}`);
+    const rows = gameSheetId
+      ? await readGameSheet(gameSheetId, "ccu")
+      : await readSheet(`ccu_${appid}`);
     return rowsToRecords(rows) as unknown as CcuRow[];
   } catch {
     return [];
   }
 }
 
-export async function appendCcuRows(appid: string, newRows: string[][]) {
+/**
+ * CCU 행 일괄 추가.
+ * gameSheetId가 있으면 개별 게임 시트에 쓴다.
+ */
+export async function appendCcuRows(appid: string, newRows: string[][], gameSheetId?: string) {
   const sheets = await getSheetsClient();
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `ccu_${appid}`,
+    spreadsheetId: gameSheetId ?? SPREADSHEET_ID,
+    range: gameSheetId ? "ccu" : `ccu_${appid}`,
     valueInputOption: "RAW",
     requestBody: { values: newRows },
   });

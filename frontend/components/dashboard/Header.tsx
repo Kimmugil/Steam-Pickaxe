@@ -17,6 +17,14 @@ interface HeaderProps {
   topSentimentRate?: number;
 }
 
+/** K/M 없이 순수 정수 콤마 포맷 (추정 소유자 등) */
+function formatInt(n: number | string): string {
+  const v = Number(n);
+  if (!v) return "-";
+  return v.toLocaleString();
+}
+
+/** K/M 약어 포맷 (기타 지표) */
 function formatNum(n: number | string): string {
   const v = Number(n);
   if (!v) return "-";
@@ -113,7 +121,7 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
 
         {/* SteamSpy 지표 요약 */}
         <div className="mt-5 pt-4 border-t border-border-default grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatItem label={t("STAT_OWNERS_LABEL")}        value={formatNum(game.owners_estimate)}            tooltip={t("STAT_OWNERS_TOOLTIP")} />
+          <StatItem label={t("STAT_OWNERS_LABEL")}        value={formatInt(game.owners_estimate)}            tooltip={t("STAT_OWNERS_TOOLTIP")} />
           <StatItem label={t("STAT_AVG_PLAYTIME_LABEL")}  value={formatPlaytime(Number(game.avg_playtime))}  tooltip={t("STAT_AVG_PLAYTIME_TOOLTIP")} />
           <StatItem label={t("STAT_MEDIAN_PLAYTIME_LABEL")} value={formatPlaytime(Number(game.median_playtime))} tooltip={t("STAT_MEDIAN_PLAYTIME_TOOLTIP")} />
           <StatItem label={t("STAT_ACTIVE_2W_LABEL")}     value={formatNum(game.active_players_2weeks)}      tooltip={t("STAT_ACTIVE_2W_TOOLTIP")} />

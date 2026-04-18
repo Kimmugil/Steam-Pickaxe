@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConfig, getCcuData, appendCcuRows } from "@/lib/sheets";
+import { getConfig, getGame, getCcuData, appendCcuRows } from "@/lib/sheets";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,17 +12,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "필수 항목 누락" }, { status: 400 });
     }
 
-    const config = await getConfig();
+    const [config, game] = await Promise.all([getConfig(), getGame(appid)]);
     if (password !== config.admin_password) {
       return NextResponse.json({ error: "비밀번호가 올바르지 않습니다." }, { status: 401 });
     }
 
+    const gameSheetId = game?.game_sheet_id;
+
     const text = await file.text();
     const lines = text.split("\n").filter(Boolean);
-    const header = lines[0].toLowerCase();
 
-    // CSV 파싱 (SteamDB 형식: DateTime,Players 또는 timestamp,ccu_value)
-    const existing = await getCcuData(appid);
+    // CSV 파싱 (SteamDB 형식: DateTime,Players)
+    const existing = await getCcuData(appid, gameSheetId);
     const existingTimestamps = new Set(existing.map((r) => String(r.timestamp)));
 
     const newRows: string[][] = [];
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (newRows.length > 0) {
-      await appendCcuRows(appid, newRows);
+      await appendCcuRows(appid, newRows, gameSheetId);
     }
 
     return NextResponse.json({ ok: true, added: newRows.length });

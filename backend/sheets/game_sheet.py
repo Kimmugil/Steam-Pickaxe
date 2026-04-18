@@ -1,7 +1,8 @@
 """
 개별 게임 시트 읽기/쓰기 전담 모듈
-각 게임마다 생성된 RAW 스프레드시트의 timeline 탭 관리
-master_sheet.py 의 timeline_{appid} 탭 대신 이 모듈을 사용한다.
+각 게임마다 생성된 RAW 스프레드시트의 timeline / ccu 탭 관리
+master_sheet.py 의 timeline_{appid}, ccu_{appid} 탭 대신 이 모듈을 사용한다.
+마스터 시트는 config / games / ui_text 탭만 유지한다.
 """
 import gspread
 from google.oauth2.service_account import Credentials
@@ -87,3 +88,41 @@ def delete_timeline_rows_by_event(ss: gspread.Spreadsheet, event_id: str):
     ]
     for row_idx in sorted(rows_to_delete, reverse=True):
         ws.delete_rows(row_idx)
+
+
+# ──────────────────────────────────────────────
+# ccu 탭 (개별 게임 시트)
+# ──────────────────────────────────────────────
+
+CCU_HEADERS = ["timestamp", "ccu_value", "is_sale_period", "is_free_weekend", "is_archived_gap"]
+
+
+def get_or_create_ccu_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
+    try:
+        return ss.worksheet("ccu")
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet(title="ccu", rows=50000, cols=len(CCU_HEADERS))
+        ws.append_row(CCU_HEADERS)
+        return ws
+
+
+def get_ccu_data(ss: gspread.Spreadsheet) -> list[dict]:
+    ws = get_or_create_ccu_tab(ss)
+    return ws.get_all_records()
+
+
+def append_ccu(
+    ss: gspread.Spreadsheet,
+    timestamp: str,
+    ccu_value: int,
+    is_sale: bool = False,
+    is_free_weekend: bool = False,
+):
+    ws = get_or_create_ccu_tab(ss)
+    ws.append_row([timestamp, ccu_value, is_sale, is_free_weekend, False])
+
+
+def bulk_append_ccu(ss: gspread.Spreadsheet, rows: list[list]):
+    """rows: [[timestamp, ccu_value, is_sale, is_free_weekend, is_archived_gap], ...]"""
+    ws = get_or_create_ccu_tab(ss)
+    ws.append_rows(rows)

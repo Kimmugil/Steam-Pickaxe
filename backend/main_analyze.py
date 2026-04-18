@@ -15,7 +15,7 @@ from sheets.game_sheet import (
     append_timeline_row as gs_append_timeline,
     update_timeline_row as gs_update_timeline,
 )
-from sheets.raw_reviews import get_or_create_raw_spreadsheet, get_reviews_in_range
+from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range
 from analyzers.bucketer import build_buckets, filter_reviews_for_bucket, sample_reviews
 from analyzers.gemini_analyzer import (
     analyze_bucket, analyze_patch_summary, generate_ai_briefing,
@@ -65,7 +65,8 @@ def run():
             if r.get("language_scope") == "all" and r.get("sentiment_rate") != ""
         }
 
-        raw_ss = get_or_create_raw_spreadsheet(GDRIVE_FOLDER_ID, appid, name)
+        # game_sheet_id IS the raw spreadsheet — open directly, no GAS needed
+        raw_ss = open_raw_spreadsheet(game_sheet_id)
         top_languages = _get_top_languages(game, timeline_rows)
 
         for bucket in buckets:

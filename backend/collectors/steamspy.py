@@ -34,5 +34,7 @@ def parse_steamspy_meta(data: dict) -> dict:
         "owners_estimate": owners_estimate,
         "avg_playtime": data.get("average_forever", 0),
         "median_playtime": data.get("median_forever", 0),
-        "active_players_2weeks": data.get("average_2weeks", 0),
+        # players_2weeks = 최근 2주 내 플레이한 유저 수 (average_2weeks는 평균 플레이타임)
+        # SteamSpy는 2주 플레이어 100명 미만인 게임은 0으로 반환
+        "active_players_2weeks": data.get("players_2weeks", 0),
     }

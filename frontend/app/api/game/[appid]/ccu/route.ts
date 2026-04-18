@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCcuData } from "@/lib/sheets";
+import { getCcuData, getGame } from "@/lib/sheets";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ appid: string }> }) {
   try {
     const { appid } = await params;
-    const data = await getCcuData(appid);
+    const game = await getGame(appid);
+    const data = await getCcuData(appid, game?.game_sheet_id);
     return NextResponse.json(data);
-  } catch (e) {
+  } catch {
     return NextResponse.json([], { status: 200 });
   }
 }

@@ -15,7 +15,7 @@ export default async function GamePage({ params }: PageProps) {
 
   const [timelineRows, ccuRows, allGames] = await Promise.all([
     getTimeline(appid, game?.game_sheet_id),
-    getCcuData(appid),
+    getCcuData(appid, game?.game_sheet_id),
     getAllGames(),
   ]);
 
