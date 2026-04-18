@@ -42,6 +42,10 @@ export default function DashboardClient({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // AI 분석 새로고침
+  const [showReanalyzeModal, setShowReanalyzeModal] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
+
   // CCU 피크타임 AI 코멘트
   const peaktimeComment = timelineRows
     .filter((r) => r.language_scope === "all")
@@ -60,6 +64,23 @@ export default function DashboardClient({
     const data: CcuRow[] = await res.json();
     setCompareCcuData(data);
     setActiveTab("ccu");
+  }
+
+  async function handleReanalyze(password: string) {
+    setReanalyzing(true);
+    setShowReanalyzeModal(false);
+    const res = await fetch("/api/admin/reanalyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    setReanalyzing(false);
+    if (data.ok) {
+      show("분석 새로고침이 요청됐습니다. 수분 내 반영됩니다.", "success");
+    } else {
+      show(data.error ?? "오류가 발생했습니다.", "error");
+    }
   }
 
   async function handleDelete(password: string) {
@@ -156,8 +177,28 @@ export default function DashboardClient({
           <Timeline timelineRows={timelineRows} />
         </div>
 
-        {/* ── 게임 삭제 (페이지 최하단) ───────────────────────────── */}
-        <div className="bg-bg-card border border-accent-red/20 rounded-xl p-5">
+        {/* ── 관리자 액션 (재분석 + 삭제) ────────────────────────── */}
+        <div className="flex gap-4 items-stretch">
+
+          {/* AI 분석 새로고침 */}
+          <div className="flex-1 bg-bg-card border border-accent-blue/20 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-accent-blue/80 mb-1">AI 분석 새로고침</h3>
+            <p className="text-xs text-text-muted mb-3">
+              최신 뉴스·패치 재수집 후 AI 분석을 다시 실행합니다.
+              완료까지 수분~수십 분 소요될 수 있습니다.
+            </p>
+            <button
+              onClick={() => setShowReanalyzeModal(true)}
+              disabled={reanalyzing}
+              className="w-full py-2 bg-accent-blue/10 border border-accent-blue/30 text-accent-blue/80 rounded-lg text-sm hover:bg-accent-blue/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              {reanalyzing ? "요청 중..." : "분석 새로고침"}
+            </button>
+          </div>
+
+          {/* 게임 삭제 */}
+        <div className="flex-1 bg-bg-card border border-accent-red/20 rounded-xl p-5">
           <h3 className="text-sm font-semibold text-accent-red/80 mb-3">게임 삭제</h3>
           {!showDeleteConfirm ? (
             <button
@@ -188,9 +229,21 @@ export default function DashboardClient({
               </div>
             </div>
           )}
-        </div>
+          </div>
+
+        </div>{/* flex 끝 */}
 
       </div>
+
+      {/* AI 분석 새로고침 비밀번호 모달 */}
+      <AdminPasswordModal
+        isOpen={showReanalyzeModal}
+        title="AI 분석 새로고침"
+        description="최신 뉴스·패치를 재수집하고 AI 분석을 다시 실행합니다."
+        loading={reanalyzing}
+        onConfirm={handleReanalyze}
+        onClose={() => setShowReanalyzeModal(false)}
+      />
 
       {/* 게임 삭제 비밀번호 모달 */}
       <AdminPasswordModal
