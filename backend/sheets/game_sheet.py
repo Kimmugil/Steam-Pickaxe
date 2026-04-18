@@ -108,6 +108,28 @@ def update_timeline_row(
 
 
 @_retry_on_quota
+def update_timeline_event_field(ss: gspread.Spreadsheet, event_id: str, key: str, value: str):
+    """
+    특정 event_id의 모든 language_scope 행에서 단일 컬럼 값을 업데이트.
+    title_kr 처럼 스코프 무관하게 동일한 값을 가지는 필드 백필에 사용.
+    """
+    ws = get_or_create_timeline_tab(ss)
+    headers = ws.row_values(1)
+    if key not in headers:
+        print(f"[update_field] 헤더에 '{key}' 없음 — 마이그레이션이 필요합니다.")
+        return
+    col_idx = headers.index(key) + 1
+    records = ws.get_all_records()
+    rows_to_update = [
+        i + 2
+        for i, r in enumerate(records)
+        if str(r.get("event_id")) == str(event_id)
+    ]
+    for row_idx in rows_to_update:
+        ws.update_cell(row_idx, col_idx, value)
+
+
+@_retry_on_quota
 def delete_timeline_rows_by_event(ss: gspread.Spreadsheet, event_id: str):
     ws = get_or_create_timeline_tab(ss)
     records = ws.get_all_records()

@@ -14,6 +14,7 @@ from sheets.game_sheet import (
     open_game_sheet, get_timeline as gs_get_timeline,
     append_timeline_row as gs_append_timeline,
     update_timeline_row as gs_update_timeline,
+    update_timeline_event_field as gs_update_event_field,
     cleanup_stale_launch_buckets,
 )
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
@@ -100,6 +101,36 @@ def run():
                 if preceding_id in analyzed_ids:
                     analyzed_ids.discard(preceding_id)
                     print(f"  [재분석 예약] 직전 이벤트: {buckets[-2]['title']}")
+
+        # ── title_kr 백필 ────────────────────────────────────────────
+        # 이미 분석 완료된 이벤트 중 title_kr이 비어 있는 것만 경량 호출로 채움.
+        # analyze_bucket 재실행 없이 generate_event_title_kr 1회 호출만 사용.
+        # (기존 ai_patch_summary를 컨텍스트로 활용하므로 품질도 충분히 보장)
+        rows_needing_title_kr = [
+            r for r in timeline_rows
+            if r.get("language_scope") == "all"
+            and r.get("sentiment_rate") not in ("", None)
+            and not r.get("title_kr", "").strip()
+        ]
+        if rows_needing_title_kr:
+            print(f"  [title_kr 백필] {len(rows_needing_title_kr)}건 시작")
+            for r in rows_needing_title_kr:
+                try:
+                    tkr = generate_event_title_kr(
+                        name,
+                        r.get("title", ""),
+                        r.get("event_type", ""),
+                        r.get("ai_patch_summary", ""),
+                    )
+                    # 동일 event_id의 모든 스코프 행(all/koreana/english)에 한꺼번에 반영
+                    gs_update_event_field(game_ss, r["event_id"], "title_kr", tkr)
+                    print(f"    [{r.get('date')}] {r.get('title')} → {tkr}")
+                    time.sleep(1)  # Sheets API 레이트 리밋 방지
+                except Exception as e:
+                    print(f"    [title_kr 백필 오류] {r.get('title')}: {e}")
+            print(f"  [title_kr 백필] 완료")
+            # 시트 상태 반영을 위해 재조회
+            timeline_rows = gs_get_timeline(game_ss)
 
         # game_sheet_id IS the raw spreadsheet — open directly, no GAS needed
         raw_ss = open_raw_spreadsheet(game_sheet_id)
