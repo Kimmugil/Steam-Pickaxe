@@ -168,11 +168,64 @@ def cleanup_stale_launch_buckets(ss: gspread.Spreadsheet):
 
 CCU_HEADERS = ["timestamp", "ccu_value", "is_sale_period", "is_free_weekend", "is_archived_gap"]
 
+_CELL_LIMIT = 10_000_000
+_CCU_TAB_CELLS = 1000 * 5  # 생성할 ccu 탭 셀 수
+
+
+def _shrink_large_tabs_if_needed(ss: gspread.Spreadsheet) -> None:
+    """
+    스프레드시트 총 셀이 10M 한도에 근접하면, 실제 데이터 행보다 과도하게 큰
+    탭(reviews_YYYY 등)을 실제 데이터 크기에 맞게 축소한다.
+    ccu 탭 생성 전에 호출해 한도 초과를 방지한다.
+    """
+    worksheets = ss.worksheets()
+    total_cells = sum(ws.row_count * ws.col_count for ws in worksheets)
+
+    if total_cells + _CCU_TAB_CELLS <= _CELL_LIMIT:
+        return  # 여유 있음 — 축소 불필요
+
+    print(f"[shrink] 총 셀 {total_cells:,} / 한도 {_CELL_LIMIT:,} → 대형 탭 축소 시작")
+
+    requests = []
+    for ws in worksheets:
+        if ws.row_count * ws.col_count <= 100_000:
+            continue  # 소형 탭은 건드리지 않음
+
+        # A열 값만 읽어 실제 데이터 마지막 행 파악 (빈 행은 반환 안 됨)
+        try:
+            col_a = ws.col_values(1)
+            data_rows = len(col_a)
+        except Exception:
+            data_rows = min(ws.row_count, 5000)
+
+        target_rows = max(data_rows + 50, 100)
+        if target_rows >= ws.row_count:
+            continue  # 이미 충분히 작음
+
+        requests.append({
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": ws.id,
+                    "gridProperties": {
+                        "rowCount": target_rows,
+                        "columnCount": ws.col_count,
+                    },
+                },
+                "fields": "gridProperties.rowCount,gridProperties.columnCount",
+            }
+        })
+        print(f"  {ws.title}: {ws.row_count:,}행 → {target_rows:,}행")
+
+    if requests:
+        ss.batch_update({"requests": requests})
+        print(f"[shrink] {len(requests)}개 탭 축소 완료")
+
 
 def get_or_create_ccu_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
     try:
         return ss.worksheet("ccu")
     except gspread.WorksheetNotFound:
+        _shrink_large_tabs_if_needed(ss)
         ws = ss.add_worksheet(title="ccu", rows=1000, cols=len(CCU_HEADERS))
         ws.append_row(CCU_HEADERS)
         return ws
