@@ -2,9 +2,9 @@
 import Image from "next/image";
 import Badge from "@/components/shared/Badge";
 import { InfoIcon } from "@/components/shared/Tooltip";
+import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
-// Sheets에서 읽은 boolean 문자열 → 실제 boolean 변환
 function parseBool(v: boolean | string | undefined): boolean {
   if (typeof v === "boolean") return v;
   if (typeof v === "string") return v.toUpperCase() === "TRUE";
@@ -32,6 +32,8 @@ function formatPlaytime(minutes: number): string {
 }
 
 export default function Header({ game, currentCcu, topSentimentRate }: HeaderProps) {
+  const { t } = useUiText();
+
   const ccuPct = game.peak_ccu && currentCcu
     ? Math.round((currentCcu / Number(game.peak_ccu)) * 100)
     : null;
@@ -55,10 +57,14 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold text-text-primary">{game.name_kr || game.name}</h1>
               {parseBool(game.is_free) && (
-                <span className="text-xs bg-accent-green/20 text-accent-green border border-accent-green/30 px-2 py-0.5 rounded font-medium">F2P</span>
+                <span className="text-xs bg-accent-green/20 text-accent-green border border-accent-green/30 px-2 py-0.5 rounded font-medium">
+                  {t("BADGE_F2P")}
+                </span>
               )}
               {parseBool(game.is_early_access) && (
-                <span className="text-xs bg-accent-yellow/20 text-accent-yellow border border-accent-yellow/30 px-2 py-0.5 rounded font-medium">Early Access</span>
+                <span className="text-xs bg-accent-yellow/20 text-accent-yellow border border-accent-yellow/30 px-2 py-0.5 rounded font-medium">
+                  {t("BADGE_EARLY_ACCESS")}
+                </span>
               )}
             </div>
             {game.name_kr && game.name_kr !== game.name && (
@@ -66,14 +72,14 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
             )}
 
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              <span className="text-xs text-text-muted">AppID: {game.appid}</span>
+              <span className="text-xs text-text-muted">{t("HEADER_APPID_LABEL")} {game.appid}</span>
               <a
                 href={`https://store.steampowered.com/app/${game.appid}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-accent-blue hover:underline"
               >
-                Steam 상점 바로가기 ↗
+                {t("HEADER_STEAM_LINK")}
               </a>
             </div>
 
@@ -83,14 +89,20 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                 <Badge rate={topSentimentRate} size="lg" showLabel />
               )}
               <div className="text-sm text-text-secondary">
-                리뷰 <span className="text-text-primary font-medium">{Number(game.totalReviews || 0).toLocaleString()}건</span>
+                {t("HEADER_REVIEWS_LABEL")}{" "}
+                <span className="text-text-primary font-medium">
+                  {Number(game.totalReviews || 0).toLocaleString()}{t("HEADER_REVIEWS_UNIT")}
+                </span>
               </div>
               {currentCcu !== undefined && (
                 <div className="text-sm text-text-secondary">
-                  현재 CCU <span className="text-text-primary font-medium">{currentCcu.toLocaleString()}명</span>
+                  {t("HEADER_CCU_LABEL")}{" "}
+                  <span className="text-text-primary font-medium">
+                    {currentCcu.toLocaleString()}{t("HEADER_CCU_UNIT")}
+                  </span>
                   {ccuPct !== null && (
                     <span className="ml-1 text-xs text-text-muted">
-                      (역대 최고 {Number(game.peak_ccu).toLocaleString()}명 대비 {ccuPct}%)
+                      ({t("HEADER_CCU_PEAK_LABEL")} {Number(game.peak_ccu).toLocaleString()}{t("HEADER_CCU_UNIT")} {t("HEADER_CCU_PEAK_SUFFIX")} {ccuPct}%)
                     </span>
                   )}
                 </div>
@@ -99,45 +111,25 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
           </div>
         </div>
 
-        {/* SteamSpy 지표 요약 행 (리뷰 전환율 제거, 5개 항목) */}
+        {/* SteamSpy 지표 요약 */}
         <div className="mt-5 pt-4 border-t border-border-default grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatItem
-            label="추정 소유자"
-            value={formatNum(game.owners_estimate)}
-            tooltip="SteamSpy 통계적 추정치입니다. 실제값과 차이가 있을 수 있습니다."
-          />
-          <StatItem
-            label="평균 플레이타임"
-            value={formatPlaytime(Number(game.avg_playtime))}
-            tooltip="SteamSpy 추정치 기반입니다."
-          />
-          <StatItem
-            label="중간값 플레이타임"
-            value={formatPlaytime(Number(game.median_playtime))}
-            tooltip="SteamSpy 추정치 기반입니다."
-          />
-          <StatItem
-            label="2주 활성 플레이어"
-            value={formatNum(game.active_players_2weeks)}
-            tooltip="최근 2주간 플레이한 유저 수. SteamSpy 추정치입니다."
-          />
-          <StatItem
-            label="잔존율"
-            value={retentionRate ? `${retentionRate}%` : "-"}
-            tooltip="최근 2주 활성 플레이어 ÷ 추정 소유자 수. SteamSpy 추정치 기반으로 절대값이 아닌 상대 비교 지표로 활용하세요."
-          />
+          <StatItem label={t("STAT_OWNERS_LABEL")}        value={formatNum(game.owners_estimate)}            tooltip={t("STAT_OWNERS_TOOLTIP")} />
+          <StatItem label={t("STAT_AVG_PLAYTIME_LABEL")}  value={formatPlaytime(Number(game.avg_playtime))}  tooltip={t("STAT_AVG_PLAYTIME_TOOLTIP")} />
+          <StatItem label={t("STAT_MEDIAN_PLAYTIME_LABEL")} value={formatPlaytime(Number(game.median_playtime))} tooltip={t("STAT_MEDIAN_PLAYTIME_TOOLTIP")} />
+          <StatItem label={t("STAT_ACTIVE_2W_LABEL")}     value={formatNum(game.active_players_2weeks)}      tooltip={t("STAT_ACTIVE_2W_TOOLTIP")} />
+          <StatItem label={t("STAT_RETENTION_LABEL")}     value={retentionRate ? `${retentionRate}%` : "-"}  tooltip={t("STAT_RETENTION_TOOLTIP")} />
         </div>
 
         {/* AI 브리핑 */}
         {game.ai_briefing && (
           <div className="mt-4 bg-bg-card border border-accent-blue/20 rounded-xl p-4">
             <div className="flex items-start gap-2">
-              <span className="text-accent-blue text-sm mt-0.5 shrink-0">AI 현황 진단</span>
+              <span className="text-accent-blue text-sm mt-0.5 shrink-0">{t("HEADER_AI_BRIEFING_TITLE")}</span>
               <p className="text-text-secondary text-sm leading-relaxed">{game.ai_briefing}</p>
             </div>
             {game.ai_briefing_date && (
               <p className="text-xs text-text-muted mt-2 text-right">
-                마지막 분석: {game.ai_briefing_date}
+                {t("HEADER_AI_BRIEFING_DATE")} {game.ai_briefing_date}
               </p>
             )}
           </div>

@@ -1,35 +1,38 @@
 "use client";
 import { useState, useMemo } from "react";
 import Badge from "@/components/shared/Badge";
+import { useUiText } from "@/contexts/UiTextContext";
 import type { TimelineRow, TopReview } from "@/types";
 
 interface TimelineProps {
   timelineRows: TimelineRow[];
 }
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  official: "공식 패치",
-  manual: "수동 이벤트",
-  news: "외부 뉴스",
-  free_weekend: "무료 주말",
-  launch: "런칭",
-};
-
 export default function Timeline({ timelineRows }: TimelineProps) {
+  const { t } = useUiText();
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const allRows = useMemo(() => {
-    return timelineRows.filter((r) => r.language_scope === "all");
-  }, [timelineRows]);
+  const EVENT_TYPE_LABELS: Record<string, string> = {
+    official: t("TIMELINE_TYPE_OFFICIAL"),
+    manual: t("TIMELINE_TYPE_MANUAL"),
+    news: t("TIMELINE_TYPE_NEWS"),
+    free_weekend: t("TIMELINE_TYPE_FREE_WEEKEND"),
+    launch: t("TIMELINE_TYPE_LAUNCH"),
+  };
 
-  const sorted = useMemo(() => {
-    return [...allRows].sort((a, b) =>
-      sortAsc
-        ? a.date.localeCompare(b.date)
-        : b.date.localeCompare(a.date)
-    );
-  }, [allRows, sortAsc]);
+  const allRows = useMemo(
+    () => timelineRows.filter((r) => r.language_scope === "all"),
+    [timelineRows]
+  );
+
+  const sorted = useMemo(
+    () =>
+      [...allRows].sort((a, b) =>
+        sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)
+      ),
+    [allRows, sortAsc]
+  );
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
@@ -56,7 +59,7 @@ export default function Timeline({ timelineRows }: TimelineProps) {
           onClick={() => setSortAsc(!sortAsc)}
           className="text-xs px-3 py-1.5 bg-bg-card border border-border-default rounded-lg text-text-secondary hover:text-text-primary hover:border-border-hover transition-colors"
         >
-          {sortAsc ? "▲ 과거순" : "▼ 최신순"}
+          {sortAsc ? t("TIMELINE_SORT_ASC") : t("TIMELINE_SORT_DESC")}
         </button>
       </div>
 
@@ -73,7 +76,6 @@ export default function Timeline({ timelineRows }: TimelineProps) {
             const rate = row.sentiment_rate !== "" && row.sentiment_rate !== 0 ? Number(row.sentiment_rate) : null;
             const keywords = parseKeywords(row.top_keywords);
             const reviews = parseReviews(row.top_reviews);
-            // AI 분석 대기 중 — 이벤트는 있지만 아직 분석 안 된 상태
             const isPending = !isNews && rate === null && keywords.length === 0 && !row.ai_reaction_summary;
 
             if (isNews) {
@@ -85,7 +87,9 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                   <div className="flex-1 pb-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-text-muted">{row.date}</span>
-                      <span className="text-xs bg-bg-card px-1.5 py-0.5 rounded text-text-muted border border-border-default">외부 뉴스</span>
+                      <span className="text-xs bg-bg-card px-1.5 py-0.5 rounded text-text-muted border border-border-default">
+                        {t("TIMELINE_TYPE_NEWS")}
+                      </span>
                       {row.url ? (
                         <a href={row.url} target="_blank" rel="noopener noreferrer"
                           className="text-xs text-text-secondary hover:text-accent-blue transition-colors line-clamp-1">
@@ -109,12 +113,13 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                   <div className={`w-3.5 h-3.5 rounded-full border-2 ${
                     isFreeWeekend ? "border-accent-green bg-accent-green/30" :
                     isSale ? "border-accent-orange bg-accent-orange/30" :
+                    isPending ? "border-accent-yellow bg-accent-yellow/20" :
                     "border-accent-blue bg-accent-blue/30"
                   }`} />
                 </div>
 
                 <div className="flex-1 pb-3">
-                  {/* 할인 뱃지 */}
+                  {/* 할인/무료 주말 뱃지 */}
                   {(isSale || isFreeWeekend) && (
                     <div className="mb-2">
                       <span className={`text-xs px-2 py-0.5 rounded font-medium ${
@@ -122,7 +127,7 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                           ? "bg-accent-green/20 text-accent-green border border-accent-green/30"
                           : "bg-accent-orange/20 text-accent-orange border border-accent-orange/30"
                       }`}>
-                        {isFreeWeekend ? "무료 주말" : row.sale_text || "할인 중"}
+                        {isFreeWeekend ? t("TIMELINE_TYPE_FREE_WEEKEND") : row.sale_text || t("TIMELINE_SALE_TEXT")}
                       </span>
                     </div>
                   )}
@@ -141,7 +146,7 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                       {isPending ? (
                         <span className="text-xs text-text-muted flex items-center gap-1">
                           <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-yellow animate-pulse" />
-                          AI 분석 진행 중...
+                          {t("TIMELINE_PENDING")}
                         </span>
                       ) : (
                         rate !== null && <Badge rate={rate} size="sm" />
@@ -169,30 +174,30 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                     <div className="mt-3 space-y-3 border-l-2 border-accent-blue/30 pl-4">
                       {row.ai_patch_summary && (
                         <div>
-                          <p className="text-xs text-accent-blue mb-1 font-medium">패치 내용 요약</p>
+                          <p className="text-xs text-accent-blue mb-1 font-medium">{t("TIMELINE_PATCH_SUMMARY")}</p>
                           <p className="text-sm text-text-secondary leading-relaxed">{row.ai_patch_summary}</p>
                         </div>
                       )}
                       {row.ai_reaction_summary && (
                         <div>
-                          <p className="text-xs text-accent-blue mb-1 font-medium">유저 반응 진단</p>
+                          <p className="text-xs text-accent-blue mb-1 font-medium">{t("TIMELINE_REACTION")}</p>
                           <p className="text-sm text-text-secondary leading-relaxed">{row.ai_reaction_summary}</p>
                         </div>
                       )}
                       {row.review_count && (
                         <p className="text-xs text-text-muted">
-                          해당 구간 수집 리뷰: {Number(row.review_count).toLocaleString()}건
+                          {t("TIMELINE_REVIEW_COUNT", { n: Number(row.review_count).toLocaleString() })}
                         </p>
                       )}
                       {reviews.length > 0 && (
                         <div>
-                          <p className="text-xs text-accent-blue mb-2 font-medium">핵심 대표 리뷰</p>
+                          <p className="text-xs text-accent-blue mb-2 font-medium">{t("TIMELINE_TOP_REVIEWS")}</p>
                           <div className="space-y-2">
                             {reviews.slice(0, 3).map((rv, ri) => (
                               <div key={ri} className={`bg-bg-primary border rounded-lg p-3 ${rv.voted_up ? "border-accent-green/20" : "border-accent-red/20"}`}>
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
-                                    {rv.voted_up ? "긍정" : "부정"}
+                                    {rv.voted_up ? t("REVIEW_POSITIVE") : t("REVIEW_NEGATIVE")}
                                   </span>
                                   <span className="text-xs text-text-muted">[{rv.language}]</span>
                                 </div>
@@ -212,7 +217,7 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                           rel="noopener noreferrer"
                           className="inline-block text-xs px-3 py-1.5 bg-bg-secondary border border-border-default rounded-lg text-accent-blue hover:bg-bg-hover transition-colors"
                         >
-                          공식 패치노트 원문 보기 ↗
+                          {t("TIMELINE_PATCH_NOTES_LINK")}
                         </a>
                       )}
                     </div>

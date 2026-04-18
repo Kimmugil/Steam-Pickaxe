@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Lock } from "lucide-react";
 import AdminPasswordModal from "@/components/shared/AdminPasswordModal";
 import Toast, { useToast } from "@/components/shared/Toast";
+import { useUiText } from "@/contexts/UiTextContext";
 
 interface EventFormProps {
   appid: string;
@@ -10,10 +11,10 @@ interface EventFormProps {
 }
 
 export default function EventForm({ appid, onEventAdded }: EventFormProps) {
+  const { t } = useUiText();
   const { toast, show, clear } = useToast();
   const [open, setOpen] = useState(false);
 
-  // 폼 필드
   const [eventTitle, setEventTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventUrl, setEventUrl] = useState("");
@@ -30,20 +31,13 @@ export default function EventForm({ appid, onEventAdded }: EventFormProps) {
     const res = await fetch("/api/admin/event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        appid,
-        title: eventTitle,
-        date: eventDate,
-        url: eventUrl,
-        content: eventContent,
-        password,
-      }),
+      body: JSON.stringify({ appid, title: eventTitle, date: eventDate, url: eventUrl, content: eventContent, password }),
     });
     const data = await res.json();
     setAdding(false);
 
     if (data.ok) {
-      show("이벤트가 등록되었습니다. 재분석이 시작됩니다.", "success");
+      show(t("EVENT_SUCCESS"), "success");
       setEventTitle("");
       setEventDate("");
       setEventUrl("");
@@ -51,19 +45,18 @@ export default function EventForm({ appid, onEventAdded }: EventFormProps) {
       setOpen(false);
       onEventAdded();
     } else {
-      show(data.error ?? "오류가 발생했습니다.", "error");
+      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
     }
   }
 
   return (
     <div className="mb-6">
-      {/* 토글 버튼 */}
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary border border-dashed border-border-default hover:border-border-hover rounded-lg px-3 py-2 transition-colors"
       >
         <Lock className="w-3 h-3" />
-        수동 이슈/이벤트 등록 (관리자)
+        {t("EVENT_FORM_TOGGLE")}
         <span className="ml-auto">{open ? "▲" : "▼"}</span>
       </button>
 
@@ -73,7 +66,7 @@ export default function EventForm({ appid, onEventAdded }: EventFormProps) {
             type="text"
             value={eventTitle}
             onChange={(e) => setEventTitle(e.target.value)}
-            placeholder="이벤트 제목 (예: 서버 장애, 대규모 업데이트)"
+            placeholder={t("EVENT_TITLE_PLACEHOLDER")}
             className="w-full bg-bg-card border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue"
           />
           <input
@@ -86,33 +79,30 @@ export default function EventForm({ appid, onEventAdded }: EventFormProps) {
             type="url"
             value={eventUrl}
             onChange={(e) => setEventUrl(e.target.value)}
-            placeholder="이벤트 URL (선택, 패치노트/공지 링크)"
+            placeholder={t("EVENT_URL_PLACEHOLDER")}
             className="w-full bg-bg-card border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue"
           />
           <textarea
             value={eventContent}
             onChange={(e) => setEventContent(e.target.value)}
-            placeholder={`패치노트 전문, 공지사항, 커뮤니티 포스트 내용을 직접 붙여넣으세요.\nAI가 이 텍스트를 바탕으로 타임라인 카드를 생성합니다.\n(URL만으로 크롤링이 어려울 때 활용)`}
+            placeholder={t("EVENT_CONTENT_PLACEHOLDER")}
             rows={6}
             className="w-full bg-bg-card border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue resize-y"
           />
           <button
-            onClick={() => {
-              if (!eventTitle || !eventDate) return;
-              setShowModal(true);
-            }}
+            onClick={() => { if (!eventTitle || !eventDate) return; setShowModal(true); }}
             disabled={!eventTitle || !eventDate || adding}
             className="w-full py-2 bg-accent-yellow/20 border border-accent-yellow/40 text-accent-yellow rounded-lg text-sm font-medium hover:bg-accent-yellow/30 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
           >
             <Lock className="w-3.5 h-3.5" />
-            {adding ? "등록 중..." : "이벤트 등록 + 재분석"}
+            {adding ? t("EVENT_SUBMIT_BTN_LOADING") : t("EVENT_SUBMIT_BTN")}
           </button>
         </div>
       )}
 
       <AdminPasswordModal
         isOpen={showModal}
-        title="이벤트 등록 인증"
+        title={t("EVENT_AUTH_TITLE")}
         description={`"${eventTitle}" 이벤트를 등록하고 재분석을 시작합니다.`}
         loading={adding}
         onConfirm={handleAdd}

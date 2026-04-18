@@ -2,9 +2,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import Badge from "@/components/shared/Badge";
+import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
-// Sheets에서 읽은 boolean 문자열을 실제 boolean으로 변환
 function parseBool(v: boolean | string | undefined): boolean {
   if (typeof v === "boolean") return v;
   if (typeof v === "string") return v.toUpperCase() === "TRUE";
@@ -23,9 +23,11 @@ interface GameCardProps {
 }
 
 export default function GameCard({ game }: GameCardProps) {
-  const days = daysSince(game.last_event_date);
-  const daysColor =
-    days >= 60 ? "text-accent-red" : days >= 30 ? "text-accent-orange" : "text-text-muted";
+  const { t } = useUiText();
+
+  const eventDays = daysSince(game.last_event_date);
+  const eventDaysColor =
+    eventDays >= 60 ? "text-accent-red" : eventDays >= 30 ? "text-accent-orange" : "text-text-muted";
 
   const isFree = parseBool(game.is_free);
   const sentimentRate =
@@ -57,10 +59,9 @@ export default function GameCard({ game }: GameCardProps) {
         )}
         {isFree && (
           <span className="absolute top-2 right-2 text-xs bg-accent-green/90 text-white px-2 py-0.5 rounded font-medium">
-            F2P
+            {t("BADGE_F2P")}
           </span>
         )}
-        {/* 평가 뱃지 (우측 상단, F2P와 겹치지 않게) */}
         {sentimentRate !== null && !isFree && (
           <div className="absolute top-2 right-2">
             <Badge rate={sentimentRate} size="sm" />
@@ -82,25 +83,36 @@ export default function GameCard({ game }: GameCardProps) {
           <p className="text-xs text-text-muted truncate mt-0.5">{game.name}</p>
         )}
 
-        {/* 메타 정보 줄 */}
         <div className="mt-2 space-y-1">
+          {/* 리뷰 수 + 이벤트 수 */}
           <div className="flex items-center justify-between text-xs text-text-secondary">
-            <span>리뷰 {Number(game.totalReviews || 0).toLocaleString()}건</span>
+            <span>{t("CARD_REVIEWS_LABEL", { n: Number(game.totalReviews || 0).toLocaleString() })}</span>
             {eventCount !== null && eventCount > 0 && (
-              <span className="text-text-muted">이벤트 {eventCount}건</span>
+              <span className="text-text-muted">{t("CARD_EVENTS_LABEL", { n: eventCount })}</span>
             )}
           </div>
 
+          {/* 출시일 + 최근 이벤트 날짜 */}
           <div className="flex items-center justify-between text-xs">
             {game.release_date ? (
               <span className="text-text-muted">{game.release_date}</span>
             ) : (
               <span />
             )}
-            {days > 0 && (
-              <span className={daysColor}>{days}일 전 업데이트</span>
+            {eventDays > 0 && game.last_event_date && (
+              <span className={`${eventDaysColor} flex items-center gap-1`}>
+                <span className="text-text-muted">{t("CARD_LAST_EVENT_LABEL")}:</span>
+                {t("CARD_DAYS_AGO", { n: eventDays })}
+              </span>
             )}
           </div>
+
+          {/* AI 분석 날짜 (이벤트 날짜와 분리) */}
+          {game.ai_briefing_date && (
+            <div className="flex items-center justify-end text-xs text-text-muted">
+              <span>{t("CARD_AI_DATE_LABEL")}: {game.ai_briefing_date}</span>
+            </div>
+          )}
         </div>
       </div>
     </Link>
