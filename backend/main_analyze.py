@@ -8,9 +8,12 @@ import sys, os, json
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sheets.master_sheet import (
-    get_spreadsheet, get_all_games, get_timeline, append_timeline_row,
-    update_timeline_row, update_game, set_config_value, get_config,
-    get_or_create_timeline_tab, TIMELINE_HEADERS
+    get_spreadsheet, get_all_games, update_game, set_config_value, get_config,
+)
+from sheets.game_sheet import (
+    open_game_sheet, get_timeline as gs_get_timeline,
+    append_timeline_row as gs_append_timeline,
+    update_timeline_row as gs_update_timeline,
 )
 from sheets.raw_reviews import get_or_create_raw_spreadsheet, get_reviews_in_range
 from analyzers.bucketer import build_buckets, filter_reviews_for_bucket, sample_reviews
@@ -18,7 +21,6 @@ from analyzers.gemini_analyzer import (
     analyze_bucket, analyze_patch_summary, generate_ai_briefing,
     generate_ccu_peaktime_comment, generate_language_cross_analysis, LANGUAGE_NAMES
 )
-from sheets.master_sheet import get_ccu_data
 from datetime import datetime, timezone
 
 GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "")
@@ -44,9 +46,16 @@ def run():
 
         appid = str(game.get("appid", ""))
         name = game.get("name", appid)
+        game_sheet_id = game.get("game_sheet_id", "")
+
+        if not game_sheet_id:
+            print(f"[SKIP] game_sheet_id 없음: {name} ({appid})")
+            continue
+
         print(f"\n{'='*50}\n분석 시작: {name} ({appid})")
 
-        timeline_rows = get_timeline(ss, appid)
+        game_ss = open_game_sheet(game_sheet_id)
+        timeline_rows = gs_get_timeline(game_ss)
         buckets = build_buckets(timeline_rows)
 
         # 미분석 구간 식별 (language_scope=all, sentiment_rate가 없는 행)
@@ -114,9 +123,9 @@ def run():
                     for r in timeline_rows
                 }
                 if (event_id, scope) in existing_scope_ids:
-                    update_timeline_row(ss, appid, event_id, scope, row)
+                    gs_update_timeline(game_ss, event_id, scope, row)
                 else:
-                    append_timeline_row(ss, appid, row)
+                    gs_append_timeline(game_ss, row)
 
             print(f"  구간 분석 완료 ({bucket['title']})")
 
@@ -125,7 +134,7 @@ def run():
             update_game(ss, appid, {"top_languages": ",".join(top_languages)})
 
         # 전체 AI 브리핑 갱신
-        briefing = _generate_briefing(name, get_timeline(ss, appid))
+        briefing = _generate_briefing(name, gs_get_timeline(game_ss))
         update_game(ss, appid, {
             "ai_briefing": briefing,
             "ai_briefing_date": today,

@@ -11,9 +11,10 @@ interface PageProps {
 export default async function GamePage({ params }: PageProps) {
   const { appid } = await params;
 
-  const [game, timelineRows, ccuRows, allGames] = await Promise.all([
-    getGame(appid),
-    getTimeline(appid),
+  const game = await getGame(appid);
+
+  const [timelineRows, ccuRows, allGames] = await Promise.all([
+    getTimeline(appid, game?.game_sheet_id),
     getCcuData(appid),
     getAllGames(),
   ]);

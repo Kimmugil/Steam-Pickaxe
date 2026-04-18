@@ -57,7 +57,7 @@ def run():
 
         # 2. 뉴스/패치노트 수집 (active 상태에서만)
         if status == "active":
-            _collect_news(ss, appid, game.get("name", ""))
+            _collect_news(ss, appid, game.get("name", ""), game.get("game_sheet_id", ""))
 
         # 3. 리뷰 수집
         last_cursor = game.get("last_cursor", "") or "*"
@@ -111,9 +111,15 @@ def run():
     print("\n전체 수집 완료")
 
 
-def _collect_news(ss, appid: str, game_name: str):
-    from sheets.master_sheet import get_timeline, append_timeline_row, get_or_create_timeline_tab
-    existing = get_timeline(ss, appid)
+def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
+    from sheets.game_sheet import open_game_sheet, get_timeline as gs_get_timeline, append_timeline_row as gs_append
+
+    if not game_sheet_id:
+        print(f"[WARN] game_sheet_id 없음 ({appid}), 뉴스 수집 건너뜀")
+        return
+
+    game_ss = open_game_sheet(game_sheet_id)
+    existing = gs_get_timeline(game_ss)
     existing_urls   = {r.get("url") for r in existing if r.get("url")}
     existing_titles = {r.get("title") for r in existing if r.get("title")}
 
@@ -130,7 +136,7 @@ def _collect_news(ss, appid: str, game_name: str):
             continue
         if title and title in existing_titles:
             continue
-        append_timeline_row(ss, appid, {**parsed, "language_scope": "all"})
+        gs_append(game_ss, {**parsed, "language_scope": "all"})
         existing_urls.add(url)
         existing_titles.add(title)
         added += 1
@@ -138,7 +144,7 @@ def _collect_news(ss, appid: str, game_name: str):
     if added:
         print(f"뉴스/패치 {added}건 추가")
         all_official = [
-            r for r in get_timeline(ss, appid)
+            r for r in gs_get_timeline(game_ss)
             if r.get("event_type") in ("official", "manual") and r.get("date")
         ]
         if all_official:

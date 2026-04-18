@@ -70,9 +70,11 @@ export default function Timeline({ timelineRows }: TimelineProps) {
             const isSale = row.is_sale_period === "TRUE" || row.is_sale_period === true;
             const isFreeWeekend = row.is_free_weekend === "TRUE" || row.is_free_weekend === true;
             const isExpanded = expandedIds.has(row.event_id);
-            const rate = row.sentiment_rate !== "" ? Number(row.sentiment_rate) : null;
+            const rate = row.sentiment_rate !== "" && row.sentiment_rate !== 0 ? Number(row.sentiment_rate) : null;
             const keywords = parseKeywords(row.top_keywords);
             const reviews = parseReviews(row.top_reviews);
+            // AI 분석 대기 중 — 이벤트는 있지만 아직 분석 안 된 상태
+            const isPending = !isNews && rate === null && keywords.length === 0 && !row.ai_reaction_summary;
 
             if (isNews) {
               return (
@@ -127,23 +129,31 @@ export default function Timeline({ timelineRows }: TimelineProps) {
 
                   {/* 헤더 클릭 → 접기/펼치기 */}
                   <button
-                    onClick={() => toggleExpand(row.event_id)}
-                    className="w-full text-left group"
+                    onClick={() => !isPending && toggleExpand(row.event_id)}
+                    className={`w-full text-left ${isPending ? "cursor-default" : "group"}`}
+                    disabled={isPending}
                   >
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-text-muted">{row.date}</span>
                       <span className="text-xs bg-bg-secondary border border-border-default px-1.5 py-0.5 rounded text-text-muted">
                         {EVENT_TYPE_LABELS[row.event_type] ?? row.event_type}
                       </span>
-                      {rate !== null && <Badge rate={rate} size="sm" />}
+                      {isPending ? (
+                        <span className="text-xs text-text-muted flex items-center gap-1">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-yellow animate-pulse" />
+                          AI 분석 진행 중...
+                        </span>
+                      ) : (
+                        rate !== null && <Badge rate={rate} size="sm" />
+                      )}
                     </div>
-                    <p className="font-medium text-text-primary mt-1 group-hover:text-accent-blue transition-colors">
+                    <p className={`font-medium mt-1 transition-colors ${isPending ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>
                       {row.title}
-                      <span className="ml-2 text-xs text-text-muted">{isExpanded ? "▲" : "▼"}</span>
+                      {!isPending && <span className="ml-2 text-xs text-text-muted">{isExpanded ? "▲" : "▼"}</span>}
                     </p>
 
                     {/* 기본 표시: 키워드 */}
-                    {keywords.length > 0 && (
+                    {!isPending && keywords.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {keywords.map((kw, ki) => (
                           <span key={ki} className="text-xs bg-bg-secondary px-2 py-0.5 rounded text-text-secondary border border-border-default">

@@ -31,6 +31,16 @@ async function readSheet(tabName: string): Promise<string[][]> {
   return (res.data.values ?? []) as string[][];
 }
 
+/** 개별 게임 시트(game_sheet_id)에서 특정 탭 읽기 */
+async function readGameSheet(sheetId: string, tabName: string): Promise<string[][]> {
+  const sheets = await getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: tabName,
+  });
+  return (res.data.values ?? []) as string[][];
+}
+
 // Sheets에서 읽은 "TRUE"/"FALSE"/"True"/"False" 문자열을 실제 boolean으로 변환
 const BOOL_FIELDS = new Set(["is_free", "is_early_access", "is_sale_period", "is_free_weekend", "is_archived_gap"]);
 
@@ -147,43 +157,71 @@ export async function updateGame(appid: string, updates: Partial<Game>) {
   }
 }
 
-// ── timeline_{appid} ──────────────────────────────────
+// ── timeline (개별 게임 시트 우선, 마스터 시트 폴백) ──
 
-export async function getTimeline(appid: string): Promise<TimelineRow[]> {
+const TIMELINE_HEADERS = [
+  "event_id","event_type","date","title","language_scope",
+  "sentiment_rate","review_count","ai_patch_summary","ai_reaction_summary",
+  "top_keywords","top_reviews","url","is_sale_period","sale_text","is_free_weekend",
+];
+
+/**
+ * 타임라인 조회.
+ * gameSheetId가 있으면 개별 게임 시트의 "timeline" 탭을 읽는다.
+ * 없으면 마스터 시트의 "timeline_{appid}" 탭으로 폴백한다.
+ */
+export async function getTimeline(appid: string, gameSheetId?: string): Promise<TimelineRow[]> {
   try {
-    const rows = await readSheet(`timeline_${appid}`);
+    const rows = gameSheetId
+      ? await readGameSheet(gameSheetId, "timeline")
+      : await readSheet(`timeline_${appid}`);
     return rowsToRecords(rows) as unknown as TimelineRow[];
   } catch {
     return [];
   }
 }
 
-export async function appendTimelineRow(appid: string, row: Partial<TimelineRow>) {
+/**
+ * 타임라인 행 추가.
+ * gameSheetId가 있으면 개별 게임 시트에 쓴다.
+ */
+export async function appendTimelineRow(
+  appid: string,
+  row: Partial<TimelineRow>,
+  gameSheetId?: string,
+) {
   const sheets = await getSheetsClient();
-  const headers = [
-    "event_id","event_type","date","title","language_scope",
-    "sentiment_rate","review_count","ai_patch_summary","ai_reaction_summary",
-    "top_keywords","top_reviews","url","is_sale_period","sale_text","is_free_weekend",
-  ];
-  const values = headers.map((h) => String((row as Record<string, unknown>)[h] ?? ""));
+  const values = TIMELINE_HEADERS.map((h) => String((row as Record<string, unknown>)[h] ?? ""));
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `timeline_${appid}`,
+    spreadsheetId: gameSheetId ?? SPREADSHEET_ID,
+    range: gameSheetId ? "timeline" : `timeline_${appid}`,
     valueInputOption: "RAW",
     requestBody: { values: [values] },
   });
 }
 
-export async function deleteTimelineRowsByEventId(appid: string, eventId: string) {
+/**
+ * 이벤트 ID 기준으로 타임라인 행 삭제.
+ * gameSheetId가 있으면 개별 게임 시트에서 삭제한다.
+ */
+export async function deleteTimelineRowsByEventId(
+  appid: string,
+  eventId: string,
+  gameSheetId?: string,
+) {
   const sheets = await getSheetsClient();
-  const rows = await readSheet(`timeline_${appid}`);
+  const spreadsheetId = gameSheetId ?? SPREADSHEET_ID;
+  const tabName = gameSheetId ? "timeline" : `timeline_${appid}`;
+  const rows = await (gameSheetId
+    ? readGameSheet(gameSheetId, tabName)
+    : readSheet(tabName));
 
   const tabInfo = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId,
     fields: "sheets.properties",
   });
   const sheet = tabInfo.data.sheets?.find(
-    (s) => s.properties?.title === `timeline_${appid}`
+    (s) => s.properties?.title === tabName
   );
   if (!sheet?.properties?.sheetId) return;
 
@@ -207,7 +245,7 @@ export async function deleteTimelineRowsByEventId(appid: string, eventId: string
 
   if (requests.length > 0) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId,
       requestBody: { requests },
     });
   }
