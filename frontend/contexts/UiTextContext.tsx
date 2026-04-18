@@ -82,6 +82,9 @@ const FALLBACK: Record<string, string> = {
   POOL_EMPTY_MSG: "곳간 용량 부족! 농장주(김무길)에게 곳간을 늘려달라고 하세요.",
   POOL_EMPTY_RETRY_BTN: "곳간 보충 후 재시도",
   POOL_EMPTY_RETRY_SUCCESS: "재시도 요청 완료. 다음 수집 실행 시 자동으로 처리됩니다.",
+
+  // 챗봇 FAB 옆 말풍선 툴팁
+  CHATBOT_TOOLTIP: "{gameName} 분석에서 궁금한 점이 있나요? 무길봇에게 물어보세요",
 };
 
 // ── Context 타입 ──────────────────────────────────────────────────────────────

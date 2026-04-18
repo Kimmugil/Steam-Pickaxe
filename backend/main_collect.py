@@ -51,6 +51,7 @@ def run():
                 "median_playtime": spy_meta["median_playtime"],
                 "active_players_2weeks": spy_meta["active_players_2weeks"],
                 "peak_ccu": peak_ccu,
+                "release_date": meta["release_date"],
             })
             print("메타데이터 갱신 완료")
 
@@ -76,6 +77,9 @@ def run():
                 raw_ss = get_or_create_raw_spreadsheet(
                     GDRIVE_FOLDER_ID, appid, game.get("name", appid)
                 )
+                # 개별 게임 시트 ID를 master sheet에 저장 (아직 없을 때만)
+                if not game.get("game_sheet_id"):
+                    update_game(ss, appid, {"game_sheet_id": raw_ss.id})
             except RuntimeError as e:
                 print(f"[ERROR] RAW 시트 준비 실패: {e}")
                 print("[ERROR] GAS_WEBAPP_URL이 올바르게 설정되었는지 확인하세요.")
@@ -114,7 +118,7 @@ def _collect_news(ss, appid: str, game_name: str):
     existing_titles = {r.get("title") for r in existing if r.get("title")}
 
     news_items = fetch_news(appid)
-    official, external = classify_news(news_items)
+    official, external = classify_news(news_items, app_author=game_name)
 
     added = 0
     for item in official + external:

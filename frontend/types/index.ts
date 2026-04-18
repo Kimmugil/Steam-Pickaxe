@@ -20,9 +20,14 @@ export interface Game {
   active_players_2weeks: number;
   peak_ccu: number;
   metacritic_score: number | string;
-  is_free: boolean;
-  is_early_access: boolean;
+  is_free: boolean | string;
+  is_early_access: boolean | string;
   totalReviews: number;
+  // 신규 필드
+  release_date?: string;
+  latest_sentiment_rate?: number | string;
+  event_count?: number | string;
+  game_sheet_id?: string;
 }
 
 export interface TimelineRow {

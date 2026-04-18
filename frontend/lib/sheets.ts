@@ -31,12 +31,24 @@ async function readSheet(tabName: string): Promise<string[][]> {
   return (res.data.values ?? []) as string[][];
 }
 
-function rowsToRecords(rows: string[][]): Record<string, string>[] {
+// Sheets에서 읽은 "TRUE"/"FALSE"/"True"/"False" 문자열을 실제 boolean으로 변환
+const BOOL_FIELDS = new Set(["is_free", "is_early_access", "is_sale_period", "is_free_weekend", "is_archived_gap"]);
+
+function parseCellValue(key: string, raw: string): string | boolean {
+  if (BOOL_FIELDS.has(key)) {
+    const upper = raw.toUpperCase();
+    if (upper === "TRUE") return true;
+    if (upper === "FALSE") return false;
+  }
+  return raw;
+}
+
+function rowsToRecords(rows: string[][]): Record<string, string | boolean>[] {
   if (rows.length < 2) return [];
   const headers = rows[0];
   return rows.slice(1).map((row) => {
-    const rec: Record<string, string> = {};
-    headers.forEach((h, i) => (rec[h] = row[i] ?? ""));
+    const rec: Record<string, string | boolean> = {};
+    headers.forEach((h, i) => (rec[h] = parseCellValue(h, row[i] ?? "")));
     return rec;
   });
 }
@@ -71,6 +83,21 @@ export async function setConfigValue(key: string, value: string) {
 export async function getAllGames(): Promise<Game[]> {
   const rows = await readSheet("games");
   return rowsToRecords(rows) as unknown as Game[];
+}
+
+// 개별 게임 시트에서 CCU 데이터 읽기 (game_sheet_id 기반)
+export async function getCcuDataFromGameSheet(sheetId: string): Promise<CcuRow[]> {
+  try {
+    const sheets = await getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: "ccu",
+    });
+    const rows = (res.data.values ?? []) as string[][];
+    return rowsToRecords(rows) as unknown as CcuRow[];
+  } catch {
+    return [];
+  }
 }
 
 export async function getGame(appid: string): Promise<Game | null> {

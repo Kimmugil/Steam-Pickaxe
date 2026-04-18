@@ -51,6 +51,8 @@ GAMES_HEADERS = [
     "avg_playtime", "median_playtime", "active_players_2weeks",
     "peak_ccu", "metacritic_score", "is_free", "is_early_access",
     "totalReviews",
+    # 신규 추가 필드
+    "release_date", "latest_sentiment_rate", "event_count", "game_sheet_id",
 ]
 
 def get_all_games(spreadsheet: gspread.Spreadsheet) -> list[dict]:

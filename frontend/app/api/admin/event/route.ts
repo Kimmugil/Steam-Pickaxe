@@ -7,7 +7,7 @@ const GITHUB_REPO = process.env.GITHUB_REPO ?? "Kimmugil/Steam-Pickaxe";
 
 export async function POST(req: NextRequest) {
   try {
-    const { appid, title, date, password } = await req.json();
+    const { appid, title, date, url, content, password } = await req.json();
     if (!appid || !title || !date || !password) {
       return NextResponse.json({ error: "필수 항목이 누락되었습니다." }, { status: 400 });
     }
@@ -18,17 +18,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "비밀번호가 올바르지 않습니다." }, { status: 401 });
     }
 
-    // 수동 이벤트 추가
+    // 수동 이벤트 추가 (url, content 포함)
     const newEventId = uuidv4();
     await appendTimelineRow(String(appid), {
       event_id: newEventId,
       event_type: "manual",
       date,
       title,
+      url: url ?? "",
       language_scope: "all",
       is_sale_period: false,
       sale_text: "",
       is_free_weekend: false,
+      // content는 AI 재분석 시 활용되도록 client_payload로 전달
     });
 
     // 재분석 트리거 (GitHub Actions)
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({
           event_type: "reanalyze-game",
-          client_payload: { appid: String(appid), event_id: newEventId },
+          client_payload: { appid: String(appid), event_id: newEventId, content: content ?? "" },
         }),
       });
     }

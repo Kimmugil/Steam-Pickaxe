@@ -4,6 +4,13 @@ import Badge from "@/components/shared/Badge";
 import { InfoIcon } from "@/components/shared/Tooltip";
 import type { Game } from "@/types";
 
+// Sheets에서 읽은 boolean 문자열 → 실제 boolean 변환
+function parseBool(v: boolean | string | undefined): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v.toUpperCase() === "TRUE";
+  return false;
+}
+
 interface HeaderProps {
   game: Game;
   currentCcu?: number;
@@ -29,10 +36,6 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
     ? Math.round((currentCcu / Number(game.peak_ccu)) * 100)
     : null;
 
-  const reviewRate = game.owners_estimate && game.totalReviews
-    ? ((Number(game.totalReviews) / Number(game.owners_estimate)) * 100).toFixed(2)
-    : null;
-
   const retentionRate = game.owners_estimate && game.active_players_2weeks
     ? ((Number(game.active_players_2weeks) / Number(game.owners_estimate)) * 100).toFixed(1)
     : null;
@@ -51,10 +54,10 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold text-text-primary">{game.name_kr || game.name}</h1>
-              {game.is_free && (
+              {parseBool(game.is_free) && (
                 <span className="text-xs bg-accent-green/20 text-accent-green border border-accent-green/30 px-2 py-0.5 rounded font-medium">F2P</span>
               )}
-              {game.is_early_access && (
+              {parseBool(game.is_early_access) && (
                 <span className="text-xs bg-accent-yellow/20 text-accent-yellow border border-accent-yellow/30 px-2 py-0.5 rounded font-medium">Early Access</span>
               )}
             </div>
@@ -96,8 +99,8 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
           </div>
         </div>
 
-        {/* SteamSpy 지표 요약 행 */}
-        <div className="mt-5 pt-4 border-t border-border-default grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* SteamSpy 지표 요약 행 (리뷰 전환율 제거, 5개 항목) */}
+        <div className="mt-5 pt-4 border-t border-border-default grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatItem
             label="추정 소유자"
             value={formatNum(game.owners_estimate)}
@@ -117,11 +120,6 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
             label="2주 활성 플레이어"
             value={formatNum(game.active_players_2weeks)}
             tooltip="최근 2주간 플레이한 유저 수. SteamSpy 추정치입니다."
-          />
-          <StatItem
-            label="리뷰 전환율"
-            value={reviewRate ? `${reviewRate}%` : "-"}
-            tooltip="총 리뷰 수 ÷ 추정 소유자 수. SteamSpy 추정치 기반으로 실제값과 차이가 있을 수 있습니다."
           />
           <StatItem
             label="잔존율"
