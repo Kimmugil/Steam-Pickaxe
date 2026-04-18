@@ -69,8 +69,9 @@ function buildContext(game: Game, rows: TimelineRow[]): string {
   const parts: string[] = [
     `게임명: ${game.name_kr || game.name}`,
     `총 리뷰: ${game.totalReviews}건`,
-    `추정 소유자: ${game.owners_estimate}명 (추정치)`,
-    `최근 2주 활성 플레이어: ${game.active_players_2weeks}명 (추정치)`,
+    game.genres    ? `장르: ${game.genres}` : "",
+    game.developer ? `개발사: ${game.developer}` : "",
+    game.price     ? `가격: ${game.price}` : "",
     `AI 현황 진단: ${game.ai_briefing}`,
     "",
     "=== 업데이트 히스토리 ===",
