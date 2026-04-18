@@ -12,7 +12,6 @@ from sheets.raw_reviews import get_or_create_raw_spreadsheet, append_reviews
 from collectors.steam_reviews import collect_reviews_batch, get_total_review_count
 from collectors.steam_news import fetch_news, classify_news, parse_news_item
 from collectors.steam_meta import fetch_app_details, parse_game_meta
-from collectors.steamspy import fetch_steamspy_data, parse_steamspy_meta
 from collectors.steam_ccu import fetch_peak_ccu
 from datetime import datetime, timezone
 from config import MASTER_SPREADSHEET_ID
@@ -52,19 +51,18 @@ def _process_game(ss, game: dict, appid: str, status: str):
     app_data = fetch_app_details(appid)
     if app_data:
         meta = parse_game_meta(appid, app_data)
-        spy_data = fetch_steamspy_data(appid)
-        spy_meta = parse_steamspy_meta(spy_data)
         peak_ccu = fetch_peak_ccu(appid)
         update_game(ss, appid, {
-            "name": meta["name"],
-            "is_free": meta["is_free"],
+            "name":           meta["name"],
+            "is_free":        meta["is_free"],
+            "is_early_access": meta["is_early_access"],
             "metacritic_score": meta["metacritic_score"],
-            "owners_estimate": spy_meta["owners_estimate"],
-            "avg_playtime": spy_meta["avg_playtime"],
-            "median_playtime": spy_meta["median_playtime"],
-            "active_players_2weeks": spy_meta["active_players_2weeks"],
-            "peak_ccu": peak_ccu,
-            "release_date": meta["release_date"],
+            "release_date":   meta["release_date"],
+            "genres":         meta["genres"],
+            "developer":      meta["developer"],
+            "publisher":      meta["publisher"],
+            "price":          meta["price"],
+            "peak_ccu":       peak_ccu,
         })
         print("메타데이터 갱신 완료")
 

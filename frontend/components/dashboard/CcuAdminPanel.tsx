@@ -85,7 +85,19 @@ export default function CcuAdminPanel({
 
       {/* SteamDB CCU CSV 업로드 */}
       <div className="bg-bg-secondary rounded-xl p-4 border border-border-default">
-        <h4 className="text-xs font-semibold text-text-primary mb-1">SteamDB CCU CSV 업로드</h4>
+        <div className="flex items-start justify-between mb-1">
+          <h4 className="text-xs font-semibold text-text-primary">SteamDB CCU CSV 업로드</h4>
+          <a
+            href={`https://steamdb.info/app/${currentAppId}/graphs/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-accent-blue hover:underline shrink-0 ml-2"
+          >
+            {games.find(g => String(g.appid) === String(currentAppId))?.name_kr
+              || games.find(g => String(g.appid) === String(currentAppId))?.name
+              || currentAppId} SteamDB ↗
+          </a>
+        </div>
         <p className="text-xs text-text-muted mb-3">현재 게임에만 적용됩니다</p>
         <input
           ref={csvRef}

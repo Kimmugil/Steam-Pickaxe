@@ -6,9 +6,28 @@ master_sheet.py 의 timeline_{appid}, ccu_{appid} 탭 대신 이 모듈을 사�
 """
 import gspread
 from google.oauth2.service_account import Credentials
-import sys, os
+import sys, os, time, functools
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import get_google_creds
+
+
+def _retry_on_quota(fn):
+    """Exponential backoff retry decorator for Google Sheets 429 rate limit errors."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        waits = [5, 10, 20, 40, 60]
+        for attempt, wait in enumerate(waits):
+            try:
+                return fn(*args, **kwargs)
+            except gspread.exceptions.APIError as e:
+                if "429" in str(e):
+                    print(f"[rate_limit] 429 — {wait}초 대기 후 재시도 ({attempt+1}/5)")
+                    time.sleep(wait)
+                else:
+                    raise
+        # Final attempt after all waits exhausted
+        return fn(*args, **kwargs)
+    return wrapper
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -46,16 +65,19 @@ def get_or_create_timeline_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
         return ws
 
 
+@_retry_on_quota
 def get_timeline(ss: gspread.Spreadsheet) -> list[dict]:
     ws = get_or_create_timeline_tab(ss)
     return ws.get_all_records()
 
 
+@_retry_on_quota
 def append_timeline_row(ss: gspread.Spreadsheet, row: dict):
     ws = get_or_create_timeline_tab(ss)
     ws.append_row([row.get(h, "") for h in TIMELINE_HEADERS])
 
 
+@_retry_on_quota
 def update_timeline_row(
     ss: gspread.Spreadsheet,
     event_id: str,
@@ -78,6 +100,7 @@ def update_timeline_row(
             return
 
 
+@_retry_on_quota
 def delete_timeline_rows_by_event(ss: gspread.Spreadsheet, event_id: str):
     ws = get_or_create_timeline_tab(ss)
     records = ws.get_all_records()
@@ -106,11 +129,13 @@ def get_or_create_ccu_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
         return ws
 
 
+@_retry_on_quota
 def get_ccu_data(ss: gspread.Spreadsheet) -> list[dict]:
     ws = get_or_create_ccu_tab(ss)
     return ws.get_all_records()
 
 
+@_retry_on_quota
 def append_ccu(
     ss: gspread.Spreadsheet,
     timestamp: str,
@@ -122,6 +147,7 @@ def append_ccu(
     ws.append_row([timestamp, ccu_value, is_sale, is_free_weekend, False])
 
 
+@_retry_on_quota
 def bulk_append_ccu(ss: gspread.Spreadsheet, rows: list[list]):
     """rows: [[timestamp, ccu_value, is_sale, is_free_weekend, is_archived_gap], ...]"""
     ws = get_or_create_ccu_tab(ss)

@@ -4,7 +4,7 @@ AI 분석 진입점 (GitHub Actions: analyze.yml — 일 단위)
 - 전체 AI 브리핑 갱신
 - 챗봇 카운터 초기화
 """
-import sys, os, json
+import sys, os, json, time
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sheets.master_sheet import (
@@ -127,12 +127,15 @@ def run():
                     gs_update_timeline(game_ss, event_id, scope, row)
                 else:
                     gs_append_timeline(game_ss, row)
+                time.sleep(2)
 
             print(f"  구간 분석 완료 ({bucket['title']})")
 
         # top_languages 확정 (최초 1회)
         if not game.get("top_languages") and top_languages:
             update_game(ss, appid, {"top_languages": ",".join(top_languages)})
+
+        time.sleep(5)
 
         # 전체 AI 브리핑 갱신
         briefing = _generate_briefing(name, gs_get_timeline(game_ss))

@@ -1,7 +1,6 @@
 "use client";
 import Image from "next/image";
 import Badge from "@/components/shared/Badge";
-import { InfoIcon } from "@/components/shared/Tooltip";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
@@ -17,27 +16,6 @@ interface HeaderProps {
   topSentimentRate?: number;
 }
 
-/** K/M 없이 순수 정수 콤마 포맷 (추정 소유자 등) */
-function formatInt(n: number | string): string {
-  const v = Number(n);
-  if (!v) return "-";
-  return v.toLocaleString();
-}
-
-/** K/M 약어 포맷 (기타 지표) */
-function formatNum(n: number | string): string {
-  const v = Number(n);
-  if (!v) return "-";
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
-  return v.toLocaleString();
-}
-
-function formatPlaytime(minutes: number): string {
-  if (!minutes) return "-";
-  const h = Math.round(minutes / 60);
-  return `${h}시간`;
-}
 
 export default function Header({ game, currentCcu, topSentimentRate }: HeaderProps) {
   const { t } = useUiText();
@@ -46,9 +24,7 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
     ? Math.round((currentCcu / Number(game.peak_ccu)) * 100)
     : null;
 
-  const retentionRate = game.owners_estimate && game.active_players_2weeks
-    ? ((Number(game.active_players_2weeks) / Number(game.owners_estimate)) * 100).toFixed(1)
-    : null;
+  const genres = game.genres ? game.genres.split(",").map(g => g.trim()).filter(Boolean) : [];
 
   return (
     <div className="bg-bg-secondary border-b border-border-default">
@@ -119,13 +95,13 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
           </div>
         </div>
 
-        {/* SteamSpy 지표 요약 */}
+        {/* 게임 기본 정보 바 */}
         <div className="mt-5 pt-4 border-t border-border-default grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatItem label={t("STAT_OWNERS_LABEL")}        value={formatInt(game.owners_estimate)}            tooltip={t("STAT_OWNERS_TOOLTIP")} />
-          <StatItem label={t("STAT_AVG_PLAYTIME_LABEL")}  value={formatPlaytime(Number(game.avg_playtime))}  tooltip={t("STAT_AVG_PLAYTIME_TOOLTIP")} />
-          <StatItem label={t("STAT_MEDIAN_PLAYTIME_LABEL")} value={formatPlaytime(Number(game.median_playtime))} tooltip={t("STAT_MEDIAN_PLAYTIME_TOOLTIP")} />
-          <StatItem label={t("STAT_ACTIVE_2W_LABEL")}     value={formatNum(game.active_players_2weeks)}      tooltip={t("STAT_ACTIVE_2W_TOOLTIP")} />
-          <StatItem label={t("STAT_RETENTION_LABEL")}     value={retentionRate ? `${retentionRate}%` : "-"}  tooltip={t("STAT_RETENTION_TOOLTIP")} />
+          <MetaItem label="장르"   value={genres.length > 0 ? genres.join(" · ") : "-"} />
+          <MetaItem label="출시일" value={game.release_date || "-"} />
+          <MetaItem label="개발사" value={game.developer || "-"} />
+          <MetaItem label="배급사" value={game.publisher || "-"} />
+          <MetaItem label="판매가" value={game.price || (parseBool(game.is_free) ? "무료" : "-")} />
         </div>
 
         {/* AI 브리핑 */}
@@ -147,14 +123,11 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
   );
 }
 
-function StatItem({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
+function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-bg-card rounded-lg px-3 py-2">
-      <div className="flex items-center">
-        <span className="text-xs text-text-muted">{label}</span>
-        {tooltip && <InfoIcon tooltip={tooltip} />}
-      </div>
-      <p className="text-sm font-semibold text-text-primary mt-0.5">{value}</p>
+      <span className="text-xs text-text-muted block">{label}</span>
+      <p className="text-sm font-semibold text-text-primary mt-0.5 truncate" title={value}>{value}</p>
     </div>
   );
 }

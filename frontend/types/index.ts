@@ -14,11 +14,12 @@ export interface Game {
   top_languages: string;
   ai_briefing: string;
   ai_briefing_date: string;
-  owners_estimate: number;
-  avg_playtime: number;
-  median_playtime: number;
-  active_players_2weeks: number;
   peak_ccu: number;
+  // 신규 메타 필드 (SteamSpy 필드 대체)
+  genres?: string;
+  developer?: string;
+  publisher?: string;
+  price?: string;
   metacritic_score: number | string;
   is_free: boolean | string;
   is_early_access: boolean | string;

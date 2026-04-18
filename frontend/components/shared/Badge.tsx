@@ -53,6 +53,11 @@ function getSteamTier(rate: number, count: number): {
   return                 { label: "부정적",        color: "text-accent-red bg-accent-red/10 border-accent-red/30" };
 }
 
+/** Badge 컴포넌트 외부에서 평가 레이블만 필요할 때 사용 */
+export function getSteamLabel(rate: number, reviewCount = 0): string {
+  return getSteamTier(rate, reviewCount).label;
+}
+
 export default function Badge({ rate, reviewCount, size = "md", showLabel = false }: BadgeProps) {
   const { label, color } = getSteamTier(rate, reviewCount ?? 0);
   const sizeClass =

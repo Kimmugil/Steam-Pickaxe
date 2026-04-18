@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import Badge from "@/components/shared/Badge";
+import Badge, { getSteamLabel } from "@/components/shared/Badge";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
@@ -84,13 +84,20 @@ export default function GameCard({ game }: GameCardProps) {
         )}
 
         <div className="mt-2 space-y-1">
-          {/* 리뷰 수 + 이벤트 수 */}
+          {/* 리뷰 수 + Steam 평점 레이블 */}
           <div className="flex items-center justify-between text-xs text-text-secondary">
             <span>{t("CARD_REVIEWS_LABEL", { n: Number(game.totalReviews || 0).toLocaleString() })}</span>
-            {eventCount !== null && eventCount > 0 && (
-              <span className="text-text-muted">{t("CARD_EVENTS_LABEL", { n: eventCount })}</span>
+            {sentimentRate !== null && (
+              <span className="text-text-muted font-medium">
+                {getSteamLabel(sentimentRate, Number(game.totalReviews || 0))}
+              </span>
             )}
           </div>
+
+          {/* 이벤트 수 */}
+          {eventCount !== null && eventCount > 0 && (
+            <div className="text-xs text-text-muted">{t("CARD_EVENTS_LABEL", { n: eventCount })}</div>
+          )}
 
           {/* 출시일 + 최근 이벤트 날짜 */}
           <div className="flex items-center justify-between text-xs">
