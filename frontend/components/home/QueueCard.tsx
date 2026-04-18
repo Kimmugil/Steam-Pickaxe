@@ -144,10 +144,21 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
       ? t("QUEUE_ETA_MINS", { mins: etaMin })
       : t("QUEUE_ETA_SOON");
 
+  // cursor가 *이 아닌데 game_sheet_id가 없으면 수집 실패로 인한 불일치 상태
+  const isCursorStuck =
+    game.last_cursor && game.last_cursor !== "*" && !game.game_sheet_id;
+
   const [showPwModal, setShowPwModal] = useState(false);
+  const [modalMode, setModalMode] = useState<"cancel" | "reset">("cancel");
   const [pw, setPw] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const { toast, show, clear } = useToast();
+
+  function openModal(mode: "cancel" | "reset") {
+    setModalMode(mode);
+    setPw("");
+    setShowPwModal(true);
+  }
 
   async function handleCancel() {
     setCancelling(true);
@@ -163,6 +174,25 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
     if (data.ok) {
       show(t("QUEUE_CANCEL_SUCCESS"), "success");
       setTimeout(onCancelled, 1000);
+    } else {
+      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+    }
+  }
+
+  async function handleResetCursor() {
+    setCancelling(true);
+    const res = await fetch("/api/admin/reset-cursor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appid: game.appid, password: pw }),
+    });
+    const data = await res.json();
+    setCancelling(false);
+    setShowPwModal(false);
+    setPw("");
+    if (data.ok) {
+      show("커서 초기화 완료. 다음 수집 시 처음부터 재시작됩니다.", "success");
+      setTimeout(onCancelled, 1200);
     } else {
       show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
     }
@@ -207,8 +237,23 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
           </p>
         </div>
 
+        {/* 수집 실패 경고 (cursor 불일치) */}
+        {isCursorStuck && (
+          <div className="mt-2 p-2 bg-accent-orange/10 border border-accent-orange/30 rounded-lg">
+            <p className="text-[11px] text-accent-orange leading-relaxed">
+              수집 Action이 중단됐습니다. cursor 초기화 후 재수집이 필요합니다.
+            </p>
+            <button
+              onClick={() => openModal("reset")}
+              className="mt-1.5 text-[11px] text-accent-orange border border-accent-orange/40 rounded px-2 py-0.5 hover:bg-accent-orange/10 transition-colors"
+            >
+              cursor 초기화 (처음부터 재수집)
+            </button>
+          </div>
+        )}
+
         <button
-          onClick={() => setShowPwModal(true)}
+          onClick={() => openModal("cancel")}
           className="mt-3 text-xs text-accent-red/70 hover:text-accent-red transition-colors"
         >
           {t("QUEUE_CANCEL_BTN")}
@@ -219,22 +264,37 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
       {showPwModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-80">
-            <p className="font-semibold mb-3">{t("ADMIN_PW_TITLE")}</p>
+            <p className="font-semibold mb-1">{t("ADMIN_PW_TITLE")}</p>
+            {modalMode === "reset" && (
+              <p className="text-xs text-text-muted mb-3">
+                cursor를 *로 초기화하고 처음부터 다시 수집합니다.
+              </p>
+            )}
             <input
               type="password"
               value={pw}
               onChange={(e) => setPw(e.target.value)}
               placeholder={t("ADMIN_PW_PLACEHOLDER")}
-              className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
-              onKeyDown={(e) => e.key === "Enter" && handleCancel()}
+              className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3 mt-2"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (modalMode === "reset") handleResetCursor();
+                  else handleCancel();
+                }
+              }}
+              autoFocus
             />
             <div className="flex gap-2">
               <button
-                onClick={handleCancel}
+                onClick={modalMode === "reset" ? handleResetCursor : handleCancel}
                 disabled={cancelling || !pw}
-                className="flex-1 py-2 bg-accent-red/20 border border-accent-red/40 text-accent-red rounded-lg text-sm disabled:opacity-40"
+                className={`flex-1 py-2 rounded-lg text-sm disabled:opacity-40 border ${
+                  modalMode === "reset"
+                    ? "bg-accent-orange/20 border-accent-orange/40 text-accent-orange"
+                    : "bg-accent-red/20 border-accent-red/40 text-accent-red"
+                }`}
               >
-                {cancelling ? "처리 중..." : t("QUEUE_CANCEL_CONFIRM_BTN")}
+                {cancelling ? "처리 중..." : modalMode === "reset" ? "cursor 초기화" : t("QUEUE_CANCEL_CONFIRM_BTN")}
               </button>
               <button
                 onClick={() => { setShowPwModal(false); setPw(""); }}
