@@ -15,7 +15,7 @@ from sheets.game_sheet import (
     append_timeline_row as gs_append_timeline,
     update_timeline_row as gs_update_timeline,
 )
-from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range
+from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
 from analyzers.bucketer import build_buckets, filter_reviews_for_bucket, sample_reviews
 from analyzers.gemini_analyzer import (
     analyze_bucket, analyze_patch_summary, generate_ai_briefing,
@@ -67,7 +67,7 @@ def run():
 
         # game_sheet_id IS the raw spreadsheet — open directly, no GAS needed
         raw_ss = open_raw_spreadsheet(game_sheet_id)
-        top_languages = _get_top_languages(game, timeline_rows)
+        top_languages = _get_top_languages(game, timeline_rows, raw_ss)
 
         for bucket in buckets:
             event_id = bucket["event_id"]
@@ -145,21 +145,40 @@ def run():
     print("\n전체 분석 완료")
 
 
-def _get_top_languages(game: dict, timeline_rows: list[dict]) -> list[str]:
+def _get_top_languages(game: dict, timeline_rows: list[dict], raw_ss=None) -> list[str]:
+    # 1순위: 게임 레코드에 저장된 값
     stored = game.get("top_languages", "")
     if stored:
         return [l.strip() for l in stored.split(",") if l.strip()]
 
-    # 리뷰 수 기준 언어 집계 (all 스코프 제외)
+    # 2순위: 기존 타임라인 행의 언어별 리뷰 수
     lang_counts: dict[str, int] = {}
     for r in timeline_rows:
         scope = r.get("language_scope", "")
         if scope and scope != "all":
-            lang_counts[scope] = lang_counts.get(scope, 0) + int(r.get("review_count", 0))
+            lang_counts[scope] = lang_counts.get(scope, 0) + int(r.get("review_count", 0) or 0)
 
-    sorted_langs = sorted(lang_counts.items(), key=lambda x: x[1], reverse=True)
-    top = [l for l, _ in sorted_langs[:TOP_LANGUAGES_COUNT]]
-    return top or ["koreana", "english"]
+    if lang_counts:
+        sorted_langs = sorted(lang_counts.items(), key=lambda x: x[1], reverse=True)
+        top = [l for l, _ in sorted_langs[:TOP_LANGUAGES_COUNT]]
+        if top:
+            return top
+
+    # 3순위: RAW 리뷰 시트에서 직접 언어 분포 집계 (첫 분석 시)
+    if raw_ss is not None:
+        try:
+            raw_counts = get_language_counts(raw_ss)
+            if raw_counts:
+                sorted_langs = sorted(raw_counts.items(), key=lambda x: x[1], reverse=True)
+                top = [l for l, _ in sorted_langs[:TOP_LANGUAGES_COUNT]]
+                if top:
+                    print(f"  [top_languages] RAW 리뷰에서 감지: {top}")
+                    return top
+        except Exception as e:
+            print(f"  [top_languages] RAW 집계 실패: {e}")
+
+    # 폴백: 한국어 + 영어
+    return ["koreana", "english"]
 
 
 def _generate_briefing(name: str, timeline_rows: list[dict]) -> str:

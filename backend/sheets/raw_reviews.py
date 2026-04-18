@@ -192,6 +192,27 @@ def append_reviews(ss: gspread.Spreadsheet, reviews: list[dict]) -> int:
     return added
 
 
+def get_language_counts(ss: gspread.Spreadsheet) -> dict:
+    """
+    전체 리뷰 시트에서 언어별 리뷰 수를 집계합니다.
+    연도별 탭(reviews_YYYY)을 순회하여 language 컬럼을 카운팅합니다.
+    """
+    counts: dict = {}
+    for ws in ss.worksheets():
+        if not ws.title.startswith("reviews_"):
+            continue
+        try:
+            # language 컬럼은 헤더 기준 3번째 (1-based index 3)
+            langs = ws.col_values(3)[1:]  # 헤더 행 제외
+            for lang in langs:
+                lang = lang.strip()
+                if lang:
+                    counts[lang] = counts.get(lang, 0) + 1
+        except Exception:
+            continue
+    return counts
+
+
 def get_reviews_in_range(
     ss: gspread.Spreadsheet,
     start_ts: int,

@@ -44,7 +44,7 @@ def setup():
         ["ui_text.guide_link", "분석 방법 가이드", "상단 메뉴 가이드 링크"],
     ]
     ws.append_rows(config_defaults)
-    print("✅ config 탭 완료")
+    print("[OK] config 탭 완료")
 
     # games 탭
     if "games" not in existing:
@@ -53,7 +53,7 @@ def setup():
         ws = ss.worksheet("games")
         ws.clear()
     ws.append_row(GAMES_HEADERS)
-    print("✅ games 탭 완료")
+    print("[OK] games 탭 완료")
 
     # 기본 Sheet1 제거
     try:
@@ -61,8 +61,8 @@ def setup():
     except Exception:
         pass
 
-    print(f"\n🎉 설정 완료! 스프레드시트 ID: {ss.id}")
-    print(f"📎 URL: https://docs.google.com/spreadsheets/d/{ss.id}")
+    print(f"\n[완료] 스프레드시트 ID: {ss.id}")
+    print(f"URL: https://docs.google.com/spreadsheets/d/{ss.id}")
     return ss.id
 
 if __name__ == "__main__":

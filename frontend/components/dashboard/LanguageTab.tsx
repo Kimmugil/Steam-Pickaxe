@@ -112,7 +112,7 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment }: Lang
                     <span className="font-medium text-sm">{s.name}</span>
                     <span className="text-xs text-text-muted">{s.pct}%</span>
                   </div>
-                  {s.avgRate > 0 && <Badge rate={s.avgRate} size="sm" />}
+                  {s.avgRate > 0 && <Badge rate={s.avgRate} reviewCount={s.reviews} size="sm" />}
                 </div>
                 {s.keywords.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">

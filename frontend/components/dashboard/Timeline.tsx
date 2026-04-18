@@ -149,7 +149,7 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                           {t("TIMELINE_PENDING")}
                         </span>
                       ) : (
-                        rate !== null && <Badge rate={rate} size="sm" />
+                        rate !== null && <Badge rate={rate} reviewCount={Number(row.review_count || 0)} size="sm" />
                       )}
                     </div>
                     <p className={`font-medium mt-1 transition-colors ${isPending ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>

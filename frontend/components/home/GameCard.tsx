@@ -64,12 +64,12 @@ export default function GameCard({ game }: GameCardProps) {
         )}
         {sentimentRate !== null && !isFree && (
           <div className="absolute top-2 right-2">
-            <Badge rate={sentimentRate} size="sm" />
+            <Badge rate={sentimentRate} reviewCount={Number(game.totalReviews || 0)} size="sm" />
           </div>
         )}
         {sentimentRate !== null && isFree && (
           <div className="absolute top-2 left-2">
-            <Badge rate={sentimentRate} size="sm" />
+            <Badge rate={sentimentRate} reviewCount={Number(game.totalReviews || 0)} size="sm" />
           </div>
         )}
       </div>

@@ -305,3 +305,62 @@ async function _fetchUiText(): Promise<Record<string, string>> {
 export const getUiText = unstable_cache(_fetchUiText, ["ui-text"], {
   revalidate: 60, // 60초마다 Sheets에서 재조회
 });
+
+/**
+ * ui_text 탭에 누락된 키를 일괄 추가합니다.
+ * 이미 존재하는 키(값이 있는)는 덮어쓰지 않아 관리자 커스텀 값을 보존합니다.
+ *
+ * @param fallback  FALLBACK 키-값 맵 (UiTextContext의 FALLBACK 객체)
+ * @returns {{ added: number; skipped: number }}
+ */
+export async function syncUiText(
+  fallback: Record<string, string>
+): Promise<{ added: number; skipped: number }> {
+  const sheets = await getSheetsClient();
+
+  // 현재 ui_text 탭 읽기
+  let rows: string[][] = [];
+  try {
+    rows = await readSheet("ui_text");
+  } catch {
+    // 탭이 없으면 빈 배열로 처리
+  }
+
+  // 헤더가 없으면 헤더 행 먼저 추가
+  if (rows.length === 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "ui_text",
+      valueInputOption: "RAW",
+      requestBody: { values: [["key", "value"]] },
+    });
+    rows = [["key", "value"]];
+  }
+
+  // 기존 키 집합 (값이 있는 키만 — 빈 값 키는 덮어쓰기 대상)
+  const existingKeys = new Set<string>();
+  for (const row of rows.slice(1)) {
+    if (row[0]?.trim() && row[1]?.trim()) {
+      existingKeys.add(row[0].trim());
+    }
+  }
+
+  // 누락 키 수집
+  const toAdd: string[][] = [];
+  for (const [key, value] of Object.entries(fallback)) {
+    if (!existingKeys.has(key)) {
+      toAdd.push([key, value]);
+    }
+  }
+
+  if (toAdd.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "ui_text",
+      valueInputOption: "RAW",
+      requestBody: { values: toAdd },
+    });
+  }
+
+  return { added: toAdd.length, skipped: existingKeys.size };
+}

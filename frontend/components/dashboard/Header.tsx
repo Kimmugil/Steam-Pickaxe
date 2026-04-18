@@ -94,7 +94,7 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
             {/* 핵심 지표 */}
             <div className="flex items-center gap-4 mt-3 flex-wrap">
               {topSentimentRate !== undefined && (
-                <Badge rate={topSentimentRate} size="lg" showLabel />
+                <Badge rate={topSentimentRate} reviewCount={Number(game.totalReviews || 0)} size="lg" showLabel />
               )}
               <div className="text-sm text-text-secondary">
                 {t("HEADER_REVIEWS_LABEL")}{" "}

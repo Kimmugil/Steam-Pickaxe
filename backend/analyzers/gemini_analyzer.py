@@ -187,7 +187,12 @@ def _call_gemini(prompt: str, retries: int = 3) -> dict | None:
 def _format_reviews(reviews: list[dict]) -> str:
     lines = []
     for r in reviews:
-        voted = "긍정" if r.get("voted_up") else "부정"
+        # voted_up can be Python bool (True/False) OR a string ("True"/"False")
+        # gspread sometimes returns strings depending on cell format.
+        # "False" is truthy in Python, so we must compare explicitly.
+        voted_raw = r.get("voted_up", False)
+        is_positive = voted_raw is True or str(voted_raw).upper() == "TRUE"
+        voted = "긍정" if is_positive else "부정"
         lang = r.get("language", "")
         text = str(r.get("review", ""))[:500]
         lines.append(f"[{voted}][{lang}] {text}")
