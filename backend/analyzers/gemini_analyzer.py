@@ -12,20 +12,28 @@ from config import GEMINI_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 MODEL = "gemini-2.5-flash"
 
-# Thinking 모드: 8192 토큰 예산으로 활성화
-# 복잡한 감성 분석·인과관계 판단 품질 향상 목적
-# thinking 토큰은 입력 토큰과 동일 요금($0.075/1M)으로 과금
-THINKING_CONFIG = genai.types.GenerationConfig(
-    thinking_config=genai.types.ThinkingConfig(thinking_budget=8192),
-)
+# Thinking 모드 설정 (google-generativeai >= 0.8 필요)
+# Gemini 2.5 Flash는 thinking이 기본 활성화되어 있으며,
+# SDK 버전에 따라 예산 상한 설정 가능 여부가 다름.
+_THINKING_CONFIG = None
+try:
+    _THINKING_CONFIG = genai.types.GenerationConfig(
+        thinking_config=genai.types.ThinkingConfig(thinking_budget=8192),
+    )
+    print("[gemini] Thinking 모드 활성 (budget=8192)")
+except AttributeError:
+    print("[gemini] ThinkingConfig 미지원 버전 — 모델 기본값으로 실행 (thinking 자동 활성)")
 
 
 def _make_model(system_instruction: str = None) -> genai.GenerativeModel:
-    """thinking 활성화된 공통 모델 인스턴스 생성."""
+    """공통 모델 인스턴스 생성. ThinkingConfig 지원 시 thinking 예산 제한 적용."""
+    kwargs = {}
+    if _THINKING_CONFIG is not None:
+        kwargs["generation_config"] = _THINKING_CONFIG
     return genai.GenerativeModel(
         MODEL,
-        generation_config=THINKING_CONFIG,
         system_instruction=system_instruction,
+        **kwargs,
     )
 
 LANGUAGE_NAMES = {
