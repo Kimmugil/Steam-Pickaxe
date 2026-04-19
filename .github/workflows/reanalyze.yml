@@ -36,6 +36,9 @@ jobs:
           cd backend
           python main_collect.py
 
+      - name: Sheets API 쿼터 회복 대기 (60초)
+        run: sleep 60
+
       - name: AI 분석 실행
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}

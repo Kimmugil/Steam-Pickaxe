@@ -17,6 +17,8 @@ from sheets.game_sheet import (
     update_timeline_event_field as gs_update_event_field,
     cleanup_stale_launch_buckets,
     deduplicate_timeline,
+    build_scope_row_map,
+    build_event_row_map,
     get_ccu_data,
 )
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
@@ -165,7 +167,7 @@ def run():
         # ── title_kr 백필 ────────────────────────────────────────────
         # 이미 분석 완료된 이벤트 중 title_kr이 비어 있는 것만 경량 호출로 채움.
         # analyze_bucket 재실행 없이 generate_event_title_kr 1회 호출만 사용.
-        # (기존 ai_patch_summary를 컨텍스트로 활용하므로 품질도 충분히 보장)
+        # event_row_map을 전달해 get_all_records() 재호출 없이 batch_update 처리.
         rows_needing_title_kr = [
             r for r in timeline_rows
             if r.get("language_scope") == "all"
@@ -173,6 +175,7 @@ def run():
             and not r.get("title_kr", "").strip()
         ]
         if rows_needing_title_kr:
+            _ev_row_map = build_event_row_map(timeline_rows)
             print(f"  [title_kr 백필] {len(rows_needing_title_kr)}건 시작")
             for r in rows_needing_title_kr:
                 try:
@@ -183,9 +186,10 @@ def run():
                         r.get("ai_patch_summary", ""),
                     )
                     # 동일 event_id의 모든 스코프 행(all/koreana/english)에 한꺼번에 반영
-                    gs_update_event_field(game_ss, r["event_id"], "title_kr", tkr)
+                    gs_update_event_field(game_ss, r["event_id"], "title_kr", tkr,
+                                          event_row_map=_ev_row_map)
                     print(f"    [{r.get('date')}] {r.get('title')} → {tkr}")
-                    time.sleep(1)  # Sheets API 레이트 리밋 방지
+                    time.sleep(1)  # Gemini 레이트 리밋 방지
                 except Exception as e:
                     print(f"    [title_kr 백필 오류] {r.get('title')}: {e}")
             print(f"  [title_kr 백필] 완료")
@@ -208,6 +212,12 @@ def run():
                 print(f"  [lang_dist] 저장 완료 ({len(raw_counts)}개 언어)")
         except Exception as e:
             print(f"  [lang_dist] 저장 실패: {e}")
+
+        # 버킷 루프에서 Sheets 읽기 요청 최소화를 위해 행 번호 맵을 사전 빌드
+        # scope_row_map: (event_id, language_scope) → 시트 행 번호
+        # existing_scope_ids: 이미 시트에 있는 (event_id, scope) 집합
+        scope_row_map   = build_scope_row_map(timeline_rows)
+        existing_scope_ids = {(r["event_id"], r["language_scope"]) for r in timeline_rows}
 
         # 스파스 버킷(리뷰 ≤5건)의 리뷰를 다음 버킷으로 이월
         carry_over_reviews: list = []
@@ -277,13 +287,14 @@ def run():
                     "is_free_weekend": bucket.get("is_free_weekend", False),
                     "title_kr": title_kr,
                 }
-                existing_scope_ids = {
-                    (r["event_id"], r["language_scope"]) for r in timeline_rows
-                }
                 if (event_id, "all") in existing_scope_ids:
-                    gs_update_timeline(game_ss, event_id, "all", sparse_row)
+                    gs_update_timeline(game_ss, event_id, "all", sparse_row,
+                                       row_map=scope_row_map)
                 else:
                     gs_append_timeline(game_ss, sparse_row)
+                    # 새 행 번호 추적 (이후 루프에서 UPDATE 대상이 될 수 있음)
+                    scope_row_map[(event_id, "all")] = max(scope_row_map.values(), default=1) + 1
+                    existing_scope_ids.add((event_id, "all"))
                 time.sleep(1)
                 continue  # 언어별 분석 생략
 
@@ -313,9 +324,6 @@ def run():
 
             # 언어별 분석
             scopes = ["all"] + top_languages
-            existing_scope_ids = {
-                (r["event_id"], r["language_scope"]) for r in timeline_rows
-            }
             for scope in scopes:
                 if scope == "all":
                     scope_reviews = combined_reviews  # carry-over 포함
@@ -344,11 +352,16 @@ def run():
                     "title_kr": title_kr,
                 }
 
-                # 기존 행 있으면 업데이트, 없으면 추가
+                # 기존 행 있으면 row_map 기반 업데이트(read 없음), 없으면 추가
                 if (event_id, scope) in existing_scope_ids:
-                    gs_update_timeline(game_ss, event_id, scope, row)
+                    gs_update_timeline(game_ss, event_id, scope, row,
+                                       row_map=scope_row_map)
                 else:
                     gs_append_timeline(game_ss, row)
+                    # 새 행 번호를 맵에 추가 (이후 동일 버킷 재처리 방지)
+                    next_row = max(scope_row_map.values(), default=1) + 1
+                    scope_row_map[(event_id, scope)] = next_row
+                    existing_scope_ids.add((event_id, scope))
                 time.sleep(2)
 
             print(f"  구간 분석 완료 ({bucket['title']})")

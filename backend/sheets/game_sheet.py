@@ -85,34 +85,83 @@ def append_timeline_row(ss: gspread.Spreadsheet, row: dict):
     ws.append_row([row.get(h, "") for h in TIMELINE_HEADERS])
 
 
+def build_scope_row_map(timeline_rows: list[dict]) -> dict[tuple, int]:
+    """
+    이미 조회된 timeline_rows로 (event_id, language_scope) → 시트 행 번호(2-based) 맵 생성.
+    update_timeline_row에 전달하면 get_all_records() 재호출을 생략합니다.
+    """
+    return {
+        (str(r.get("event_id", "")), str(r.get("language_scope", ""))): i + 2
+        for i, r in enumerate(timeline_rows)
+    }
+
+
+def build_event_row_map(timeline_rows: list[dict]) -> dict[str, list[int]]:
+    """
+    이미 조회된 timeline_rows로 event_id → [행 번호, ...] 맵 생성.
+    update_timeline_event_field에 전달하면 get_all_records() 재호출을 생략합니다.
+    """
+    result: dict[str, list[int]] = {}
+    for i, r in enumerate(timeline_rows):
+        eid = str(r.get("event_id", ""))
+        result.setdefault(eid, []).append(i + 2)
+    return result
+
+
 @_retry_on_quota
 def update_timeline_row(
     ss: gspread.Spreadsheet,
     event_id: str,
     language_scope: str,
     updates: dict,
+    row_map: dict[tuple, int] | None = None,
 ):
+    """
+    타임라인 행 업데이트.
+    row_map 제공 시 get_all_records() 재호출 없이 직접 행 번호로 접근하고,
+    모든 셀 변경을 batch_update 1회로 처리합니다 (API 쿼터 최소화).
+    """
     ws = get_or_create_timeline_tab(ss)
-    records = ws.get_all_records()
     headers = ws.row_values(1)
-    for i, rec in enumerate(records):
-        if (
-            str(rec.get("event_id")) == str(event_id)
-            and str(rec.get("language_scope")) == language_scope
-        ):
-            row_idx = i + 2
-            for key, val in updates.items():
-                if key in headers:
-                    col_idx = headers.index(key) + 1
-                    ws.update_cell(row_idx, col_idx, val)
+
+    if row_map is not None:
+        row_idx = row_map.get((str(event_id), str(language_scope)))
+        if row_idx is None:
             return
+    else:
+        records = ws.get_all_records()
+        row_idx = next(
+            (i + 2 for i, rec in enumerate(records)
+             if str(rec.get("event_id")) == str(event_id)
+             and str(rec.get("language_scope")) == language_scope),
+            None,
+        )
+        if row_idx is None:
+            return
+
+    # 변경할 셀 목록을 한 번에 batch_update (write 요청 1회)
+    import gspread.utils as _gu
+    cell_updates = [
+        {"range": _gu.rowcol_to_a1(row_idx, headers.index(key) + 1), "values": [[val]]}
+        for key, val in updates.items()
+        if key in headers
+    ]
+    if cell_updates:
+        ws.batch_update(cell_updates)
 
 
 @_retry_on_quota
-def update_timeline_event_field(ss: gspread.Spreadsheet, event_id: str, key: str, value: str):
+def update_timeline_event_field(
+    ss: gspread.Spreadsheet,
+    event_id: str,
+    key: str,
+    value: str,
+    event_row_map: dict[str, list[int]] | None = None,
+):
     """
     특정 event_id의 모든 language_scope 행에서 단일 컬럼 값을 업데이트.
     title_kr 처럼 스코프 무관하게 동일한 값을 가지는 필드 백필에 사용.
+    event_row_map 제공 시 get_all_records() 재호출을 생략합니다.
     """
     ws = get_or_create_timeline_tab(ss)
     headers = ws.row_values(1)
@@ -120,14 +169,23 @@ def update_timeline_event_field(ss: gspread.Spreadsheet, event_id: str, key: str
         print(f"[update_field] 헤더에 '{key}' 없음 — 마이그레이션이 필요합니다.")
         return
     col_idx = headers.index(key) + 1
-    records = ws.get_all_records()
-    rows_to_update = [
-        i + 2
-        for i, r in enumerate(records)
-        if str(r.get("event_id")) == str(event_id)
+
+    if event_row_map is not None:
+        rows_to_update = event_row_map.get(str(event_id), [])
+    else:
+        records = ws.get_all_records()
+        rows_to_update = [
+            i + 2 for i, r in enumerate(records)
+            if str(r.get("event_id")) == str(event_id)
+        ]
+
+    import gspread.utils as _gu
+    cell_updates = [
+        {"range": _gu.rowcol_to_a1(row_idx, col_idx), "values": [[value]]}
+        for row_idx in rows_to_update
     ]
-    for row_idx in rows_to_update:
-        ws.update_cell(row_idx, col_idx, value)
+    if cell_updates:
+        ws.batch_update(cell_updates)
 
 
 @_retry_on_quota
