@@ -49,6 +49,7 @@ export interface TimelineRow {
   top_keywords: string;
   top_reviews: string;
   url: string;
+  content?: string;          // 이벤트 본문 (AI 패치 요약 입력용)
   is_sale_period: boolean | string;
   sale_text: string;
   is_free_weekend: boolean | string;
