@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from sheets.master_sheet import get_spreadsheet, get_all_games, update_game
 from sheets.raw_reviews import get_or_create_raw_spreadsheet, append_reviews
 from collectors.steam_reviews import collect_reviews_batch, get_total_review_count
-from collectors.steam_news import fetch_news, classify_news, parse_news_item
+from collectors.steam_news import fetch_news, fetch_store_events, classify_news, parse_news_item, parse_store_event
 from collectors.steam_meta import fetch_app_details, parse_game_meta
 from collectors.steam_ccu import fetch_peak_ccu
 from datetime import datetime, timezone
@@ -185,13 +185,37 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
     existing_urls   = {r.get("url") for r in existing if r.get("url")}
     existing_titles = {r.get("title") for r in existing if r.get("title")}
 
+    # ── 1. GetNewsForApp (enddate 페이지네이션, 최대 10,000건) ──────────────
     news_items = fetch_news(appid)
     official, external = classify_news(news_items, app_author=game_name)
 
+    # GetNewsForApp 결과로 파싱한 rows
+    candidate_rows: list[dict] = []
+    for item in official:
+        candidate_rows.append(parse_news_item(item, "official"))
+    for item in external:
+        candidate_rows.append(parse_news_item(item, "news"))
+
+    # ── 2. Steam Store Events API (cursor 페이지네이션) ────────────────────
+    # GetNewsForApp이 누락하는 오래된 이벤트를 보완
+    store_events = fetch_store_events(appid)
+    for ev in store_events:
+        parsed = parse_store_event(ev, appid)
+        if parsed is None:
+            continue
+        # URL 또는 제목이 GetNewsForApp 결과와 겹치면 이미 추가됨 → 건너뜀
+        url   = parsed.get("url", "")
+        title = parsed.get("title", "")
+        already_in_news = (
+            (url   and any(url   == r.get("url")   for r in candidate_rows)) or
+            (title and any(title == r.get("title") for r in candidate_rows))
+        )
+        if not already_in_news:
+            candidate_rows.append(parsed)
+
+    # ── 3. 시트에 저장 (URL·제목 중복 제거) ───────────────────────────────
     added = 0
-    for item in official + external:
-        ev_type = "official" if item in official else "news"
-        parsed = parse_news_item(item, ev_type)
+    for parsed in candidate_rows:
         url   = parsed.get("url", "")
         title = parsed.get("title", "")
         if url and url in existing_urls:
@@ -204,7 +228,7 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
         added += 1
 
     if added:
-        print(f"뉴스/패치 {added}건 추가")
+        print(f"뉴스/패치 {added}건 추가 (GetNewsForApp + StoreEvents 합산)")
         all_official = [
             r for r in gs_get_timeline(game_ss)
             if r.get("event_type") in ("official", "manual") and r.get("date")

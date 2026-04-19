@@ -1,31 +1,168 @@
 """
 Steam News & Store API — 공식 패치노트 + 외부 뉴스 수집
 기획서 3.B: feed_type=1(공식), feed_type=0(외부), appauthor 폴백
+
+변경 이력:
+  - fetch_news: enddate 기반 페이지네이션 추가 (count=500, 최대 20페이지)
+  - fetch_store_events: Steam Store 이벤트 API 추가 (cursor 기반 페이지네이션)
+  - parse_store_event: Store 이벤트 → timeline row 변환
 """
 import requests
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import STEAM_NEWS_ENDPOINT, STEAM_API_KEY
 
+STEAM_STORE_EVENTS_URL = "https://store.steampowered.com/events/ajaxgetadjacentpartnerevents/"
 
-def fetch_news(appid: str, count: int = 250) -> list[dict]:
-    params = {
-        "appid": appid,
-        "count": count,
-        "maxlength": 3000,
-        "format": "json",
+# Steam Store event_type 값 → 우리 분류 (14=패치노트, 9/10=이벤트, 12=무료주말, 13=세일, 15=개발일지, 22=발표)
+_STORE_OFFICIAL_TYPES = {14, 15, 9, 22}   # "official"
+_STORE_NEWS_TYPES     = {10, 12, 13}       # "news"
+_STORE_ALL_TYPES      = _STORE_OFFICIAL_TYPES | _STORE_NEWS_TYPES
+
+
+def fetch_news(appid: str, count: int = 500) -> list[dict]:
+    """
+    Steam GetNewsForApp API로 뉴스 수집.
+    enddate 파라미터를 활용해 페이지네이션 — 최대 20페이지(최대 10,000건).
+    """
+    all_items: list[dict] = []
+    seen_gids: set = set()
+    enddate: int | None = None
+    MAX_PAGES = 20
+
+    for page in range(MAX_PAGES):
+        params: dict = {
+            "appid": appid,
+            "count": count,
+            "maxlength": 3000,
+            "format": "json",
+        }
+        if enddate is not None:
+            params["enddate"] = enddate
+        if STEAM_API_KEY:
+            params["key"] = STEAM_API_KEY
+
+        try:
+            r = requests.get(STEAM_NEWS_ENDPOINT, params=params, timeout=20)
+            r.raise_for_status()
+            items: list[dict] = r.json().get("appnews", {}).get("newsitems", [])
+        except Exception as e:
+            print(f"[steam_news] 오류 appid={appid} page={page}: {e}")
+            break
+
+        if not items:
+            break
+
+        min_date: int | None = None
+        new_this_page = 0
+        for item in items:
+            gid = item.get("gid")
+            if gid and gid in seen_gids:
+                continue
+            if gid:
+                seen_gids.add(gid)
+            all_items.append(item)
+            new_this_page += 1
+            d = item.get("date", 0)
+            if min_date is None or d < min_date:
+                min_date = d
+
+        # 수집된 아이템이 count보다 적거나 중복만 있으면 종료
+        if len(items) < count or new_this_page == 0:
+            break
+
+        # 다음 페이지: oldest item 날짜 - 1초 이전으로 재조회
+        if not min_date or min_date <= 0:
+            break
+        enddate = min_date - 1
+
+    print(f"[steam_news] appid={appid} GetNewsForApp {len(all_items)}건 수집 ({page + 1}페이지)")
+    return all_items
+
+
+def fetch_store_events(appid: str) -> list[dict]:
+    """
+    Steam Store 이벤트 API로 패치노트/공지 등 추가 이벤트 수집.
+    GetNewsForApp이 누락하는 오래된 이벤트를 보완하는 역할.
+    cursor 기반 페이지네이션 — 최대 20페이지.
+    """
+    all_events: list[dict] = []
+    cursor = "*"
+    MAX_PAGES = 20
+
+    for _ in range(MAX_PAGES):
+        params = {
+            "appid": appid,
+            "count_before": 0,
+            "count_after": 250,
+            "cursor": cursor,
+            "l": "english",
+            "include_steamstore_events": 1,
+            "ajax": 1,
+        }
+        try:
+            r = requests.get(STEAM_STORE_EVENTS_URL, params=params, timeout=20)
+            r.raise_for_status()
+            data = r.json()
+            events: list[dict] = data.get("events", [])
+        except Exception as e:
+            print(f"[steam_news] store_events 오류 appid={appid}: {e}")
+            break
+
+        if not events:
+            break
+
+        all_events.extend(events)
+
+        next_cursor = data.get("next_cursor")
+        if not next_cursor or next_cursor == cursor:
+            break
+        cursor = next_cursor
+
+    print(f"[steam_news] appid={appid} StoreEvents {len(all_events)}건 수집")
+    return all_events
+
+
+def parse_store_event(event: dict, appid: str) -> dict | None:
+    """
+    Steam Store 이벤트 dict를 timeline row 형식으로 변환.
+    알 수 없는 타입이거나 제목이 없으면 None 반환.
+    """
+    import uuid as _uuid
+
+    event_type_id = event.get("event_type", -1)
+    if event_type_id not in _STORE_ALL_TYPES:
+        return None
+
+    body: dict = event.get("announcement_body") or {}
+    title: str = (event.get("event_name") or body.get("headline") or "").strip()
+    if not title:
+        return None
+
+    ts: int = event.get("rtime32_start_time", 0) or event.get("rtime32_end_time", 0)
+    date_str = _format_date(ts)
+
+    # URL 구성: announcement_body.gid가 있으면 뉴스 포스트 URL
+    url = ""
+    body_gid = body.get("gid", "")
+    if body_gid:
+        url = f"https://store.steampowered.com/news/app/{appid}/view/{body_gid}"
+
+    ev_type = "official" if event_type_id in _STORE_OFFICIAL_TYPES else "news"
+    is_sale = event_type_id == 13
+    is_fw   = event_type_id == 12
+
+    return {
+        "event_id":       str(_uuid.uuid4()),
+        "event_type":     ev_type,
+        "date":           date_str,
+        "title":          title,
+        "url":            url,
+        "language_scope": "all",
+        "is_sale_period": is_sale,
+        "sale_text":      "",
+        "is_free_weekend": is_fw,
     }
-    if STEAM_API_KEY:
-        params["key"] = STEAM_API_KEY
-
-    try:
-        r = requests.get(STEAM_NEWS_ENDPOINT, params=params, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        return data.get("appnews", {}).get("newsitems", [])
-    except Exception as e:
-        print(f"[steam_news] 오류 appid={appid}: {e}")
-        return []
 
 
 def classify_news(items: list[dict], app_author: str = "") -> tuple[list[dict], list[dict]]:
@@ -49,14 +186,14 @@ def classify_news(items: list[dict], app_author: str = "") -> tuple[list[dict], 
 def parse_news_item(item: dict, event_type: str) -> dict:
     import uuid as _uuid
     return {
-        "event_id": str(_uuid.uuid4()),
-        "event_type": event_type,
-        "date": _format_date(item.get("date", 0)),
-        "title": item.get("title", ""),
-        "url": item.get("url", ""),
+        "event_id":       str(_uuid.uuid4()),
+        "event_type":     event_type,
+        "date":           _format_date(item.get("date", 0)),
+        "title":          item.get("title", ""),
+        "url":            item.get("url", ""),
         "language_scope": "all",
         "is_sale_period": False,
-        "sale_text": "",
+        "sale_text":      "",
         "is_free_weekend": False,
     }
 
