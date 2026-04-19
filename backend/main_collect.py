@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from config import MASTER_SPREADSHEET_ID
 
 GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "")
-MAX_PAGES_PER_RUN = 450  # 약 36,000건 / 6시간 GitHub Actions 제한 대응
+MAX_PAGES_PER_RUN = 3000  # 약 240,000건 / 6시간 GitHub Actions 제한 이내 (약 25분 소요)
 
 
 def _dispatch_analyze():

@@ -12,6 +12,22 @@ from config import GEMINI_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 MODEL = "gemini-2.5-flash"
 
+# Thinking 모드: 8192 토큰 예산으로 활성화
+# 복잡한 감성 분석·인과관계 판단 품질 향상 목적
+# thinking 토큰은 입력 토큰과 동일 요금($0.075/1M)으로 과금
+THINKING_CONFIG = genai.types.GenerationConfig(
+    thinking_config=genai.types.ThinkingConfig(thinking_budget=8192),
+)
+
+
+def _make_model(system_instruction: str = None) -> genai.GenerativeModel:
+    """thinking 활성화된 공통 모델 인스턴스 생성."""
+    return genai.GenerativeModel(
+        MODEL,
+        generation_config=THINKING_CONFIG,
+        system_instruction=system_instruction,
+    )
+
 LANGUAGE_NAMES = {
     "all": "전체",
     "koreana": "한국어",
@@ -107,7 +123,7 @@ def generate_event_title_kr(
 - 좋은 예: "주말 특가 이벤트"
 - 텍스트만 반환, JSON/마크다운 없이."""
 
-    model = genai.GenerativeModel(MODEL)
+    model = _make_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()[:60]
@@ -164,7 +180,7 @@ URL: {patch_url}{content_section}
 지시적 어조 없이 사실만 서술하세요.
 JSON 없이 텍스트만 반환하세요."""
 
-    model = genai.GenerativeModel(MODEL)
+    model = _make_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -191,7 +207,7 @@ def generate_ai_briefing(game_name: str, timeline_summary: str, trend_direction:
 데이터:
 {timeline_summary}"""
 
-    model = genai.GenerativeModel(MODEL)
+    model = _make_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -231,7 +247,7 @@ def generate_sentiment_trend_comment(game_name: str, trend_buckets: list[dict]) 
 - 수치(%)는 반드시 데이터에 있는 값만 사용
 - JSON 없이 텍스트만 반환"""
 
-    model = genai.GenerativeModel(MODEL)
+    model = _make_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -254,7 +270,7 @@ def generate_ccu_peaktime_comment(game_name: str, ccu_data: list[dict]) -> str:
 
 {summary}"""
 
-    model = genai.GenerativeModel(MODEL)
+    model = _make_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -276,7 +292,7 @@ CCU 피크타임 분석:
 스팀 영어 과대표집 문제를 감안하여 실제 주력 권역과 권역 간 평가 온도차를 진단하세요.
 3~4문장, 지시적 어조 금지, JSON 없이 텍스트만 반환."""
 
-    model = genai.GenerativeModel(MODEL)
+    model = _make_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -286,10 +302,7 @@ CCU 피크타임 분석:
 
 
 def _call_gemini(prompt: str, retries: int = 3) -> dict | None:
-    model = genai.GenerativeModel(
-        MODEL,
-        system_instruction=ANALYSIS_SYSTEM_PROMPT,
-    )
+    model = _make_model(system_instruction=ANALYSIS_SYSTEM_PROMPT)
     for attempt in range(retries):
         try:
             resp = model.generate_content(prompt)
