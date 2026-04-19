@@ -164,7 +164,9 @@ def get_game(spreadsheet: gspread.Spreadsheet, appid: str) -> Optional[dict]:
 
 def add_game(spreadsheet: gspread.Spreadsheet, game: dict):
     ws = spreadsheet.worksheet("games")
-    row = [game.get(h, "") for h in GAMES_HEADERS]
+    # 실제 시트 헤더 순서 기준으로 행 생성 (GAMES_HEADERS 순서와 다를 수 있음)
+    actual_headers = ws.row_values(1)
+    row = [game.get(h, "") for h in actual_headers]
     ws.append_row(row)
 
 def update_game(spreadsheet: gspread.Spreadsheet, appid: str, updates: dict):
