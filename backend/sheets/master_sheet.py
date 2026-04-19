@@ -87,6 +87,22 @@ def ensure_games_headers(spreadsheet: gspread.Spreadsheet):
     missing = [h for h in GAMES_HEADERS if h not in current]
     if missing:
         print(f"[migrate] games 누락 컬럼 추가: {missing}")
+        needed_cols = len(current) + len(missing)
+        # 시트 컬럼 수가 부족하면 먼저 확장
+        if needed_cols > ws.col_count:
+            spreadsheet.batch_update({
+                "requests": [{
+                    "updateSheetProperties": {
+                        "properties": {
+                            "sheetId": ws.id,
+                            "gridProperties": {"columnCount": needed_cols + 5},
+                        },
+                        "fields": "gridProperties.columnCount",
+                    }
+                }]
+            })
+            print(f"[migrate] games 시트 컬럼 수 확장: {ws.col_count} → {needed_cols + 5}")
+            _time.sleep(1)
         next_col = len(current) + 1
         for i, col_name in enumerate(missing):
             ws.update_cell(1, next_col + i, col_name)
