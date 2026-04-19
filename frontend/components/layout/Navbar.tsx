@@ -27,6 +27,16 @@ export default function Navbar() {
             {t("NAV_GUIDE")}
           </Link>
           <Link
+            href="/guide/usage"
+            className={`text-sm transition-colors ${
+              pathname === "/guide/usage"
+                ? "text-accent-blue"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            {t("NAV_USAGE")}
+          </Link>
+          <Link
             href="/admin"
             className={`text-xs transition-colors ${
               pathname === "/admin"
