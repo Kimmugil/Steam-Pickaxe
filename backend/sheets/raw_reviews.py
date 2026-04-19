@@ -221,16 +221,24 @@ def get_reviews_in_range(
     end_ts: int,
     years: list[int],
 ) -> list[dict]:
-    """특정 기간의 리뷰를 Gemini 분석용으로 반환."""
+    """특정 기간의 리뷰를 Gemini 분석용으로 반환.
+
+    NOTE: get_or_create_year_tab 대신 ss.worksheet()를 사용하여
+    존재하지 않는 연도 탭을 새로 만들지 않습니다.
+    (탭 과다 생성 방지 — 10M 셀 한도 보호)
+    """
     results = []
     for year in years:
+        tab_name = f"reviews_{year}"
         try:
-            ws = get_or_create_year_tab(ss, year)
+            ws = ss.worksheet(tab_name)          # 없으면 WorksheetNotFound 발생
             records = ws.get_all_records()
             for r in records:
                 ts = int(r.get("timestamp_created", 0))
                 if start_ts <= ts <= end_ts:
                     results.append(r)
+        except gspread.WorksheetNotFound:
+            continue                              # 해당 연도 리뷰 없음 → 건너뜀
         except Exception:
             continue
     return results

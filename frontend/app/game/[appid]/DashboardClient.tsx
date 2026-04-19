@@ -166,7 +166,7 @@ export default function DashboardClient({
         <div className="bg-bg-card border border-border-default rounded-xl p-6">
           <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
           <EventForm appid={String(game.appid)} onEventAdded={() => router.refresh()} />
-          <Timeline timelineRows={timelineRows} />
+          <Timeline timelineRows={timelineRows} appid={String(game.appid)} />
         </div>
 
         {/* ── 관리자 액션 (재분석 + 삭제) ────────────────────────── */}

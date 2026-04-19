@@ -2,6 +2,7 @@ import SearchBox from "@/components/home/SearchBox";
 import GameCard from "@/components/home/GameCard";
 import QueueCardWrapper from "@/components/home/QueueCardWrapper";
 import QueueRetriggerButton from "@/components/home/QueueRetriggerButton";
+import UiTextSyncButton from "@/components/home/UiTextSyncButton";
 import { getAllGames, getUiText } from "@/lib/sheets";
 
 export const revalidate = 60;
@@ -63,8 +64,13 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* ── 관리자 유틸리티 버튼 바 ────────────────────────────────────── */}
+      <div className="flex justify-end gap-2 mt-6">
+        <UiTextSyncButton />
+      </div>
+
       {/* ── 분석 완료 게임 목록 ───────────────────────────────────────── */}
-      <section className="mt-12">
+      <section className="mt-6">
         <h2 className="text-lg font-semibold text-text-primary mb-4">
           {t("GAMES_SECTION_TITLE")}
           <span className="ml-2 text-sm text-text-muted font-normal">

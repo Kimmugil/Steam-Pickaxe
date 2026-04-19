@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConfig, appendTimelineRow, deleteTimelineRowsByEventId, getTimeline, getGame } from "@/lib/sheets";
+import { getConfig, appendTimelineRow, deleteTimelineRowsByEventId, getTimeline, getGame, updateTimelineEventField } from "@/lib/sheets";
 import { v4 as uuidv4 } from "uuid";
 
 const GITHUB_TOKEN = process.env.GH_PAT!;
@@ -55,6 +55,58 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, event_id: newEventId });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/admin/event
+ * 기존 이벤트의 특정 필드(title_kr, event_type, date 등)를 수정합니다.
+ *
+ * Body: {
+ *   appid: string,
+ *   event_id: string,
+ *   updates: Partial<TimelineRow>,
+ *   password: string,
+ *   trigger_reanalyze?: boolean   // true 이면 analyze.yml 재실행
+ * }
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const { appid, event_id, updates, password, trigger_reanalyze } = await req.json();
+
+    if (!appid || !event_id || !updates || !password) {
+      return NextResponse.json({ error: "필수 항목이 누락되었습니다." }, { status: 400 });
+    }
+
+    const [config, game] = await Promise.all([
+      getConfig(),
+      getGame(String(appid)),
+    ]);
+    if (password !== config.admin_password) {
+      return NextResponse.json({ error: "비밀번호가 올바르지 않습니다." }, { status: 401 });
+    }
+
+    const gameSheetId = game?.game_sheet_id;
+    await updateTimelineEventField(String(appid), event_id, updates, gameSheetId);
+
+    if (trigger_reanalyze && GITHUB_TOKEN) {
+      await fetch(
+        `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/analyze.yml/dispatches`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github+json",
+          },
+          body: JSON.stringify({ ref: "main" }),
+        }
+      );
+    }
+
+    return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

@@ -87,6 +87,46 @@ const FALLBACK: Record<string, string> = {
   POOL_EMPTY_MSG: "곳간 용량 부족! 농장주(김무길)에게 곳간을 늘려달라고 하세요.",
   POOL_EMPTY_RETRY_BTN: "곳간 보충 후 재시도",
   POOL_EMPTY_RETRY_SUCCESS: "재시도 요청 완료. 다음 수집 실행 시 자동으로 처리됩니다.",
+  POOL_EMPTY_SHEET_HINT: "Sheet_Pool 탭에 새 시트를 추가한 후 진행하세요.",
+
+  // ── 수집 대기열 — 추가 ───────────────────────────────────────────────────
+  QUEUE_COLLECTING_ERROR: "수집 오류",
+  QUEUE_REVIEWS_PROGRESS: "리뷰 {collected} / {total}건",
+  QUEUE_FORCE_ACTIVATE_BTN: "⚡ 지금 분석 바로 시작",
+  QUEUE_FORCE_ACTIVATE_MODAL_TITLE: "⚡ 지금 분석 바로 시작",
+  QUEUE_FORCE_ACTIVATE_MODAL_DESC: "현재 수집된 리뷰 {collected}건으로 즉시 분석을 시작합니다. 이후 새 리뷰는 다음 정기 수집에서 추가됩니다.",
+  QUEUE_FORCE_ACTIVATE_CONFIRM_BTN: "분석 시작",
+  QUEUE_FORCE_ACTIVATE_SUCCESS: "분석을 시작합니다. 잠시 후 분석 목록에서 확인하세요.",
+  QUEUE_CURSOR_STUCK_MSG: "수집이 중단된 것 같습니다. 초기화 후 처음부터 재수집할 수 있습니다.",
+  QUEUE_CURSOR_RESET_BTN: "cursor 초기화 (처음부터 재수집)",
+  QUEUE_CURSOR_RESET_MODAL_DESC: "cursor를 초기화하고 처음부터 다시 수집합니다.",
+  QUEUE_CURSOR_RESET_CONFIRM_BTN: "cursor 초기화",
+  QUEUE_CURSOR_RESET_SUCCESS: "커서 초기화 완료. 다음 수집 시 처음부터 재시작됩니다.",
+  PROCESSING: "처리 중...",
+
+  // ── 타임라인 — 이벤트 수정 ──────────────────────────────────────────────
+  TIMELINE_SPARSE_LABEL: "리뷰 부족 (인접 구간에 합산)",
+  TIMELINE_FEW_REVIEWS_LABEL: "리뷰 {n}건",
+  TIMELINE_EDIT_BTN: "✏️ 수정",
+  TIMELINE_EDIT_TITLE: "이벤트 수정",
+  TIMELINE_EDIT_ORIGINAL_TITLE_LABEL: "원본 제목:",
+  TIMELINE_EDIT_TITLE_KR_LABEL: "한국어 제목 (AI 생성 또는 직접 입력)",
+  TIMELINE_EDIT_TITLE_KR_PLACEHOLDER: "예: v2.5 밸런스 패치 — 캐릭터·기술 조정",
+  TIMELINE_EDIT_TYPE_LABEL: "이벤트 유형",
+  TIMELINE_EDIT_DATE_LABEL: "날짜",
+  TIMELINE_EDIT_REANALYZE_LABEL: "이벤트 유형·날짜 변경 시 AI 재분석 트리거",
+  TIMELINE_EDIT_SAVE_BTN: "저장",
+  TIMELINE_EDIT_SAVING: "저장 중...",
+  TIMELINE_EDIT_SUCCESS: "수정이 완료되었습니다.",
+  TIMELINE_EDIT_SAVED_NOTICE: "수정이 완료됐습니다. 새로고침 시 반영됩니다.",
+
+  // ── 게임 헤더 메타 레이블 ────────────────────────────────────────────────
+  META_GENRES: "장르",
+  META_RELEASE_DATE: "출시일",
+  META_DEVELOPER: "개발사",
+  META_PUBLISHER: "배급사",
+  META_PRICE: "판매가",
+  META_FREE: "무료",
 
   // ── 챗봇 ────────────────────────────────────────────────────────────
   CHATBOT_TOOLTIP: "{gameName} 분석에서 궁금한 점이 있나요? 무길봇에게 물어보세요",

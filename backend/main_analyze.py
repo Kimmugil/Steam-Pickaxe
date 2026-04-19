@@ -136,9 +136,14 @@ def run():
         raw_ss = open_raw_spreadsheet(game_sheet_id)
         top_languages = _get_top_languages(game, timeline_rows, raw_ss)
 
+        # 스파스 버킷(리뷰 ≤5건)의 리뷰를 다음 버킷으로 이월
+        carry_over_reviews: list = []
+
         for bucket in buckets:
             event_id = bucket["event_id"]
             if event_id in analyzed_ids:
+                # 이미 분석 완료된 버킷이면 carry-over 초기화 (데이터 일관성)
+                carry_over_reviews = []
                 continue
 
             print(f"  구간 분석: {bucket['title']} ({bucket['date']})")
@@ -149,29 +154,88 @@ def run():
                 dt.utcfromtimestamp(max(bucket["start_ts"], 1)).year,
                 dt.utcnow().year + 1
             ))
-            raw_reviews = get_reviews_in_range(raw_ss, bucket["start_ts"], bucket["end_ts"], years)
+            own_reviews = get_reviews_in_range(raw_ss, bucket["start_ts"], bucket["end_ts"], years)
+            combined_reviews = carry_over_reviews + own_reviews
+
+            # 기존 시트에서 이 버킷의 기존 title_kr 확인 (사용자가 직접 수정했을 수도 있음)
+            existing_title_kr = next(
+                (r.get("title_kr", "") for r in timeline_rows
+                 if r.get("event_id") == event_id and r.get("language_scope") == "all"),
+                ""
+            )
+
+            # ── 스파스 버킷 처리 (리뷰 5건 이하) ─────────────────────
+            SPARSE_THRESHOLD = 5
+            if len(combined_reviews) <= SPARSE_THRESHOLD:
+                carry_over_reviews = combined_reviews  # 다음 버킷에 이월
+                print(f"    → 리뷰 {len(combined_reviews)}건 — 스파스 버킷, 다음 구간에 합산")
+
+                # title_kr 생성 (제목은 표시되므로)
+                title_kr = existing_title_kr.strip() or generate_event_title_kr(
+                    name, bucket["title"], bucket.get("event_type", ""), ""
+                )
+                print(f"    title_kr: {title_kr}")
+
+                # 스파스 마커 행 기록 (재실행 시 재처리 방지)
+                sparse_row = {
+                    "event_id": event_id,
+                    "event_type": bucket["event_type"],
+                    "date": bucket["date"],
+                    "title": bucket["title"],
+                    "language_scope": "all",
+                    "sentiment_rate": "sparse",
+                    "review_count": len(combined_reviews),
+                    "ai_patch_summary": "",
+                    "ai_reaction_summary": "",
+                    "top_keywords": "[]",
+                    "top_reviews": "[]",
+                    "url": bucket.get("url", ""),
+                    "is_sale_period": bucket.get("is_sale_period", False),
+                    "sale_text": bucket.get("sale_text", ""),
+                    "is_free_weekend": bucket.get("is_free_weekend", False),
+                    "title_kr": title_kr,
+                }
+                existing_scope_ids = {
+                    (r["event_id"], r["language_scope"]) for r in timeline_rows
+                }
+                if (event_id, "all") in existing_scope_ids:
+                    gs_update_timeline(game_ss, event_id, "all", sparse_row)
+                else:
+                    gs_append_timeline(game_ss, sparse_row)
+                time.sleep(1)
+                continue  # 언어별 분석 생략
+
+            # 스파스가 아닌 정상 버킷: carry-over 해소
+            carry_over_reviews = []
 
             # 패치 요약 — 스코프 루프 바깥에서 1회만 생성 (API 호출 최소화)
             patch_summary = ""
             if bucket.get("event_type") == "official":
                 patch_summary = analyze_patch_summary(name, bucket["title"], bucket.get("url", ""))
 
-            # AI 한국어 제목 — 버킷당 1회 생성
-            title_kr = generate_event_title_kr(
-                name,
-                bucket["title"],
-                bucket.get("event_type", ""),
-                patch_summary,
-            )
-            print(f"    title_kr: {title_kr}")
+            # AI 한국어 제목 — 사용자가 이미 수정한 경우 보존, 없으면 새로 생성
+            if existing_title_kr.strip():
+                title_kr = existing_title_kr.strip()
+                print(f"    title_kr (기존 유지): {title_kr}")
+            else:
+                title_kr = generate_event_title_kr(
+                    name,
+                    bucket["title"],
+                    bucket.get("event_type", ""),
+                    patch_summary,
+                )
+                print(f"    title_kr: {title_kr}")
 
             # 언어별 분석
             scopes = ["all"] + top_languages
+            existing_scope_ids = {
+                (r["event_id"], r["language_scope"]) for r in timeline_rows
+            }
             for scope in scopes:
                 if scope == "all":
-                    scope_reviews = raw_reviews
+                    scope_reviews = combined_reviews  # carry-over 포함
                 else:
-                    scope_reviews = [r for r in raw_reviews if r.get("language") == scope]
+                    scope_reviews = [r for r in combined_reviews if r.get("language") == scope]
 
                 sampled = sample_reviews(scope_reviews)
                 analysis = analyze_bucket(name, bucket["title"], sampled, scope)
@@ -182,12 +246,12 @@ def run():
                     "date": bucket["date"],
                     "title": bucket["title"],
                     "language_scope": scope,
-                    "sentiment_rate": analysis["sentiment_rate"],
+                    "sentiment_rate": analysis.get("sentiment_rate", 0),
                     "review_count": len(scope_reviews),
                     "ai_patch_summary": patch_summary if scope == "all" else "",
-                    "ai_reaction_summary": analysis["ai_reaction_summary"],
-                    "top_keywords": json.dumps(analysis["top_keywords"], ensure_ascii=False),
-                    "top_reviews": json.dumps(analysis["top_reviews"], ensure_ascii=False),
+                    "ai_reaction_summary": analysis.get("ai_reaction_summary", ""),
+                    "top_keywords": json.dumps(analysis.get("top_keywords", []), ensure_ascii=False),
+                    "top_reviews": json.dumps(analysis.get("top_reviews", []), ensure_ascii=False),
                     "url": bucket.get("url", ""),
                     "is_sale_period": bucket.get("is_sale_period", False),
                     "sale_text": bucket.get("sale_text", ""),
@@ -196,10 +260,6 @@ def run():
                 }
 
                 # 기존 행 있으면 업데이트, 없으면 추가
-                existing_scope_ids = {
-                    (r["event_id"], r["language_scope"])
-                    for r in timeline_rows
-                }
                 if (event_id, scope) in existing_scope_ids:
                     gs_update_timeline(game_ss, event_id, scope, row)
                 else:

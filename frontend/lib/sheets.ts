@@ -252,6 +252,63 @@ export async function deleteTimelineRowsByEventId(
   }
 }
 
+/**
+ * 특정 event_id의 타임라인 행 필드를 업데이트합니다.
+ * title / title_kr / date / event_type / url 등 공유 필드는 모든 language_scope 행에 반영합니다.
+ * sentiment_rate 등 스코프별 필드는 "all" 행에만 반영합니다.
+ */
+export async function updateTimelineEventField(
+  appid: string,
+  eventId: string,
+  updates: Partial<TimelineRow>,
+  gameSheetId?: string
+) {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = gameSheetId ?? SPREADSHEET_ID;
+  const tabName = gameSheetId ? "timeline" : `timeline_${appid}`;
+
+  const rows = await (gameSheetId
+    ? readGameSheet(gameSheetId, tabName)
+    : readSheet(tabName));
+
+  const headers = rows[0] ?? [];
+
+  // 모든 language_scope 행에 공통으로 적용할 필드
+  const SHARED_FIELDS = new Set([
+    "title", "title_kr", "date", "event_type",
+    "url", "is_sale_period", "sale_text", "is_free_weekend",
+  ]);
+
+  const batchData: { range: string; values: string[][] }[] = [];
+
+  rows.forEach((row, rowIdx) => {
+    if (rowIdx === 0 || row[0] !== eventId) return;
+    const scopeColIdx = headers.indexOf("language_scope");
+    const scope = scopeColIdx >= 0 ? (row[scopeColIdx] ?? "") : "";
+
+    for (const [key, val] of Object.entries(updates)) {
+      // 공유 필드는 모든 스코프에, 그 외는 "all" 스코프에만 적용
+      if (!SHARED_FIELDS.has(key) && scope !== "all") continue;
+
+      const colIdx = headers.indexOf(key);
+      if (colIdx < 0) continue;
+
+      const colLetter = String.fromCharCode(65 + colIdx);
+      batchData.push({
+        range: `${tabName}!${colLetter}${rowIdx + 1}`,
+        values: [[String(val ?? "")]],
+      });
+    }
+  });
+
+  if (batchData.length === 0) return;
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: "RAW", data: batchData as never },
+  });
+}
+
 // ── ccu (개별 게임 시트 우선, 마스터 시트 폴백) ─────────
 
 /**
@@ -477,4 +534,70 @@ export async function syncUiText(
   }
 
   return { added: toAdd.length, skipped: existingKeys.size };
+}
+
+/**
+ * ui_text 탭을 FALLBACK 기준으로 완전 재작성합니다 (Full Reset).
+ *
+ * - FALLBACK에 있는 키만 남김 (미사용 키 자동 제거)
+ * - Sheets에 커스텀 값이 있으면 그 값을 유지
+ * - Sheets에 없는 신규 키는 FALLBACK 기본값으로 추가
+ * - 탭 전체를 clear 후 정렬된 순서로 재작성
+ *
+ * @returns {{ kept: number; added: number; removed: number }}
+ */
+export async function resetUiText(
+  fallback: Record<string, string>
+): Promise<{ kept: number; added: number; removed: number }> {
+  const sheets = await getSheetsClient();
+
+  // 현재 ui_text 탭 읽기 (커스텀 값 보존을 위해)
+  let rows: string[][] = [];
+  try {
+    rows = await readSheet("ui_text");
+  } catch {
+    // 탭 없으면 빈 배열
+  }
+
+  // 기존 key→value 맵 파싱 (커스텀 값)
+  const existingMap: Record<string, string> = {};
+  for (const row of rows.slice(1)) {
+    const key = row[0]?.trim();
+    if (key) existingMap[key] = row[1] ?? "";
+  }
+
+  // 새 탭 내용 구성: FALLBACK 키 순서 유지, 커스텀 값 우선
+  const newRows: string[][] = [["key", "value"]];
+  let kept = 0;
+  let added = 0;
+
+  for (const [key, defaultVal] of Object.entries(fallback)) {
+    if (key in existingMap) {
+      // 기존 값 보존 (빈 값이면 기본값 사용)
+      newRows.push([key, existingMap[key] || defaultVal]);
+      kept++;
+    } else {
+      // 신규 키 — 기본값 사용
+      newRows.push([key, defaultVal]);
+      added++;
+    }
+  }
+
+  // 제거 대상: Sheets에 있지만 FALLBACK에 없는 키
+  const removed = Object.keys(existingMap).filter((k) => !(k in fallback)).length;
+
+  // 탭 전체 클리어 후 재작성
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "ui_text",
+  });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "ui_text!A1",
+    valueInputOption: "RAW",
+    requestBody: { values: newRows },
+  });
+
+  return { kept, added, removed };
 }

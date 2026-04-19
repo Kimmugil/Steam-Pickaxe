@@ -1,17 +1,160 @@
 "use client";
 import { useState, useMemo } from "react";
 import Badge from "@/components/shared/Badge";
+import Toast, { useToast } from "@/components/shared/Toast";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { TimelineRow, TopReview } from "@/types";
 
 interface TimelineProps {
   timelineRows: TimelineRow[];
+  appid: string;
 }
 
-export default function Timeline({ timelineRows }: TimelineProps) {
+// ── 이벤트 수정 모달 ───────────────────────────────────────────────────────────
+function EditEventModal({
+  row,
+  appid,
+  onClose,
+  onSaved,
+}: {
+  row: TimelineRow;
+  appid: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useUiText();
+  const [titleKr, setTitleKr] = useState(row.title_kr ?? "");
+  const [eventType, setEventType] = useState<string>(row.event_type ?? "official");
+  const [date, setDate] = useState(row.date ?? "");
+  const [pw, setPw] = useState("");
+  const [triggerReanalyze, setTriggerReanalyze] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast, show, clear } = useToast();
+
+  async function handleSave() {
+    if (!pw) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/event", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appid,
+          event_id: row.event_id,
+          updates: { title_kr: titleKr, event_type: eventType, date },
+          password: pw,
+          trigger_reanalyze: triggerReanalyze,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show(t("TIMELINE_EDIT_SUCCESS"), "success");
+        setTimeout(onSaved, 1200);
+      } else {
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const EVENT_TYPE_OPTIONS = [
+    { value: "official", label: t("TIMELINE_TYPE_OFFICIAL") },
+    { value: "manual",   label: t("TIMELINE_TYPE_MANUAL") },
+    { value: "news",     label: t("TIMELINE_TYPE_NEWS") },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-bg-card border border-border-default rounded-xl p-6 w-96 max-w-[calc(100vw-2rem)]">
+        <p className="font-semibold mb-1">{t("TIMELINE_EDIT_TITLE")}</p>
+        <p className="text-xs text-text-muted mb-4">
+          {t("TIMELINE_EDIT_ORIGINAL_TITLE_LABEL")}{" "}
+          <span className="text-text-secondary">{row.title}</span>
+        </p>
+
+        {/* 한국어 제목 */}
+        <label className="block text-xs text-text-muted mb-1">{t("TIMELINE_EDIT_TITLE_KR_LABEL")}</label>
+        <input
+          type="text"
+          value={titleKr}
+          onChange={(e) => setTitleKr(e.target.value)}
+          placeholder={t("TIMELINE_EDIT_TITLE_KR_PLACEHOLDER")}
+          className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
+        />
+
+        {/* 이벤트 유형 */}
+        <label className="block text-xs text-text-muted mb-1">{t("TIMELINE_EDIT_TYPE_LABEL")}</label>
+        <select
+          value={eventType}
+          onChange={(e) => setEventType(e.target.value)}
+          className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
+        >
+          {EVENT_TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+
+        {/* 날짜 */}
+        <label className="block text-xs text-text-muted mb-1">{t("TIMELINE_EDIT_DATE_LABEL")}</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
+        />
+
+        {/* 재분석 옵션 */}
+        <label className="flex items-center gap-2 text-xs text-text-secondary mb-4 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={triggerReanalyze}
+            onChange={(e) => setTriggerReanalyze(e.target.checked)}
+            className="accent-accent-blue"
+          />
+          {t("TIMELINE_EDIT_REANALYZE_LABEL")}
+        </label>
+
+        {/* 관리자 비밀번호 */}
+        <label className="block text-xs text-text-muted mb-1">{t("ADMIN_PW_TITLE")}</label>
+        <input
+          type="password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          placeholder={t("ADMIN_PW_PLACEHOLDER")}
+          className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
+          onKeyDown={(e) => e.key === "Enter" && !loading && pw && handleSave()}
+          autoFocus
+        />
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleSave}
+            disabled={loading || !pw}
+            className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40"
+          >
+            {loading ? t("TIMELINE_EDIT_SAVING") : t("TIMELINE_EDIT_SAVE_BTN")}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover"
+          >
+            {t("ADMIN_CLOSE_BTN")}
+          </button>
+        </div>
+      </div>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={clear} />}
+    </div>
+  );
+}
+
+// ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
+export default function Timeline({ timelineRows, appid }: TimelineProps) {
   const { t } = useUiText();
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [editingRow, setEditingRow] = useState<TimelineRow | null>(null);
+  const { toast, show, clear } = useToast();
 
   const EVENT_TYPE_LABELS: Record<string, string> = {
     official: t("TIMELINE_TYPE_OFFICIAL"),
@@ -73,10 +216,24 @@ export default function Timeline({ timelineRows }: TimelineProps) {
             const isSale = row.is_sale_period === "TRUE" || row.is_sale_period === true;
             const isFreeWeekend = row.is_free_weekend === "TRUE" || row.is_free_weekend === true;
             const isExpanded = expandedIds.has(row.event_id);
-            const rate = row.sentiment_rate !== "" && row.sentiment_rate !== 0 ? Number(row.sentiment_rate) : null;
+            const isLaunch = row.event_type === "launch";
+
+            // ≤5건 리뷰 또는 "sparse" 마커: 긍정률 미표시
+            const isSparse = String(row.sentiment_rate) === "sparse";
+            const reviewCount = Number(row.review_count || 0);
+            const isFewReviews = !isSparse && reviewCount > 0 && reviewCount <= 5;
+            const rate =
+              !isSparse && !isFewReviews &&
+              row.sentiment_rate !== "" && row.sentiment_rate !== 0
+                ? Number(row.sentiment_rate)
+                : null;
+
             const keywords = parseKeywords(row.top_keywords);
             const reviews = parseReviews(row.top_reviews);
-            const isPending = !isNews && rate === null && keywords.length === 0 && !row.ai_reaction_summary;
+            const isPending = !isNews && !isSparse && !isFewReviews && rate === null && keywords.length === 0 && !row.ai_reaction_summary;
+
+            // 클릭 가능 여부 (launch/pending/sparse/fewReviews는 펼치지 않음)
+            const isExpandable = !isPending && !isLaunch && !isSparse && !isFewReviews;
 
             if (isNews) {
               return (
@@ -104,18 +261,17 @@ export default function Timeline({ timelineRows }: TimelineProps) {
               );
             }
 
-            const isLaunch = row.event_type === "launch";
-
             return (
               <div
                 key={row.event_id}
-                className={`flex gap-4 py-3 ${isSale ? "bg-accent-orange/5" : isFreeWeekend ? "bg-accent-green/5" : ""}`}
+                className={`flex gap-4 py-3 group/row ${isSale ? "bg-accent-orange/5" : isFreeWeekend ? "bg-accent-green/5" : ""}`}
               >
                 <div className="relative shrink-0 mt-2">
                   <div className={`w-3.5 h-3.5 rounded-full border-2 ${
                     isFreeWeekend ? "border-accent-green bg-accent-green/30" :
                     isSale ? "border-accent-orange bg-accent-orange/30" :
                     isLaunch ? "border-text-muted bg-bg-secondary" :
+                    isSparse || isFewReviews ? "border-border-default bg-bg-secondary" :
                     isPending ? "border-accent-yellow bg-accent-yellow/20" :
                     "border-accent-blue bg-accent-blue/30"
                   }`} />
@@ -137,33 +293,42 @@ export default function Timeline({ timelineRows }: TimelineProps) {
 
                   {/* 헤더 클릭 → 접기/펼치기 */}
                   <button
-                    onClick={() => !isPending && !isLaunch && toggleExpand(row.event_id)}
-                    className={`w-full text-left ${isPending || isLaunch ? "cursor-default" : "group"}`}
-                    disabled={isPending || isLaunch}
+                    onClick={() => isExpandable && toggleExpand(row.event_id)}
+                    className={`w-full text-left ${isExpandable ? "group" : "cursor-default"}`}
+                    disabled={!isExpandable}
                   >
                     <div className="flex items-center gap-2 flex-wrap">
                       {row.date && <span className="text-xs text-text-muted">{row.date}</span>}
                       <span className="text-xs bg-bg-secondary border border-border-default px-1.5 py-0.5 rounded text-text-muted">
                         {EVENT_TYPE_LABELS[row.event_type] ?? row.event_type}
                       </span>
+
+                      {/* 상태 배지 */}
                       {isPending ? (
                         <span className="text-xs text-text-muted flex items-center gap-1">
                           <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-yellow animate-pulse" />
                           {t("TIMELINE_PENDING")}
                         </span>
+                      ) : isSparse ? (
+                        <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
+                          {t("TIMELINE_SPARSE_LABEL")}
+                        </span>
+                      ) : isFewReviews ? (
+                        <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
+                          {t("TIMELINE_FEW_REVIEWS_LABEL", { n: reviewCount })}
+                        </span>
                       ) : (
-                        rate !== null && <Badge rate={rate} reviewCount={Number(row.review_count || 0)} size="sm" />
+                        rate !== null && <Badge rate={rate} reviewCount={reviewCount} size="sm" />
                       )}
                     </div>
-                    {/* launch 이벤트는 제목 행을 별도로 표시하지 않음 (이벤트 타입 뱃지로 충분) */}
+
+                    {/* launch 이벤트는 제목 행을 별도로 표시하지 않음 */}
                     {!isLaunch && (
                       <div className="mt-1">
-                        {/* AI 한국어 제목 (있으면 메인 표시) */}
-                        <p className={`font-medium transition-colors ${isPending ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>
+                        <p className={`font-medium transition-colors ${isPending || isSparse || isFewReviews ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>
                           {row.title_kr || row.title}
-                          {!isPending && <span className="ml-2 text-xs text-text-muted">{isExpanded ? "▲" : "▼"}</span>}
+                          {isExpandable && <span className="ml-2 text-xs text-text-muted">{isExpanded ? "▲" : "▼"}</span>}
                         </p>
-                        {/* 원제 (title_kr이 있고 원제와 다를 때만 서브텍스트로 표시) */}
                         {row.title_kr && row.title_kr !== row.title && (
                           <p className="text-xs text-text-muted mt-0.5">{row.title}</p>
                         )}
@@ -171,7 +336,7 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                     )}
 
                     {/* 기본 표시: 키워드 */}
-                    {!isPending && keywords.length > 0 && (
+                    {!isPending && !isSparse && !isFewReviews && keywords.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {keywords.map((kw, ki) => (
                           <span key={ki} className="text-xs bg-bg-secondary px-2 py-0.5 rounded text-text-secondary border border-border-default">
@@ -181,6 +346,16 @@ export default function Timeline({ timelineRows }: TimelineProps) {
                       </div>
                     )}
                   </button>
+
+                  {/* 수정 버튼 (launch/news 제외) */}
+                  {!isLaunch && !isNews && (
+                    <button
+                      onClick={() => setEditingRow(row)}
+                      className="mt-1 text-[11px] text-text-muted opacity-0 group-hover/row:opacity-100 hover:text-accent-blue transition-all"
+                    >
+                      {t("TIMELINE_EDIT_BTN")}
+                    </button>
+                  )}
 
                   {/* 펼침 상세 */}
                   {isExpanded && (
@@ -241,6 +416,21 @@ export default function Timeline({ timelineRows }: TimelineProps) {
           })}
         </div>
       </div>
+
+      {/* 이벤트 수정 모달 */}
+      {editingRow && (
+        <EditEventModal
+          row={editingRow}
+          appid={appid}
+          onClose={() => setEditingRow(null)}
+          onSaved={() => {
+            setEditingRow(null);
+            show(t("TIMELINE_EDIT_SAVED_NOTICE"), "success");
+          }}
+        />
+      )}
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={clear} />}
     </div>
   );
 }

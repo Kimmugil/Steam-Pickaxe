@@ -58,7 +58,7 @@ function PoolEmptyCard({
           />
           {/* 오류 뱃지 */}
           <span className="absolute top-2 left-2 text-[10px] bg-accent-red/90 text-white px-2 py-0.5 rounded font-medium">
-            수집 오류
+            {t("QUEUE_COLLECTING_ERROR")}
           </span>
         </div>
       )}
@@ -90,7 +90,7 @@ function PoolEmptyCard({
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-80">
             <p className="font-semibold mb-1">{t("ADMIN_PW_TITLE")}</p>
             <p className="text-xs text-text-muted mb-3">
-              Sheet_Pool 탭에 새 시트를 추가한 후 진행하세요.
+              {t("POOL_EMPTY_SHEET_HINT")}
             </p>
             <input
               type="password"
@@ -106,7 +106,7 @@ function PoolEmptyCard({
                 disabled={loading || !pw}
                 className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40"
               >
-                {loading ? "처리 중..." : t("POOL_EMPTY_RETRY_BTN")}
+                {loading ? t("PROCESSING") : t("POOL_EMPTY_RETRY_BTN")}
               </button>
               <button
                 onClick={() => { setShowPwModal(false); setPw(""); }}
@@ -144,7 +144,7 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
       ? t("QUEUE_ETA_MINS", { mins: etaMin })
       : t("QUEUE_ETA_SOON");
 
-  // cursor가 진행 중(* 아님)이면 game_sheet_id 유무 무관하게 초기화 버튼 표시
+  // cursor가 진행 중(* 아님)이면 초기화 버튼 표시
   const isCursorStuck = !!game.last_cursor && game.last_cursor !== "*";
 
   // 충분한 리뷰가 있고 game_sheet_id가 존재하면 조기 분석 가능
@@ -193,7 +193,7 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
     setShowPwModal(false);
     setPw("");
     if (data.ok) {
-      show("커서 초기화 완료. 다음 수집 시 처음부터 재시작됩니다.", "success");
+      show(t("QUEUE_CURSOR_RESET_SUCCESS"), "success");
       setTimeout(onCancelled, 1200);
     } else {
       show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
@@ -212,7 +212,7 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
     setShowPwModal(false);
     setPw("");
     if (data.ok) {
-      show("분석을 시작합니다. 잠시 후 분석 목록에서 확인하세요.", "success");
+      show(t("QUEUE_FORCE_ACTIVATE_SUCCESS"), "success");
       setTimeout(onCancelled, 1500);
     } else {
       show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
@@ -249,7 +249,10 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
         <div className="mt-3 space-y-1">
           {total > 0 && (
             <p className="text-xs text-text-secondary">
-              리뷰 {collected.toLocaleString()} / {total.toLocaleString()}건
+              {t("QUEUE_REVIEWS_PROGRESS", {
+                collected: collected.toLocaleString(),
+                total: total.toLocaleString(),
+              })}
             </p>
           )}
           <p className="text-xs text-text-muted">
@@ -264,7 +267,7 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
             onClick={() => openModal("activate")}
             className="mt-3 w-full py-2 text-xs bg-accent-green/10 border border-accent-green/30 text-accent-green rounded-lg hover:bg-accent-green/20 transition-colors font-medium"
           >
-            ⚡ 지금 분석 바로 시작
+            {t("QUEUE_FORCE_ACTIVATE_BTN")}
           </button>
         )}
 
@@ -272,13 +275,13 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
         {isCursorStuck && (
           <div className="mt-2 p-2 bg-accent-orange/10 border border-accent-orange/30 rounded-lg">
             <p className="text-[11px] text-accent-orange leading-relaxed">
-              수집이 중단된 것 같습니다. 초기화 후 처음부터 재수집할 수 있습니다.
+              {t("QUEUE_CURSOR_STUCK_MSG")}
             </p>
             <button
               onClick={() => openModal("reset")}
               className="mt-1.5 text-[11px] text-accent-orange border border-accent-orange/40 rounded px-2 py-0.5 hover:bg-accent-orange/10 transition-colors"
             >
-              cursor 초기화 (처음부터 재수집)
+              {t("QUEUE_CURSOR_RESET_BTN")}
             </button>
           </div>
         )}
@@ -297,14 +300,14 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-80">
             <p className="font-semibold mb-1">
               {modalMode === "activate"
-                ? "⚡ 지금 분석 바로 시작"
+                ? t("QUEUE_FORCE_ACTIVATE_MODAL_TITLE")
                 : t("ADMIN_PW_TITLE")}
             </p>
             <p className="text-xs text-text-muted mb-3">
               {modalMode === "activate"
-                ? `현재 수집된 리뷰 ${collected.toLocaleString()}건으로 즉시 분석을 시작합니다. 이후 새 리뷰는 다음 정기 수집에서 추가됩니다.`
+                ? t("QUEUE_FORCE_ACTIVATE_MODAL_DESC", { collected: collected.toLocaleString() })
                 : modalMode === "reset"
-                ? "cursor를 초기화하고 처음부터 다시 수집합니다."
+                ? t("QUEUE_CURSOR_RESET_MODAL_DESC")
                 : ""}
             </p>
             <input
@@ -341,11 +344,11 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
                 }`}
               >
                 {loading
-                  ? "처리 중..."
+                  ? t("PROCESSING")
                   : modalMode === "activate"
-                  ? "분석 시작"
+                  ? t("QUEUE_FORCE_ACTIVATE_CONFIRM_BTN")
                   : modalMode === "reset"
-                  ? "cursor 초기화"
+                  ? t("QUEUE_CURSOR_RESET_CONFIRM_BTN")
                   : t("QUEUE_CANCEL_CONFIRM_BTN")}
               </button>
               <button
