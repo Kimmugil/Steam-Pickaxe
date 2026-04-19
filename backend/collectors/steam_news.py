@@ -101,8 +101,10 @@ def fetch_store_events(appid: str) -> list[dict]:
     Steam Store 이벤트 API로 패치노트/공지 등 추가 이벤트 수집.
     GetNewsForApp이 누락하는 오래된 이벤트를 보완하는 역할.
     cursor 기반 페이지네이션 — 최대 20페이지.
+    announcement_body.gid 기반으로 페이지 간 중복 제거.
     """
     all_events: list[dict] = []
+    seen_gids: set = set()   # announcement_body.gid 기반 중복 방지
     cursor = "*"
     MAX_PAGES = 20
 
@@ -128,7 +130,19 @@ def fetch_store_events(appid: str) -> list[dict]:
         if not events:
             break
 
-        all_events.extend(events)
+        new_this_page = 0
+        for ev in events:
+            body_gid = (ev.get("announcement_body") or {}).get("gid", "")
+            if body_gid:
+                if body_gid in seen_gids:
+                    continue
+                seen_gids.add(body_gid)
+            all_events.append(ev)
+            new_this_page += 1
+
+        # 이번 페이지가 전부 중복이면 더 이상 새 데이터 없음 → 종료
+        if new_this_page == 0:
+            break
 
         next_cursor = data.get("next_cursor")
         if not next_cursor or next_cursor == cursor:

@@ -146,21 +146,98 @@ def delete_timeline_rows_by_event(ss: gspread.Spreadsheet, event_id: str):
 @_retry_on_quota
 def cleanup_stale_launch_buckets(ss: gspread.Spreadsheet):
     """
-    과거에 랜덤 UUID로 생성된 중복 런칭 버킷 행들을 제거합니다.
-    event_type == "launch" 이면서 event_id != "launch_bucket" 인 행을 삭제합니다.
-    공식 이벤트(officials)가 존재하는 경우에만 호출해야 합니다.
+    공식 이벤트가 존재할 때 자동 생성된 모든 런칭 버킷 행을 제거합니다.
+    - 과거 랜덤 UUID로 생성된 구형 launch 행
+    - build_buckets가 자동 삽입한 고정 ID(launch_bucket) 행
+    모두 공식 이벤트(official/manual)가 1건 이상 존재할 때만 호출해야 합니다.
     """
     ws = get_or_create_timeline_tab(ss)
     records = ws.get_all_records()
     rows_to_delete = [
         i + 2
         for i, r in enumerate(records)
-        if r.get("event_type") == "launch" and str(r.get("event_id")) != "launch_bucket"
+        if r.get("event_type") == "launch"
     ]
     if rows_to_delete:
-        print(f"  [cleanup] 구형 런칭 버킷 {len(rows_to_delete)}행 삭제")
+        print(f"  [cleanup] 런칭 버킷 {len(rows_to_delete)}행 삭제")
         for row_idx in sorted(rows_to_delete, reverse=True):
             ws.delete_rows(row_idx)
+
+
+def deduplicate_timeline(ss: gspread.Spreadsheet) -> int:
+    """
+    타임라인에서 동일한 이벤트가 여러 번 수집된 중복 행을 제거합니다.
+
+    중복 판정 기준 (우선순위 순):
+      1. Steam URL에서 추출한 GID (.../view/{gid})
+      2. 제목 + 날짜 조합
+
+    language_scope="all" 행을 기준으로 첫 번째로 수집된 event_id(최소 행 번호)를 남기고,
+    나머지 중복 event_id에 속한 모든 행(all/koreana/english 등 포함)을 삭제합니다.
+
+    Returns:
+        int: 제거된 중복 이벤트 수 (고유 event_id 기준)
+    """
+    import re as _re
+
+    def _gid(url: str) -> str | None:
+        m = _re.search(r"/view/(\d+)", url or "")
+        return m.group(1) if m else None
+
+    ws = get_or_create_timeline_tab(ss)
+    records = ws.get_all_records()
+
+    # language_scope="all" 행만 기준으로 중복 식별
+    # seen_keys: canon_key → 최초 수집된 event_id
+    seen_keys: dict[str, str] = {}
+    duplicate_event_ids: set[str] = set()
+
+    for r in records:
+        if str(r.get("language_scope", "")) != "all":
+            continue
+
+        event_id = str(r.get("event_id", "")).strip()
+        if not event_id:
+            continue
+
+        url   = str(r.get("url",   "")).strip()
+        title = str(r.get("title", "")).strip()
+        date  = str(r.get("date",  "")).strip()
+
+        gid = _gid(url)
+        if gid:
+            canon_key = f"gid:{gid}"
+        elif title and date:
+            canon_key = f"td:{title}|{date}"
+        else:
+            continue  # 식별 키 없음 → 판정 불가, 건너뜀
+
+        if canon_key in seen_keys:
+            if seen_keys[canon_key] != event_id:
+                # 동일 이벤트의 다른 event_id → 중복
+                duplicate_event_ids.add(event_id)
+        else:
+            seen_keys[canon_key] = event_id
+
+    if not duplicate_event_ids:
+        return 0
+
+    # 중복 event_id에 속한 모든 행(언어 스코프 무관) 삭제
+    rows_to_delete = [
+        i + 2
+        for i, r in enumerate(records)
+        if str(r.get("event_id", "")) in duplicate_event_ids
+    ]
+
+    total_rows = len(rows_to_delete)
+    dup_count  = len(duplicate_event_ids)
+    print(f"  [dedup] 중복 이벤트 {dup_count}건 ({total_rows}행) 삭제")
+
+    for row_idx in sorted(rows_to_delete, reverse=True):
+        ws.delete_rows(row_idx)
+        time.sleep(0.15)  # Sheets API 레이트 리밋 방지
+
+    return dup_count
 
 
 # ──────────────────────────────────────────────

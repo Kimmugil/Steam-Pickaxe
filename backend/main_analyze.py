@@ -16,6 +16,7 @@ from sheets.game_sheet import (
     update_timeline_row as gs_update_timeline,
     update_timeline_event_field as gs_update_event_field,
     cleanup_stale_launch_buckets,
+    deduplicate_timeline,
     get_ccu_data,
 )
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
@@ -84,6 +85,13 @@ def run():
                 print(f"  [top_languages] 재계산 실패: {_e}")
 
         game_ss = open_game_sheet(game_sheet_id)
+
+        # ── 중복 이벤트 정리 (분석 전 선행) ─────────────────────────────────
+        # 동일 GID 또는 제목+날짜가 같은 중복 수집 행을 제거 (최초 수집 건 보존)
+        _dedup_removed = deduplicate_timeline(game_ss)
+        if _dedup_removed:
+            print(f"  [dedup] {_dedup_removed}건 중복 이벤트 제거 완료")
+
         timeline_rows = gs_get_timeline(game_ss)
         buckets = build_buckets(timeline_rows)
 
@@ -94,8 +102,9 @@ def run():
         )
         if has_officials:
             cleanup_stale_launch_buckets(game_ss)
-            # 정리 후 재조회
+            # 정리 후 재조회 및 버킷 재생성
             timeline_rows = gs_get_timeline(game_ss)
+            buckets = build_buckets(timeline_rows)
 
         # 미분석 구간 식별 (language_scope=all, sentiment_rate가 없는 행)
         # 예외: sparse인데 공식 이벤트이고 ai_patch_summary가 없으면 재처리 (패치 요약 생성)
