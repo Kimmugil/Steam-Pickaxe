@@ -154,16 +154,21 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
         }
 
         # 수집 완료 판정
-        # 조건 1: 커서 동일(더 이상 페이지 없음) 또는 초기 커서("*") 반환
-        # 조건 2: 누적 수집 건수 ≥ 전체 리뷰 수 (한 번에 전부 수집되는 소규모 게임 대응)
-        #   → collect_reviews_batch가 빈 마지막 페이지 cursor를 반환하면서
-        #     reviews는 non-empty인 채로 리턴되는 경우를 포착
+        # 조건 1: 커서 동일(자연 고갈) 또는 초기 커서("*") 반환
+        #   collect_reviews_batch는 자연 고갈 시 입력 cursor 그대로 반환하므로 항상 True
+        # 조건 2: 누적 수집 건수 ≥ 전체 리뷰 수
+        # 조건 3: Steam이 리뷰를 반환했으나 모두 이미 적재된 중복 (added=0, 루프 방지)
         cursor_done = next_cursor == last_cursor or next_cursor == "*"
         count_done  = total_count > 0 and collected >= total_count
-        if cursor_done or count_done:
+        dupe_done   = added == 0 and len(reviews) > 0  # 반환 리뷰가 전부 중복 → 더 가져올 것 없음
+        if cursor_done or count_done or dupe_done:
             updates["status"] = "active"
             updates["last_cursor"] = ""
-            reason = "커서 일치" if cursor_done else f"수집 완료({collected}/{total_count}건)"
+            reason = (
+                "커서 일치" if cursor_done
+                else f"수집 완료({collected}/{total_count}건)" if count_done
+                else f"중복만 반환됨({len(reviews)}건) — Steam 카운트 불일치 처리"
+            )
             print(f"수집 완료({reason}) → active 전환")
             if status == "collecting":
                 newly_activated = True

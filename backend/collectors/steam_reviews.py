@@ -40,12 +40,20 @@ def fetch_reviews_page(appid: str, cursor: str = "*", language: str = "all") -> 
 def collect_reviews_batch(appid: str, last_cursor: str, max_pages: int = None) -> tuple[list[dict], str, int]:
     """
     Returns: (reviews, next_cursor, total_count)
-    next_cursor가 last_cursor와 동일하면 수집 완료
+    next_cursor가 last_cursor와 동일하면 수집 완료.
+
+    자연 고갈(Steam이 더 이상 새 페이지 없음을 신호):
+    → next_cursor를 입력 last_cursor 값으로 반환해 main_collect의 cursor_done 조건 충족.
+
+    페이지 한도 도달(max_pages):
+    → 현재 cursor 반환 (다음 실행에서 이어서 수집).
     """
-    cursor = last_cursor or "*"
+    start_cursor = last_cursor or "*"
+    cursor = start_cursor
     all_reviews = []
     page_count = 0
     total_count = 0
+    naturally_exhausted = False
 
     while True:
         data = fetch_reviews_page(appid, cursor)
@@ -58,8 +66,9 @@ def collect_reviews_batch(appid: str, last_cursor: str, max_pages: int = None) -
         new_cursor = data.get("cursor", cursor)
 
         if not reviews or new_cursor == cursor:
-            cursor = new_cursor
-            print(f"[reviews] appid={appid} 수집 완료 (동일 커서 감지)")
+            # Steam이 더 이상 새 페이지 없음을 알림 → 자연 고갈
+            naturally_exhausted = True
+            print(f"[reviews] appid={appid} 수집 완료 (동일 커서/빈 페이지 감지)")
             break
 
         all_reviews.extend(reviews)
@@ -73,7 +82,10 @@ def collect_reviews_batch(appid: str, last_cursor: str, max_pages: int = None) -
 
         time.sleep(0.5)
 
-    return all_reviews, cursor, total_count
+    # 자연 고갈 시 start_cursor 반환 → main_collect의 cursor_done = (next == last) = True
+    # 페이지 한도 도달 시 현재 cursor 반환 → 다음 실행에서 이어서 수집
+    return_cursor = start_cursor if naturally_exhausted else cursor
+    return all_reviews, return_cursor, total_count
 
 
 def get_total_review_count(appid: str) -> int:
