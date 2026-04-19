@@ -21,22 +21,19 @@ interface Props {
   game: Game;
   timelineRows: TimelineRow[];
   ccuRows: CcuRow[];
-  allGames: Game[];
   currentCcu?: number;
   topSentimentRate?: number;
   topLanguages: string[];
 }
 
 export default function DashboardClient({
-  game, timelineRows, ccuRows, allGames,
+  game, timelineRows, ccuRows,
   currentCcu, topSentimentRate, topLanguages,
 }: Props) {
   const router = useRouter();
   const { t } = useUiText();
   const { toast, show, clear } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("ccu");
-  const [compareCcuData, setCompareCcuData] = useState<CcuRow[]>([]);
-  const [compareGame, setCompareGame] = useState<Game | null>(null);
 
   // 게임 삭제
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -55,25 +52,6 @@ export default function DashboardClient({
       return {};
     }
   })();
-
-  // CCU 피크타임 AI 코멘트
-  const peaktimeComment = timelineRows
-    .filter((r) => r.language_scope === "all")
-    .sort((a, b) => b.date.localeCompare(a.date))[0]?.ai_reaction_summary ?? "";
-
-  // 언어권 교차 분석 코멘트
-  const crossComment = timelineRows
-    .filter((r) => r.language_scope === "all" && r.ai_reaction_summary)
-    .sort((a, b) => b.date.localeCompare(a.date))[0]?.ai_reaction_summary ?? "";
-
-  async function handleCompareSelect(appid: string) {
-    const found = allGames.find((g) => String(g.appid) === appid);
-    setCompareGame(found ?? null);
-    const res = await fetch(`/api/game/${appid}/ccu`);
-    const data: CcuRow[] = await res.json();
-    setCompareCcuData(data);
-    setActiveTab("ccu");
-  }
 
   async function handleReanalyze(password: string) {
     setReanalyzing(true);
@@ -145,19 +123,11 @@ export default function DashboardClient({
               <>
                 <CcuChart
                   data={ccuRows}
-                  topLanguages={topLanguages}
-                  peaktimeComment={peaktimeComment}
-                  currentPeakCcu={Number(game.peak_ccu)}
-                  compareGame={
-                    compareGame && compareCcuData.length > 0
-                      ? { name: compareGame.name_kr || compareGame.name, data: compareCcuData, peakCcu: Number(compareGame.peak_ccu) }
-                      : undefined
-                  }
+                  peaktimeComment={game.ccu_peaktime_comment}
                 />
                 <CcuAdminPanel
                   currentAppId={String(game.appid)}
-                  games={allGames}
-                  onCompareSelect={handleCompareSelect}
+                  gameName={game.name_kr || game.name}
                   onCsvUploaded={() => router.refresh()}
                 />
               </>
@@ -168,7 +138,7 @@ export default function DashboardClient({
             {activeTab === "language" && (
               <LanguageTab
                 timelineRows={timelineRows}
-                crossAnalysisComment={crossComment}
+                crossAnalysisComment={game.language_cross_comment}
                 languageDistribution={languageDistribution}
               />
             )}

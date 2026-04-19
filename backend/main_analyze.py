@@ -16,6 +16,7 @@ from sheets.game_sheet import (
     update_timeline_row as gs_update_timeline,
     update_timeline_event_field as gs_update_event_field,
     cleanup_stale_launch_buckets,
+    get_ccu_data,
 )
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
 from analyzers.bucketer import build_buckets, filter_reviews_for_bucket, sample_reviews
@@ -338,11 +339,61 @@ def run():
         }
         ev_count = len(event_ids)
 
+        # ── CCU 피크타임 AI 분석 ─────────────────────────────────────
+        ccu_peaktime_comment = ""
+        try:
+            ccu_rows = get_ccu_data(game_ss)
+            if ccu_rows:
+                ccu_peaktime_comment = generate_ccu_peaktime_comment(name, ccu_rows)
+                if ccu_peaktime_comment:
+                    print(f"  [ccu_peaktime] 분석 완료")
+                time.sleep(2)
+        except Exception as e:
+            print(f"  [ccu_peaktime] 오류: {e}")
+
+        # ── 언어권 교차 분석 ──────────────────────────────────────────
+        language_cross_comment = ""
+        try:
+            raw_counts = get_language_counts(raw_ss)
+            if raw_counts:
+                total_raw = sum(raw_counts.values())
+                # 타임라인에서 언어별 평균 긍정률 수집
+                lang_sentiment: dict[str, list[float]] = {}
+                for r in final_timeline:
+                    scope = r.get("language_scope", "")
+                    rate = r.get("sentiment_rate", "")
+                    if scope and scope != "all" and rate not in ("", "sparse", None):
+                        try:
+                            lang_sentiment.setdefault(scope, []).append(float(rate))
+                        except (ValueError, TypeError):
+                            pass
+                language_stats = []
+                for lang, cnt in sorted(raw_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+                    rates = lang_sentiment.get(lang, [])
+                    entry = {
+                        "language": LANGUAGE_NAMES.get(lang, lang),
+                        "review_count": cnt,
+                        "review_pct": round(cnt / total_raw * 100, 1) if total_raw else 0,
+                    }
+                    if rates:
+                        entry["avg_sentiment_rate"] = round(sum(rates) / len(rates), 1)
+                    language_stats.append(entry)
+                language_cross_comment = generate_language_cross_analysis(
+                    name, language_stats, ccu_peaktime_comment
+                )
+                if language_cross_comment:
+                    print(f"  [lang_cross] 분석 완료")
+                time.sleep(2)
+        except Exception as e:
+            print(f"  [lang_cross] 오류: {e}")
+
         update_game(ss, appid, {
-            "ai_briefing":          briefing,
-            "ai_briefing_date":     today,
-            "latest_sentiment_rate": latest_rate,
-            "event_count":          ev_count,
+            "ai_briefing":            briefing,
+            "ai_briefing_date":       today,
+            "latest_sentiment_rate":  latest_rate,
+            "event_count":            ev_count,
+            "ccu_peaktime_comment":   ccu_peaktime_comment,
+            "language_cross_comment": language_cross_comment,
         })
         print(f"AI 브리핑 갱신 완료 (긍정률={latest_rate}%, 이벤트={ev_count}건)")
 

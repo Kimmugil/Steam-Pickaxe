@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getGame, getTimeline, getCcuData, getAllGames } from "@/lib/sheets";
+import { getGame, getTimeline, getCcuData } from "@/lib/sheets";
 import DashboardClient from "./DashboardClient";
 
 export const revalidate = 300;
@@ -13,10 +13,9 @@ export default async function GamePage({ params }: PageProps) {
 
   const game = await getGame(appid);
 
-  const [timelineRows, ccuRows, allGames] = await Promise.all([
+  const [timelineRows, ccuRows] = await Promise.all([
     getTimeline(appid, game?.game_sheet_id),
     getCcuData(appid, game?.game_sheet_id),
-    getAllGames(),
   ]);
 
   if (!game) notFound();
@@ -52,7 +51,6 @@ export default async function GamePage({ params }: PageProps) {
       game={game}
       timelineRows={timelineRows}
       ccuRows={ccuRows}
-      allGames={allGames}
       currentCcu={currentCcu}
       topSentimentRate={topSentimentRate}
       topLanguages={topLanguages}

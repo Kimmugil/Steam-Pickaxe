@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from "recharts";
 import Badge from "@/components/shared/Badge";
 import type { TimelineRow } from "@/types";
@@ -14,23 +14,28 @@ interface LanguageTabProps {
 }
 
 const LANG_NAMES: Record<string, string> = {
-  english: "영어",
-  koreana: "한국어",
-  schinese: "중국어(간체)",
-  tchinese: "중국어(번체)",
-  japanese: "일본어",
-  russian: "러시아어",
-  french: "프랑스어",
-  german: "독일어",
-  spanish: "스페인어",
+  english:   "영어",
+  koreana:   "한국어",
+  schinese:  "중국어(간체)",
+  tchinese:  "중국어(번체)",
+  japanese:  "일본어",
+  russian:   "러시아어",
+  french:    "프랑스어",
+  german:    "독일어",
+  spanish:   "스페인어",
   brazilian: "포르투갈어",
+  thai:      "태국어",
+  italian:   "이탈리아어",
+  turkish:   "터키어",
+  polish:    "폴란드어",
 };
 
-const PIE_COLORS = ["#4f87ff", "#5db865", "#8b6fe8", "#e08c45", "#e05c5c", "#d4b84a", "#64b5f6"];
+const PIE_COLORS = ["#4f87ff", "#5db865", "#8b6fe8", "#e08c45", "#e05c5c", "#888fa8"];
+const PIE_TOP_N = 5; // 개별 표시할 최대 언어 수 (나머지 → 기타)
 
 export default function LanguageTab({ timelineRows, crossAnalysisComment, languageDistribution }: LanguageTabProps) {
+  // ── 1. 리스트 스탯 (전체 언어) ────────────────────────────────────
   const stats = useMemo(() => {
-    // ── 타임라인에서 언어별 감성/키워드 집계 ────────────────────────────
     const allScopeRows = timelineRows.filter(
       (r) => r.language_scope !== "all" && r.language_scope && r.event_type !== "news"
     );
@@ -51,16 +56,12 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
       }
     }
 
-    // ── 파이 차트 기준 결정 ───────────────────────────────────────────
-    // languageDistribution(RAW 리뷰 전체) 이 있으면 그걸 사용 → 전 언어 표시
-    // 없으면 타임라인 review_count 합산으로 폴백 (분석된 언어만)
+    // 언어 목록 결정: languageDistribution 우선, 없으면 타임라인 폴백
     const hasDist = languageDistribution && Object.keys(languageDistribution).length > 0;
-
     let langEntries: [string, number][];
     if (hasDist) {
       langEntries = Object.entries(languageDistribution).sort((a, b) => b[1] - a[1]);
     } else {
-      // 폴백: 타임라인에서 review_count 집계
       const reviewMap: Record<string, number> = {};
       for (const r of allScopeRows) {
         const lang = r.language_scope;
@@ -83,6 +84,20 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
     });
   }, [timelineRows, languageDistribution]);
 
+  // ── 2. 파이 차트 데이터: 상위 PIE_TOP_N + 기타 ─────────────────────
+  const pieData = useMemo(() => {
+    if (stats.length === 0) return [];
+    if (stats.length <= PIE_TOP_N) return stats.map((s) => ({ name: s.name, value: s.reviews }));
+
+    const top = stats.slice(0, PIE_TOP_N);
+    const rest = stats.slice(PIE_TOP_N);
+    const otherReviews = rest.reduce((sum, s) => sum + s.reviews, 0);
+    return [
+      ...top.map((s) => ({ name: s.name, value: s.reviews })),
+      { name: "기타", value: otherReviews },
+    ];
+  }, [stats]);
+
   if (stats.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-text-muted text-sm">
@@ -91,37 +106,45 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
     );
   }
 
+  const total = stats.reduce((s, r) => s + r.reviews, 0);
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 파이 차트 */}
+        {/* 파이 차트 — 상위 5개 + 기타 */}
         <div>
           <h3 className="text-sm font-medium text-text-secondary mb-3">언어권별 리뷰 비중</h3>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
-                data={stats}
+                data={pieData}
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                dataKey="reviews"
+                dataKey="value"
                 nameKey="name"
-                label={({ name, pct }) => `${name} ${pct}%`}
+                label={({ name, value }) => {
+                  const pct = total > 0 ? Math.round((value / total) * 100 * 10) / 10 : 0;
+                  return `${name} ${pct}%`;
+                }}
                 labelLine={{ stroke: "#3d4460" }}
               >
-                {stats.map((_, i) => (
+                {pieData.map((_, i) => (
                   <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip
                 contentStyle={{ background: "#1e2130", border: "1px solid #2a2f45", borderRadius: 8, color: "#e8eaf0" }}
-                formatter={(v: number) => [v.toLocaleString() + "건", "리뷰 수"]}
+                formatter={(v: number, name: string) => {
+                  const pct = total > 0 ? Math.round((v / total) * 100 * 10) / 10 : 0;
+                  return [`${v.toLocaleString()}건 (${pct}%)`, name];
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* 언어별 상세 */}
+        {/* 언어별 상세 리스트 — 전체 언어 표시 */}
         <div>
           <h3 className="text-sm font-medium text-text-secondary mb-3">언어별 평가 및 키워드</h3>
           <div className="space-y-3 max-h-72 overflow-y-auto pr-1">

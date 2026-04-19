@@ -1,32 +1,38 @@
 "use client";
 import { useState, useRef } from "react";
-import { Lock } from "lucide-react";
-import type { Game } from "@/types";
+import { Upload, ExternalLink } from "lucide-react";
 import AdminPasswordModal from "@/components/shared/AdminPasswordModal";
 import Toast, { useToast } from "@/components/shared/Toast";
 
 interface CcuAdminPanelProps {
   currentAppId: string;
-  games: Game[];
-  onCompareSelect: (appid: string) => void;
+  gameName: string;
   onCsvUploaded: () => void;
 }
 
 export default function CcuAdminPanel({
-  currentAppId, games, onCompareSelect, onCsvUploaded,
+  currentAppId, gameName, onCsvUploaded,
 }: CcuAdminPanelProps) {
   const { toast, show, clear } = useToast();
-  const [selectedCompare, setSelectedCompare] = useState("");
 
   // CSV 업로드
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [uploadingCsv, setUploadingCsv] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
+  const [showFileModal, setShowFileModal] = useState(false);
   const csvRef = useRef<HTMLInputElement>(null);
 
-  const otherGames = games.filter(
-    (g) => String(g.appid) !== String(currentAppId) && g.status === "active"
-  );
+  function handleOpenFileModal() {
+    setShowFileModal(true);
+    // 파일 선택 다이얼로그 즉시 열기
+    setTimeout(() => csvRef.current?.click(), 50);
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setCsvFile(file);
+    if (!file) setShowFileModal(false);
+  }
 
   async function handleUploadCsv(password: string) {
     if (!csvFile) return;
@@ -39,10 +45,11 @@ export default function CcuAdminPanel({
     const res = await fetch("/api/admin/upload-ccu", { method: "POST", body: formData });
     const data = await res.json();
     setUploadingCsv(false);
+    setCsvFile(null);
+    setShowFileModal(false);
+    if (csvRef.current) csvRef.current.value = "";
     if (data.ok) {
       show(`${data.added}건 병합 완료`, "success");
-      setCsvFile(null);
-      if (csvRef.current) csvRef.current.value = "";
       onCsvUploaded();
     } else {
       show(data.error ?? "오류가 발생했습니다.", "error");
@@ -50,71 +57,65 @@ export default function CcuAdminPanel({
   }
 
   return (
-    <div className="mt-6 pt-6 border-t border-border-default grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="mt-4 pt-4 border-t border-border-default flex items-center justify-between gap-3">
+      {/* SteamDB 링크 */}
+      <a
+        href={`https://steamdb.info/app/${currentAppId}/graphs/`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-text-muted hover:text-accent-blue flex items-center gap-1 transition-colors"
+      >
+        <ExternalLink className="w-3 h-3" />
+        {gameName} SteamDB
+      </a>
 
-      {/* 경쟁작 CCU 비교 */}
-      <div className="bg-bg-secondary rounded-xl p-4 border border-border-default">
-        <h4 className="text-xs font-semibold text-text-primary mb-1">경쟁작 CCU 비교</h4>
-        <p className="text-xs text-text-muted mb-3">등록된 다른 게임의 CCU를 이 차트에 오버레이합니다</p>
-        {otherGames.length === 0 ? (
-          <p className="text-xs text-text-muted">등록된 다른 게임이 없습니다.</p>
-        ) : (
-          <div className="flex gap-2">
-            <select
-              value={selectedCompare}
-              onChange={(e) => setSelectedCompare(e.target.value)}
-              className="flex-1 bg-bg-card border border-border-default rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-accent-blue"
-            >
-              <option value="">게임 선택...</option>
-              {otherGames.map((g) => (
-                <option key={g.appid} value={String(g.appid)}>
-                  {g.name_kr || g.name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => selectedCompare && onCompareSelect(selectedCompare)}
-              disabled={!selectedCompare}
-              className="px-3 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-xs hover:bg-accent-blue/30 disabled:opacity-40 transition-colors"
-            >
-              오버레이
-            </button>
+      {/* CSV 업로드 버튼 */}
+      <button
+        onClick={handleOpenFileModal}
+        disabled={uploadingCsv}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border border-border-default text-text-muted rounded-lg text-xs hover:bg-bg-hover hover:text-text-secondary transition-colors disabled:opacity-40"
+      >
+        <Upload className="w-3 h-3" />
+        {uploadingCsv ? "업로드 중..." : "SteamDB CSV 업로드"}
+      </button>
+
+      {/* 숨겨진 파일 입력 */}
+      <input
+        ref={csvRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* 파일 선택 후 확인 모달 */}
+      {showFileModal && csvFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-card border border-border-default rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl">
+            <h3 className="text-sm font-semibold text-text-primary mb-2">SteamDB CCU CSV 업로드</h3>
+            <p className="text-xs text-text-muted mb-1">선택된 파일:</p>
+            <p className="text-xs text-text-secondary bg-bg-secondary rounded px-3 py-2 mb-4 truncate">
+              {csvFile.name}
+            </p>
+            <p className="text-xs text-text-muted mb-4">현재 게임({gameName})에만 적용됩니다.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCsvModal(true)}
+                className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm hover:bg-accent-blue/30 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                업로드
+              </button>
+              <button
+                onClick={() => { setShowFileModal(false); setCsvFile(null); if (csvRef.current) csvRef.current.value = ""; }}
+                className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover transition-colors"
+              >
+                취소
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* SteamDB CCU CSV 업로드 */}
-      <div className="bg-bg-secondary rounded-xl p-4 border border-border-default">
-        <div className="flex items-start justify-between mb-1">
-          <h4 className="text-xs font-semibold text-text-primary">SteamDB CCU CSV 업로드</h4>
-          <a
-            href={`https://steamdb.info/app/${currentAppId}/graphs/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] text-accent-blue hover:underline shrink-0 ml-2"
-          >
-            {games.find(g => String(g.appid) === String(currentAppId))?.name_kr
-              || games.find(g => String(g.appid) === String(currentAppId))?.name
-              || currentAppId} SteamDB ↗
-          </a>
         </div>
-        <p className="text-xs text-text-muted mb-3">현재 게임에만 적용됩니다</p>
-        <input
-          ref={csvRef}
-          type="file"
-          accept=".csv"
-          onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
-          className="w-full text-xs text-text-secondary mb-2 file:mr-3 file:py-1 file:px-3 file:rounded file:border file:border-border-default file:bg-bg-card file:text-text-secondary"
-        />
-        <button
-          onClick={() => csvFile && setShowCsvModal(true)}
-          disabled={!csvFile || uploadingCsv}
-          className="w-full py-2 bg-bg-card border border-border-default text-text-secondary rounded-lg text-xs hover:bg-bg-hover disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
-        >
-          <Lock className="w-3 h-3" />
-          {uploadingCsv ? "업로드 중..." : "병합 업로드"}
-        </button>
-      </div>
+      )}
 
       {/* 비밀번호 모달 */}
       <AdminPasswordModal
