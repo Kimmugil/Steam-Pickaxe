@@ -30,8 +30,9 @@ export interface Game {
   event_count?: number | string;
   game_sheet_id?: string;
   language_distribution?: string; // JSON: { language: reviewCount, ... } — RAW 리뷰 전체 기준
-  ccu_peaktime_comment?: string;  // CCU 시간대별 주력 권역 AI 분석
-  language_cross_comment?: string; // 언어권 교차 AI 분석
+  ccu_peaktime_comment?: string;      // CCU 시간대별 주력 권역 AI 분석
+  language_cross_comment?: string;    // 언어권 교차 AI 분석
+  sentiment_trend_comment?: string;   // 평가 추이 종합 진단 (여러 구간 통합)
 }
 
 export interface TimelineRow {

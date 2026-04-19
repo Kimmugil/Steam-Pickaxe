@@ -22,7 +22,7 @@ from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_l
 from analyzers.bucketer import build_buckets, filter_reviews_for_bucket, sample_reviews
 from analyzers.gemini_analyzer import (
     analyze_bucket, analyze_patch_summary, generate_event_title_kr,
-    generate_ai_briefing,
+    generate_ai_briefing, generate_sentiment_trend_comment,
     generate_ccu_peaktime_comment, generate_language_cross_analysis, LANGUAGE_NAMES
 )
 from datetime import datetime, timezone
@@ -57,6 +57,25 @@ def run():
             continue
 
         print(f"\n{'='*50}\n분석 시작: {name} ({appid})")
+
+        # ── top_languages 재계산 (language_distribution 기반) ──────────────
+        # 초기 분석 이후 리뷰 분포가 바뀌어도 top_languages가 stale해지는 문제 방지
+        lang_dist_raw = game.get("language_distribution", "")
+        if lang_dist_raw:
+            try:
+                lang_dist = json.loads(lang_dist_raw)
+                new_top = [
+                    l for l, _ in sorted(lang_dist.items(), key=lambda x: x[1], reverse=True)
+                    [:TOP_LANGUAGES_COUNT]
+                ]
+                stored_top = [l.strip() for l in game.get("top_languages", "").split(",") if l.strip()]
+                if new_top and new_top != stored_top:
+                    update_game(ss, appid, {"top_languages": ",".join(new_top)})
+                    game = dict(game)
+                    game["top_languages"] = ",".join(new_top)
+                    print(f"  [top_languages] 재계산 갱신: {new_top}")
+            except Exception as _e:
+                print(f"  [top_languages] 재계산 실패: {_e}")
 
         game_ss = open_game_sheet(game_sheet_id)
         timeline_rows = gs_get_timeline(game_ss)
@@ -339,17 +358,23 @@ def run():
         }
         ev_count = len(event_ids)
 
-        # ── CCU 피크타임 AI 분석 ─────────────────────────────────────
-        ccu_peaktime_comment = ""
-        try:
-            ccu_rows = get_ccu_data(game_ss)
-            if ccu_rows:
-                ccu_peaktime_comment = generate_ccu_peaktime_comment(name, ccu_rows)
-                if ccu_peaktime_comment:
-                    print(f"  [ccu_peaktime] 분석 완료")
-                time.sleep(2)
-        except Exception as e:
-            print(f"  [ccu_peaktime] 오류: {e}")
+        # ── CCU 피크타임 AI 분석 (조건부 — 주 1회 또는 최초) ───────────────
+        # 매일 Gemini를 호출하면 동일한 결과가 반복되므로, 매주 월요일 또는 미생성 시만 갱신
+        ccu_peaktime_comment = game.get("ccu_peaktime_comment", "")
+        today_weekday = datetime.now(tz=timezone.utc).weekday()  # 0=Monday
+        should_refresh_ccu = not ccu_peaktime_comment or today_weekday == 0
+        if should_refresh_ccu:
+            try:
+                ccu_rows = get_ccu_data(game_ss)
+                if ccu_rows:
+                    ccu_peaktime_comment = generate_ccu_peaktime_comment(name, ccu_rows)
+                    if ccu_peaktime_comment:
+                        print(f"  [ccu_peaktime] 분석 완료 (갱신 사유: {'최초' if not game.get('ccu_peaktime_comment') else '주간 갱신'})")
+                    time.sleep(2)
+            except Exception as e:
+                print(f"  [ccu_peaktime] 오류: {e}")
+        else:
+            print(f"  [ccu_peaktime] 기존 분석 유지 (월요일에 갱신)")
 
         # ── 언어권 교차 분석 ──────────────────────────────────────────
         language_cross_comment = ""
@@ -387,13 +412,40 @@ def run():
         except Exception as e:
             print(f"  [lang_cross] 오류: {e}")
 
+        # ── 감성 추이 종합 분석 (2개 이상 구간이 있을 때만) ────────────────────
+        sentiment_trend_comment = game.get("sentiment_trend_comment", "")
+        analyzed_scope_rows = [
+            r for r in final_timeline
+            if r.get("language_scope") == "all"
+            and r.get("event_type") not in ("launch",)
+            and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse")
+        ]
+        if len(analyzed_scope_rows) >= 2:
+            trend_buckets = [
+                {
+                    "date":           r.get("date", ""),
+                    "title":          r.get("title", ""),
+                    "sentiment_rate": r.get("sentiment_rate", ""),
+                    "review_count":   r.get("review_count", 0),
+                }
+                for r in sorted(analyzed_scope_rows, key=lambda r: r.get("date", ""))
+            ]
+            try:
+                sentiment_trend_comment = generate_sentiment_trend_comment(name, trend_buckets)
+                if sentiment_trend_comment:
+                    print(f"  [sentiment_trend] 분석 완료")
+                time.sleep(2)
+            except Exception as e:
+                print(f"  [sentiment_trend] 오류: {e}")
+
         update_game(ss, appid, {
-            "ai_briefing":            briefing,
-            "ai_briefing_date":       today,
-            "latest_sentiment_rate":  latest_rate,
-            "event_count":            ev_count,
-            "ccu_peaktime_comment":   ccu_peaktime_comment,
-            "language_cross_comment": language_cross_comment,
+            "ai_briefing":             briefing,
+            "ai_briefing_date":        today,
+            "latest_sentiment_rate":   latest_rate,
+            "event_count":             ev_count,
+            "ccu_peaktime_comment":    ccu_peaktime_comment,
+            "language_cross_comment":  language_cross_comment,
+            "sentiment_trend_comment": sentiment_trend_comment,
         })
         print(f"AI 브리핑 갱신 완료 (긍정률={latest_rate}%, 이벤트={ev_count}건)")
 
@@ -437,15 +489,43 @@ def _get_top_languages(game: dict, timeline_rows: list[dict], raw_ss=None) -> li
 
 
 def _generate_briefing(name: str, timeline_rows: list[dict]) -> str:
-    all_rows = [r for r in timeline_rows if r.get("language_scope") == "all"]
+    all_rows = [
+        r for r in timeline_rows
+        if r.get("language_scope") == "all"
+        and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse")
+    ]
+    sorted_rows = sorted(all_rows, key=lambda x: x.get("date", ""), reverse=True)
+
+    # 추이 방향 계산 (최근 3건 vs 그 이전 3건 평균 비교)
+    trend_direction = ""
+    try:
+        recent = [float(r.get("sentiment_rate", 0) or 0) for r in sorted_rows[:3]]
+        older  = [float(r.get("sentiment_rate", 0) or 0) for r in sorted_rows[3:6]]
+        if recent and older:
+            r_avg = sum(recent) / len(recent)
+            o_avg = sum(older) / len(older)
+            if r_avg > o_avg + 5:
+                trend_direction = f"상승 추세 (최근 평균 {r_avg:.0f}% vs 이전 {o_avg:.0f}%)"
+            elif r_avg < o_avg - 5:
+                trend_direction = f"하락 추세 (최근 평균 {r_avg:.0f}% vs 이전 {o_avg:.0f}%)"
+            else:
+                trend_direction = f"안정 기조 (최근 평균 {r_avg:.0f}%)"
+    except (ValueError, TypeError):
+        pass
+
     summary_parts = []
-    for r in sorted(all_rows, key=lambda x: x.get("date", ""), reverse=True)[:10]:
-        summary_parts.append(
-            f"- [{r.get('date')}] {r.get('title')}: 긍정률 {r.get('sentiment_rate')}%, "
-            f"리뷰 {r.get('review_count')}건. {r.get('ai_reaction_summary', '')[:200]}"
-        )
+    for r in sorted_rows[:10]:
+        try:
+            rate = float(r.get("sentiment_rate", 0) or 0)
+            summary_parts.append(
+                f"- [{r.get('date')}] {r.get('title')}: 긍정률 {rate:.0f}%, "
+                f"리뷰 {r.get('review_count')}건. {r.get('ai_reaction_summary', '')[:150]}"
+            )
+        except (ValueError, TypeError):
+            pass
+
     summary = "\n".join(summary_parts)
-    return generate_ai_briefing(name, summary)
+    return generate_ai_briefing(name, summary, trend_direction)
 
 
 if __name__ == "__main__":

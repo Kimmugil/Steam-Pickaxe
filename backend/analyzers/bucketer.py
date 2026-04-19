@@ -101,23 +101,56 @@ def filter_reviews_for_bucket(reviews: list[dict], start_ts: int, end_ts: int) -
 def sample_reviews(reviews: list[dict], max_total: int = 2000,
                    top_votes: int = 1000, latest: int = 1000) -> list[dict]:
     """
-    기획서 AI 샘플링 전략:
-    votes_up+votes_funny 상위 1000건 + 최신순 1000건 혼합 (최대 2000건)
-    """
-    sorted_by_votes = sorted(
-        reviews,
-        key=lambda r: int(r.get("votes_up", 0)) + int(r.get("votes_funny", 0)),
-        reverse=True,
-    )
-    sorted_by_time = sorted(reviews, key=lambda r: int(r.get("timestamp_created", 0)), reverse=True)
+    계층 샘플링 (Stratified Sampling) — 긍정/부정 비율 보존
 
-    seen = set()
-    sampled = []
-    for r in sorted_by_votes[:top_votes] + sorted_by_time[:latest]:
-        rid = r.get("recommendationid", id(r))
-        if rid not in seen:
-            seen.add(rid)
-            sampled.append(r)
-        if len(sampled) >= max_total:
-            break
+    전체 리뷰의 실제 긍정/부정 비율을 계산한 뒤,
+    각 그룹에서 votes+recency 기반으로 후보를 선정하고
+    원래 비율에 맞게 max_total건 샘플링합니다.
+
+    효과: 예) 전체 90% 긍정 게임의 샘플이 60% 긍정으로 왜곡되는 현상 제거
+    → Gemini의 sentiment_rate 계산 정확도 향상
+    """
+    if not reviews:
+        return []
+    if len(reviews) <= max_total:
+        return reviews
+
+    def _is_positive(r: dict) -> bool:
+        v = r.get("voted_up", False)
+        return v is True or str(v).upper() == "TRUE"
+
+    positives = [r for r in reviews if _is_positive(r)]
+    negatives  = [r for r in reviews if not _is_positive(r)]
+
+    # 실제 긍정률 계산
+    true_pos_rate = len(positives) / len(reviews) if reviews else 0.5
+
+    # 각 그룹에서 votes+recency 기반 후보 선정
+    def _select(pool: list[dict], quota: int) -> list[dict]:
+        if not pool:
+            return []
+        by_votes = sorted(pool, key=lambda r: int(r.get("votes_up", 0)) + int(r.get("votes_funny", 0)), reverse=True)
+        by_time  = sorted(pool, key=lambda r: int(r.get("timestamp_created", 0)), reverse=True)
+        seen, result = set(), []
+        for r in by_votes[:top_votes] + by_time[:latest]:
+            rid = r.get("recommendationid", id(r))
+            if rid not in seen:
+                seen.add(rid)
+                result.append(r)
+            if len(result) >= quota:
+                break
+        return result
+
+    pos_quota = round(max_total * true_pos_rate)
+    neg_quota = max_total - pos_quota
+
+    sampled = _select(positives, pos_quota) + _select(negatives, neg_quota)
+
+    # 한 그룹이 할당량 미달이면 다른 그룹에서 보충
+    if len(sampled) < max_total:
+        shortfall = max_total - len(sampled)
+        sampled_ids = {r.get("recommendationid", id(r)) for r in sampled}
+        extras = [r for r in reviews if r.get("recommendationid", id(r)) not in sampled_ids]
+        sampled += extras[:shortfall]
+
     return sampled

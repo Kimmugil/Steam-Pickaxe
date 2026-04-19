@@ -9,6 +9,7 @@ import type { TimelineRow } from "@/types";
 interface SentimentChartProps {
   timelineRows: TimelineRow[];
   topLanguages: string[];
+  sentimentTrendComment?: string; // 여러 구간 통합 추이 진단 (game.sentiment_trend_comment)
 }
 
 const LANG_LABELS: Record<string, string> = {
@@ -42,7 +43,7 @@ const LANG_COLORS: Record<string, string> = {
   thai:     "#ce93d8",
 };
 
-export default function SentimentChart({ timelineRows, topLanguages }: SentimentChartProps) {
+export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment }: SentimentChartProps) {
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
 
   // 다중 선택 — 초기값: "all"만 활성화
@@ -108,12 +109,13 @@ export default function SentimentChart({ timelineRows, topLanguages }: Sentiment
     });
   }, [allDates, rateMap, langOptions]);
 
-  // 가장 최신 all 스코프 ai_reaction_summary
-  const reactionComment = useMemo(() => {
+  // 하단 코멘트: sentiment_trend_comment 우선, 없으면 최신 ai_reaction_summary 폴백
+  const trendComment = useMemo(() => {
+    if (sentimentTrendComment) return sentimentTrendComment;
     const allRows = timelineRows.filter((r) => r.language_scope === "all" && r.ai_reaction_summary);
     allRows.sort((a, b) => b.date.localeCompare(a.date));
     return allRows[0]?.ai_reaction_summary ?? "";
-  }, [timelineRows]);
+  }, [sentimentTrendComment, timelineRows]);
 
   if (chartData.length === 0) {
     return (
@@ -202,10 +204,12 @@ export default function SentimentChart({ timelineRows, topLanguages }: Sentiment
         </LineChart>
       </ResponsiveContainer>
 
-      {reactionComment && (
+      {trendComment && (
         <div className="mt-4 bg-bg-card border border-accent-blue/20 rounded-lg px-4 py-3">
-          <p className="text-xs text-accent-blue mb-1">AI 평가 변동 원인 진단</p>
-          <p className="text-sm text-text-secondary leading-relaxed">{reactionComment}</p>
+          <p className="text-xs text-accent-blue mb-1">
+            {sentimentTrendComment ? "AI 평가 추이 종합 진단" : "AI 평가 변동 원인 진단 (최근 이벤트 기준)"}
+          </p>
+          <p className="text-sm text-text-secondary leading-relaxed">{trendComment}</p>
         </div>
       )}
     </div>

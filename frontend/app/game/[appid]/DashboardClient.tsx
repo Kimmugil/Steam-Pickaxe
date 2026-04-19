@@ -133,7 +133,11 @@ export default function DashboardClient({
               </>
             )}
             {activeTab === "sentiment" && (
-              <SentimentChart timelineRows={timelineRows} topLanguages={topLanguages} />
+              <SentimentChart
+                timelineRows={timelineRows}
+                topLanguages={topLanguages}
+                sentimentTrendComment={game.sentiment_trend_comment}
+              />
             )}
             {activeTab === "language" && (
               <LanguageTab

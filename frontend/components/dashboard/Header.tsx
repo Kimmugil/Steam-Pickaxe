@@ -112,7 +112,10 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
             {/* 핵심 지표 */}
             <div className="flex items-center gap-4 mt-3 flex-wrap">
               {topSentimentRate !== undefined && (
-                <Badge rate={topSentimentRate} reviewCount={Number(game.totalReviews || 0)} size="lg" showLabel />
+                <div className="flex flex-col gap-0.5">
+                  <Badge rate={topSentimentRate} reviewCount={Number(game.totalReviews || 0)} size="lg" showLabel />
+                  <span className="text-[10px] text-text-muted pl-0.5">최근 이벤트 구간 기준</span>
+                </div>
               )}
               <div className="text-sm text-text-secondary">
                 {t("HEADER_REVIEWS_LABEL")}{" "}

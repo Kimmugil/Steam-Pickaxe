@@ -173,11 +173,13 @@ JSON 없이 텍스트만 반환하세요."""
         return ""
 
 
-def generate_ai_briefing(game_name: str, timeline_summary: str) -> str:
+def generate_ai_briefing(game_name: str, timeline_summary: str, trend_direction: str = "") -> str:
     """게임 전체 현황 AI 브리핑 (일 단위 갱신)"""
-    prompt = f"""게임: {game_name}
+    trend_note = f"\n전체 추이 방향: {trend_direction}" if trend_direction else ""
 
-아래는 이 게임의 업데이트 히스토리와 유저 반응 요약 데이터입니다.
+    prompt = f"""게임: {game_name}{trend_note}
+
+아래는 이 게임의 업데이트 히스토리와 유저 반응 요약 데이터입니다(최신순).
 이 데이터를 바탕으로 현재 게임의 전반적인 현황을 3~5문장으로 진단하세요.
 
 규칙:
@@ -195,6 +197,46 @@ def generate_ai_briefing(game_name: str, timeline_summary: str) -> str:
         return resp.text.strip()
     except Exception as e:
         print(f"[gemini] briefing 오류: {e}")
+        return ""
+
+
+def generate_sentiment_trend_comment(game_name: str, trend_buckets: list[dict]) -> str:
+    """
+    감성 추이 종합 분석 — 여러 구간에 걸친 긍정률 변화 패턴 진단.
+    trend_buckets: [{"date", "title", "sentiment_rate", "review_count"}, ...]
+    """
+    if len(trend_buckets) < 2:
+        return ""
+
+    rows = "\n".join(
+        f"- [{b.get('date', '')}] {b.get('title', '')}: 긍정률 {b.get('sentiment_rate', '')}%, "
+        f"리뷰 {b.get('review_count', 0)}건"
+        for b in trend_buckets
+    )
+
+    prompt = f"""게임: {game_name}
+
+아래는 주요 이벤트별 유저 반응 긍정률 추이 데이터입니다(과거→최신 순).
+
+{rows}
+
+이 데이터를 바탕으로 다음 항목을 포함해 평가 추이를 3~5문장으로 종합 진단하세요.
+  1. 전체 추이 방향 (상승 / 하락 / 안정 / 변동성 큼)
+  2. 긍정률이 크게 변화한 전환점과 원인 추정
+  3. 최근 기조와 장기 트렌드 비교
+
+규칙:
+- 현상과 인과관계만 서술하세요
+- 지시적 어조 금지
+- 수치(%)는 반드시 데이터에 있는 값만 사용
+- JSON 없이 텍스트만 반환"""
+
+    model = genai.GenerativeModel(MODEL)
+    try:
+        resp = model.generate_content(prompt)
+        return resp.text.strip()
+    except Exception as e:
+        print(f"[gemini] sentiment_trend 오류: {e}")
         return ""
 
 

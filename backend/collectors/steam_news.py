@@ -15,13 +15,15 @@ from config import STEAM_NEWS_ENDPOINT, STEAM_API_KEY
 
 
 def _strip_html(html: str, max_len: int = 5000) -> str:
-    """HTML 태그 제거 및 최대 길이 제한."""
+    """HTML 태그 제거 및 최대 길이 제한. 잘린 경우 마커 삽입."""
     if not html:
         return ""
     text = re.sub(r"<[^>]+>", " ", html)           # 태그 제거
     text = re.sub(r"&[a-zA-Z#0-9]+;", " ", text)    # HTML 엔티티 제거
     text = re.sub(r"\s+", " ", text).strip()         # 연속 공백 정리
-    return text[:max_len]
+    if len(text) > max_len:
+        return text[:max_len] + "... [이하 생략]"
+    return text
 
 STEAM_STORE_EVENTS_URL = "https://store.steampowered.com/events/ajaxgetadjacentpartnerevents/"
 
