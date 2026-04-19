@@ -8,7 +8,7 @@ import sys, os, json, time
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sheets.master_sheet import (
-    get_spreadsheet, get_all_games, update_game, set_config_value, get_config,
+    get_spreadsheet, get_all_games, update_game,
 )
 from sheets.game_sheet import (
     open_game_sheet, get_timeline as gs_get_timeline,
@@ -34,14 +34,6 @@ TOP_LANGUAGES_COUNT = 3
 def run():
     ss = get_spreadsheet()
     today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-
-    # 챗봇 카운터 초기화
-    config = get_config(ss)
-    last_reset = config.get("chatbot_last_reset_date", "")
-    if last_reset != today:
-        set_config_value(ss, "chatbot_today_count", "0")
-        set_config_value(ss, "chatbot_last_reset_date", today)
-        print("챗봇 카운터 초기화 완료")
 
     games = get_all_games(ss)
     for game in games:

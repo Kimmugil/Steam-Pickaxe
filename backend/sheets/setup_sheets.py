@@ -34,9 +34,6 @@ def setup():
     ws.append_row(["key", "value", "description"])
     config_defaults = [
         ["admin_password", "changeme123", "관리자 비밀번호"],
-        ["chatbot_daily_limit", "200", "챗봇 일일 최대 호출 횟수"],
-        ["chatbot_today_count", "0", "당일 챗봇 호출 횟수"],
-        ["chatbot_last_reset_date", "", "마지막 초기화 날짜"],
         ["ui_text.header_logo", "스팀 탈곡기 Pro", "네비게이션 로고 텍스트"],
         ["ui_text.home_title", "Steam 게임 마켓 인텔리전스", "홈 화면 제목"],
         ["ui_text.search_placeholder", "게임명 또는 AppID 입력", "검색창 플레이스홀더"],

@@ -81,20 +81,6 @@ FALLBACK: dict[str, str] = {
     "POOL_EMPTY_RETRY_BTN":         "곳간 보충 후 재시도",
     "POOL_EMPTY_RETRY_SUCCESS":     "재시도 요청 완료. 다음 수집 실행 시 자동으로 처리됩니다.",
 
-    # 챗봇
-    "CHATBOT_TOOLTIP":              "{gameName} 분석에서 궁금한 점이 있나요? 무길봇에게 물어보세요",
-    "CHATBOT_HEADER_SUFFIX":        "— AI 분석",
-    "CHATBOT_EMPTY_MSG":            "이 게임에 대해 무엇이든 물어보세요.",
-    "CHATBOT_Q1":                   "최근 업데이트 후 유저 반응은?",
-    "CHATBOT_Q2":                   "어느 지역 플레이어가 가장 많아?",
-    "CHATBOT_Q3":                   "긍정률이 떨어진 이유는?",
-    "CHATBOT_LIMIT_MSG":            "오늘 질문 한도에 도달했어요. 내일 다시 이용해 주세요.",
-    "CHATBOT_ERROR_MSG":            "응답을 생성하지 못했습니다.",
-    "CHATBOT_INPUT_PLACEHOLDER":    "질문 입력...",
-    "CHATBOT_INPUT_PLACEHOLDER_LIMIT": "오늘 한도 도달",
-    "CHATBOT_SEND_BTN":             "전송",
-    "CHATBOT_DISCLAIMER":           "데이터에 기반한 현상 진단만 제공합니다",
-
     # 게임 헤더
     "HEADER_APPID_LABEL":           "AppID:",
     "HEADER_STEAM_LINK":            "Steam 상점 바로가기 ↗",

@@ -9,7 +9,6 @@ import SentimentChart from "@/components/dashboard/SentimentChart";
 import LanguageTab from "@/components/dashboard/LanguageTab";
 import Timeline from "@/components/dashboard/Timeline";
 import EventForm from "@/components/dashboard/EventForm";
-import ChatBot from "@/components/chatbot/ChatBot";
 import AdminPasswordModal from "@/components/shared/AdminPasswordModal";
 import Toast, { useToast } from "@/components/shared/Toast";
 import { useUiText } from "@/contexts/UiTextContext";
@@ -229,7 +228,6 @@ export default function DashboardClient({
         onClose={() => setShowDeleteModal(false)}
       />
 
-      <ChatBot game={game} timelineRows={timelineRows} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={clear} />}
     </div>
   );
