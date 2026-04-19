@@ -192,7 +192,10 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
 
 
 def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
-    from sheets.game_sheet import open_game_sheet, get_timeline as gs_get_timeline, append_timeline_row as gs_append
+    from sheets.game_sheet import (
+        open_game_sheet, get_timeline as gs_get_timeline,
+        append_timeline_row as gs_append, update_timeline_row as gs_update,
+    )
 
     if not game_sheet_id:
         print(f"[WARN] game_sheet_id 없음 ({appid}), 뉴스 수집 건너뜀")
@@ -202,6 +205,14 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
     existing = gs_get_timeline(game_ss)
     existing_urls   = {r.get("url") for r in existing if r.get("url")}
     existing_titles = {r.get("title") for r in existing if r.get("title")}
+
+    # content 백필 대상: URL이 있고 content가 비어있는 기존 행
+    # (이전 수집 시 content 컬럼이 없었던 경우)
+    url_to_existing_row = {
+        r.get("url"): r for r in existing
+        if r.get("url") and not str(r.get("content", "")).strip()
+        and r.get("language_scope") == "all"
+    }
 
     # ── 1. GetNewsForApp (enddate 페이지네이션, 최대 10,000건) ──────────────
     news_items = fetch_news(appid)
@@ -231,11 +242,23 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
         if not already_in_news:
             candidate_rows.append(parsed)
 
-    # ── 3. 시트에 저장 (URL·제목 중복 제거) ───────────────────────────────
+    # ── 3. 시트에 저장 (URL·제목 중복 제거) + content 백필 ──────────────────
     added = 0
+    backfilled = 0
     for parsed in candidate_rows:
         url   = parsed.get("url", "")
         title = parsed.get("title", "")
+        content = parsed.get("content", "")
+
+        # content 백필: 이미 시트에 있지만 content가 비어있는 행 → content만 업데이트
+        if url and url in url_to_existing_row and content:
+            existing_row = url_to_existing_row[url]
+            gs_update(game_ss, existing_row["event_id"], "all", {"content": content})
+            del url_to_existing_row[url]  # 중복 처리 방지
+            backfilled += 1
+            continue
+
+        # 신규 이벤트 추가
         if url and url in existing_urls:
             continue
         if title and title in existing_titles:
@@ -245,8 +268,12 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
         existing_titles.add(title)
         added += 1
 
-    if added:
-        print(f"뉴스/패치 {added}건 추가 (GetNewsForApp + StoreEvents 합산)")
+    if backfilled:
+        print(f"뉴스/패치 {backfilled}건 content 백필 완료")
+    added_total = added
+
+    if added_total:
+        print(f"뉴스/패치 {added_total}건 추가 (GetNewsForApp + StoreEvents 합산)")
         all_official = [
             r for r in gs_get_timeline(game_ss)
             if r.get("event_type") in ("official", "manual") and r.get("date")
