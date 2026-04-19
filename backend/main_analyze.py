@@ -164,6 +164,35 @@ def run():
                     analyzed_ids.discard(preceding_id)
                     print(f"  [재분석 예약] 직전 이벤트: {buckets[-2]['title']}")
 
+        # ── ai_patch_summary 오염 정제 ───────────────────────────────────
+        # 프롬프트 단계 레이블("[1단계]", "UPDATE:" 등)이 노출된 행을 감지해 재생성
+        import re as _re
+        _bad_pattern = _re.compile(r"^\s*(\[\d?단계\]|UPDATE\s*[:：]|EVENT\s*[:：]|DELAY\s*[:：]|MAINTENANCE\s*[:：]|ANNOUNCEMENT\s*[:：])")
+        rows_with_bad_summary = [
+            r for r in timeline_rows
+            if r.get("language_scope") == "all"
+            and r.get("event_type") in ("official", "manual")
+            and _bad_pattern.match(str(r.get("ai_patch_summary", "")))
+        ]
+        if rows_with_bad_summary:
+            _ev_row_map_bad = build_event_row_map(timeline_rows)
+            print(f"  [patch_summary 정제] {len(rows_with_bad_summary)}건 재생성 시작")
+            for r in rows_with_bad_summary:
+                try:
+                    fixed = analyze_patch_summary(
+                        name, r.get("title", ""),
+                        r.get("url", ""), r.get("content", "")
+                    )
+                    if fixed:
+                        gs_update_event_field(game_ss, r["event_id"], "ai_patch_summary", fixed,
+                                              event_row_map=_ev_row_map_bad)
+                        print(f"    [{r.get('date')}] {r.get('title')[:40]} → 재생성 완료")
+                        time.sleep(2)
+                except Exception as e:
+                    print(f"    [patch_summary 정제 오류] {r.get('title')}: {e}")
+            print(f"  [patch_summary 정제] 완료")
+            timeline_rows = gs_get_timeline(game_ss)
+
         # ── title_kr 백필 ────────────────────────────────────────────
         # 이미 분석 완료된 이벤트 중 title_kr이 비어 있는 것만 경량 호출로 채움.
         # analyze_bucket 재실행 없이 generate_event_title_kr 1회 호출만 사용.

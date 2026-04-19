@@ -155,29 +155,24 @@ def analyze_patch_summary(game_name: str, event_title: str, patch_url: str, cont
     """
     if content.strip():
         content_section = f"\n\n공지 본문:\n{content.strip()[:5000]}"
-        source_note = """위 공지 본문을 읽고 다음 절차로 요약하세요.
-
-[1단계] 이 공지의 실제 유형을 판별하세요:
-  - UPDATE: 실제 업데이트/패치가 배포된 공지
-  - DELAY: 예정된 업데이트/기능의 지연·연기·취소 공지
-  - MAINTENANCE: 서버 점검·긴급 패치 공지
-  - EVENT: 이벤트·세일·무료 주말 공지
-  - ANNOUNCEMENT: 향후 계획·로드맵 공지
-  - OTHER: 그 외
-
-[2단계] 판별된 유형에 맞게 2~3문장으로 요약하세요:
-  - UPDATE이면: 실제 변경된 내용을 요약
-  - DELAY이면: "○○ 업데이트의 지연 공지로, [지연 이유 또는 새 예정일]"로 시작
-  - MAINTENANCE이면: 점검 내용과 범위를 요약
-  - EVENT이면: 이벤트 내용과 기간을 요약
-  - ANNOUNCEMENT이면: 예고된 내용을 요약
-
-공지 제목이 업데이트처럼 보여도 본문이 DELAY이면 DELAY로 판별하세요."""
+        source_note = (
+            "위 공지 본문을 읽고 유형(UPDATE/DELAY/MAINTENANCE/EVENT/ANNOUNCEMENT 중 하나)을 "
+            "내부적으로 판단한 뒤, 그 유형에 맞게 2~3문장으로 요약하세요.\n"
+            "- UPDATE: 실제 변경 내용 요약\n"
+            "- DELAY: \"○○ 업데이트 지연 공지\" 형식으로 시작\n"
+            "- MAINTENANCE: 점검 내용과 범위 요약\n"
+            "- EVENT: 이벤트 내용과 기간 요약\n"
+            "- ANNOUNCEMENT: 예고된 내용 요약\n\n"
+            "【중요】 출력은 최종 요약문 텍스트만 작성하세요. "
+            "유형 레이블(UPDATE, EVENT 등), 단계 번호([1단계] 등), "
+            "마크다운 기호는 절대 포함하지 마세요."
+        )
     else:
         content_section = ""
         source_note = (
             "이 공지의 주요 내용을 2~3문장으로 객관적으로 요약하세요.\n"
-            "본문 정보가 없으므로, 제목만으로 추정 가능한 범위에서 서술하고 추정임을 명시하세요."
+            "본문 정보가 없으므로 제목만으로 추정 가능한 범위에서 서술하고 추정임을 명시하세요.\n"
+            "【중요】 출력은 최종 요약문 텍스트만 작성하세요. 레이블이나 기호는 포함하지 마세요."
         )
 
     prompt = f"""게임: {game_name}
@@ -185,13 +180,18 @@ def analyze_patch_summary(game_name: str, event_title: str, patch_url: str, cont
 URL: {patch_url}{content_section}
 
 {source_note}
-지시적 어조 없이 사실만 서술하세요.
-JSON 없이 텍스트만 반환하세요."""
+지시적 어조 없이 사실만 서술하세요. JSON 없이 텍스트만 반환하세요."""
 
     model = _make_model()
     try:
         resp = model.generate_content(prompt)
-        return resp.text.strip()
+        text = resp.text.strip()
+        # 프롬프트 단계 레이블이 응답에 포함된 경우 제거 (예: "[1단계] ...\n[2단계] 실제요약")
+        import re as _re
+        text = _re.sub(r"^\s*\[\d?단계\][^\n]*\n?", "", text, flags=_re.MULTILINE).strip()
+        # "UPDATE:" / "EVENT:" 등 유형 레이블이 맨 앞에 붙은 경우 제거
+        text = _re.sub(r"^\s*(UPDATE|DELAY|MAINTENANCE|EVENT|ANNOUNCEMENT|OTHER)\s*[:：]\s*", "", text).strip()
+        return text
     except Exception as e:
         print(f"[gemini] patch_summary 오류: {e}")
         return ""

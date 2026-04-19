@@ -306,8 +306,7 @@ export default function Timeline({ timelineRows, appid }: TimelineProps) {
 
                       {/* 상태 배지 */}
                       {isPending ? (
-                        <span className="text-xs text-text-muted flex items-center gap-1">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-yellow animate-pulse" />
+                        <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
                           {t("TIMELINE_PENDING")}
                         </span>
                       ) : isSparse ? (
