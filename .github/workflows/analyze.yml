@@ -29,6 +29,9 @@ jobs:
           MASTER_SPREADSHEET_ID: ${{ secrets.MASTER_SPREADSHEET_ID }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # repository_dispatch client_payload 경유 — schedule/workflow_dispatch 시 빈 문자열
+          TARGET_APPID: ${{ github.event.client_payload.appid }}
+          TARGET_EVENT_ID: ${{ github.event.client_payload.event_id }}
         run: |
           cd backend
           python main_analyze.py

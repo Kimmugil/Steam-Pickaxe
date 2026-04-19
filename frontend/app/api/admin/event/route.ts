@@ -31,11 +31,11 @@ export async function POST(req: NextRequest) {
       date,
       title,
       url: url ?? "",
+      content: content ?? "",   // Sheets에 저장 → AI 패치 요약 프롬프트에 직접 활용
       language_scope: "all",
       is_sale_period: false,
       sale_text: "",
       is_free_weekend: false,
-      // content는 AI 재분석 시 활용되도록 client_payload로 전달
     }, gameSheetId);
 
     // 재분석 트리거 (GitHub Actions)

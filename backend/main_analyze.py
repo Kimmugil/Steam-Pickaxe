@@ -27,13 +27,23 @@ from analyzers.gemini_analyzer import (
 )
 from datetime import datetime, timezone
 
-GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "")
+GDRIVE_FOLDER_ID   = os.environ.get("GDRIVE_FOLDER_ID", "")
 TOP_LANGUAGES_COUNT = 3
+
+# ── 타겟 필터 (GitHub Actions client_payload 경유) ─────────────────────────────
+# 설정 시: 해당 게임/버킷만 처리. 미설정 시: 전체 게임 정기 분석.
+TARGET_APPID    = os.environ.get("TARGET_APPID",    "").strip()
+TARGET_EVENT_ID = os.environ.get("TARGET_EVENT_ID", "").strip()
 
 
 def run():
     ss = get_spreadsheet()
     today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+    if TARGET_APPID:
+        print(f"[TARGET] 게임 필터: {TARGET_APPID}")
+    if TARGET_EVENT_ID:
+        print(f"[TARGET] 이벤트 필터: {TARGET_EVENT_ID}")
 
     games = get_all_games(ss)
     for game in games:
@@ -43,6 +53,10 @@ def run():
         appid = str(game.get("appid", ""))
         name = game.get("name", appid)
         game_sheet_id = game.get("game_sheet_id", "")
+
+        # ── 특정 게임만 처리 ────────────────────────────────────────────────
+        if TARGET_APPID and appid != TARGET_APPID:
+            continue
 
         if not game_sheet_id:
             print(f"[SKIP] game_sheet_id 없음: {name} ({appid})")
@@ -96,12 +110,31 @@ def run():
             )
         }
 
+        # ── 특정 이벤트 타겟팅 ──────────────────────────────────────────────
+        # TARGET_EVENT_ID가 있으면 해당 버킷 + 직전 버킷만 강제 재분석,
+        # 나머지 버킷은 이미 분석된 것처럼 취급해 skip.
+        if TARGET_EVENT_ID:
+            target_idx = next(
+                (i for i, b in enumerate(buckets) if b["event_id"] == TARGET_EVENT_ID),
+                None,
+            )
+            if target_idx is not None:
+                force_ids = {buckets[target_idx]["event_id"]}
+                if target_idx > 0:
+                    force_ids.add(buckets[target_idx - 1]["event_id"])
+                all_bucket_ids = {b["event_id"] for b in buckets}
+                # 타겟 제외 나머지는 analyzed로 표시(skip), 타겟은 analyzed에서 제거(강제 재분석)
+                analyzed_ids = (analyzed_ids | all_bucket_ids) - force_ids
+                print(f"  [TARGET_EVENT] 재분석 대상: {[b['title'] for b in buckets if b['event_id'] in force_ids]}")
+            else:
+                print(f"  [TARGET_EVENT] event_id={TARGET_EVENT_ID} 버킷 미발견 — 전체 분석 실행")
+
         # ── 직전 이벤트 재분석 조건 ─────────────────────────────
         # 마지막 버킷이 미분석(새 이벤트 추가)이거나,
         # 마지막 버킷의 수집 리뷰가 0건인 경우
         # → 바로 앞 버킷을 재분석 대상에 포함
         # (직전 이벤트의 end_ts가 새 이벤트 날짜로 잘려 리뷰 수가 달라지기 때문)
-        if len(buckets) >= 2:
+        if len(buckets) >= 2 and not TARGET_EVENT_ID:
             last_id = buckets[-1]["event_id"]
             last_is_new = last_id not in analyzed_ids
 
