@@ -14,9 +14,12 @@ from config import STEAM_NEWS_ENDPOINT, STEAM_API_KEY
 
 STEAM_STORE_EVENTS_URL = "https://store.steampowered.com/events/ajaxgetadjacentpartnerevents/"
 
-# Steam Store event_type 값 → 우리 분류 (14=패치노트, 9/10=이벤트, 12=무료주말, 13=세일, 15=개발일지, 22=발표)
-_STORE_OFFICIAL_TYPES = {14, 15, 9, 22}   # "official"
-_STORE_NEWS_TYPES     = {10, 12, 13}       # "news"
+# Steam Store event_type 값 → 우리 분류
+# 실제 관측된 타입: 9(공지), 10(이벤트), 12(일반), 13(패치노트), 14(업데이트),
+#                  15(개발일지), 22(발표), 28(뉴스/공지 변형)
+# 참고: Steam 내부 타입 번호는 비공개이므로 관측값 기준으로 점진적 확장
+_STORE_OFFICIAL_TYPES = {9, 13, 14, 15, 22, 28}  # "official" (패치노트·개발일지·발표류)
+_STORE_NEWS_TYPES     = {10, 12}                  # "news" (이벤트·일반)
 _STORE_ALL_TYPES      = _STORE_OFFICIAL_TYPES | _STORE_NEWS_TYPES
 
 

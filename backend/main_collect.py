@@ -147,11 +147,18 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
             "collected_reviews_count": collected,
         }
 
-        # 수집 완료 판정 (커서 동일 = 끝)
-        if next_cursor == last_cursor or next_cursor == "*":
+        # 수집 완료 판정
+        # 조건 1: 커서 동일(더 이상 페이지 없음) 또는 초기 커서("*") 반환
+        # 조건 2: 누적 수집 건수 ≥ 전체 리뷰 수 (한 번에 전부 수집되는 소규모 게임 대응)
+        #   → collect_reviews_batch가 빈 마지막 페이지 cursor를 반환하면서
+        #     reviews는 non-empty인 채로 리턴되는 경우를 포착
+        cursor_done = next_cursor == last_cursor or next_cursor == "*"
+        count_done  = total_count > 0 and collected >= total_count
+        if cursor_done or count_done:
             updates["status"] = "active"
             updates["last_cursor"] = ""
-            print("수집 완료 → active 전환")
+            reason = "커서 일치" if cursor_done else f"수집 완료({collected}/{total_count}건)"
+            print(f"수집 완료({reason}) → active 전환")
             if status == "collecting":
                 newly_activated = True
                 final_status = "active"
