@@ -232,8 +232,9 @@ export default function Timeline({ timelineRows, appid }: TimelineProps) {
             const reviews = parseReviews(row.top_reviews);
             const isPending = !isNews && !isSparse && !isFewReviews && rate === null && keywords.length === 0 && !row.ai_reaction_summary;
 
-            // 클릭 가능 여부 (launch/pending/sparse/fewReviews는 펼치지 않음)
-            const isExpandable = !isPending && !isLaunch && !isSparse && !isFewReviews;
+            // 클릭 가능 여부: launch/pending/fewReviews는 불가
+            // sparse는 ai_patch_summary가 있으면 펼쳐서 패치 요약을 볼 수 있음
+            const isExpandable = !isPending && !isLaunch && !isFewReviews && (!isSparse || !!row.ai_patch_summary);
 
             if (isNews) {
               return (
@@ -325,7 +326,7 @@ export default function Timeline({ timelineRows, appid }: TimelineProps) {
                     {/* launch 이벤트는 제목 행을 별도로 표시하지 않음 */}
                     {!isLaunch && (
                       <div className="mt-1">
-                        <p className={`font-medium transition-colors ${isPending || isSparse || isFewReviews ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>
+                        <p className={`font-medium transition-colors ${isPending || (isSparse && !isExpandable) || isFewReviews ? "text-text-secondary" : "text-text-primary group-hover:text-accent-blue"}`}>
                           {row.title_kr || row.title}
                           {isExpandable && <span className="ml-2 text-xs text-text-muted">{isExpanded ? "▲" : "▼"}</span>}
                         </p>

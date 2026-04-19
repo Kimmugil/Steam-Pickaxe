@@ -32,7 +32,8 @@ export default function SentimentChart({ timelineRows, topLanguages }: Sentiment
       (r) => r.language_scope === langFilter &&
              r.event_type !== "news" &&
              r.date &&
-             r.sentiment_rate !== ""
+             r.sentiment_rate !== "" &&
+             String(r.sentiment_rate) !== "sparse"
     );
     return rows
       .sort((a, b) => a.date.localeCompare(b.date))

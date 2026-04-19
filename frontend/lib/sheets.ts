@@ -164,6 +164,7 @@ const TIMELINE_HEADERS = [
   "sentiment_rate","review_count","ai_patch_summary","ai_reaction_summary",
   "top_keywords","top_reviews","url","is_sale_period","sale_text","is_free_weekend",
   "title_kr",
+  "content",
 ];
 
 /**

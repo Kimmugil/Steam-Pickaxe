@@ -47,6 +47,15 @@ export default function DashboardClient({
   const [showReanalyzeModal, setShowReanalyzeModal] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
 
+  // 언어 분포 파싱 (RAW 리뷰 기반 JSON — 파이 차트용)
+  const languageDistribution: Record<string, number> = (() => {
+    try {
+      return game.language_distribution ? JSON.parse(game.language_distribution) : {};
+    } catch {
+      return {};
+    }
+  })();
+
   // CCU 피크타임 AI 코멘트
   const peaktimeComment = timelineRows
     .filter((r) => r.language_scope === "all")
@@ -157,7 +166,11 @@ export default function DashboardClient({
               <SentimentChart timelineRows={timelineRows} topLanguages={topLanguages} />
             )}
             {activeTab === "language" && (
-              <LanguageTab timelineRows={timelineRows} crossAnalysisComment={crossComment} />
+              <LanguageTab
+                timelineRows={timelineRows}
+                crossAnalysisComment={crossComment}
+                languageDistribution={languageDistribution}
+              />
             )}
           </div>
         </div>

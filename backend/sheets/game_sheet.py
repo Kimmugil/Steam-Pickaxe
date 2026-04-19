@@ -40,6 +40,7 @@ TIMELINE_HEADERS = [
     "ai_reaction_summary", "top_keywords", "top_reviews", "url",
     "is_sale_period", "sale_text", "is_free_weekend",
     "title_kr",   # AI 생성 한국어 제목 (신규 — 기존 시트는 자동 마이그레이션)
+    "content",    # 이벤트 본문 텍스트 (HTML 제거 후, AI 요약 입력용)
 ]
 
 

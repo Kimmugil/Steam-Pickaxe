@@ -8,9 +8,20 @@ Steam News & Store API — 공식 패치노트 + 외부 뉴스 수집
   - parse_store_event: Store 이벤트 → timeline row 변환
 """
 import requests
+import re
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import STEAM_NEWS_ENDPOINT, STEAM_API_KEY
+
+
+def _strip_html(html: str, max_len: int = 5000) -> str:
+    """HTML 태그 제거 및 최대 길이 제한."""
+    if not html:
+        return ""
+    text = re.sub(r"<[^>]+>", " ", html)           # 태그 제거
+    text = re.sub(r"&[a-zA-Z#0-9]+;", " ", text)    # HTML 엔티티 제거
+    text = re.sub(r"\s+", " ", text).strip()         # 연속 공백 정리
+    return text[:max_len]
 
 STEAM_STORE_EVENTS_URL = "https://store.steampowered.com/events/ajaxgetadjacentpartnerevents/"
 
@@ -151,6 +162,10 @@ def parse_store_event(event: dict, appid: str) -> dict | None:
     if body_gid:
         url = f"https://store.steampowered.com/news/app/{appid}/view/{body_gid}"
 
+    # 이벤트 본문 (HTML 제거 후 저장)
+    raw_body = body.get("body", "")
+    content = _strip_html(raw_body)
+
     ev_type = "official" if event_type_id in _STORE_OFFICIAL_TYPES else "news"
     is_sale = event_type_id == 13
     is_fw   = event_type_id == 12
@@ -165,6 +180,7 @@ def parse_store_event(event: dict, appid: str) -> dict | None:
         "is_sale_period": is_sale,
         "sale_text":      "",
         "is_free_weekend": is_fw,
+        "content":        content,
     }
 
 
@@ -188,6 +204,8 @@ def classify_news(items: list[dict], app_author: str = "") -> tuple[list[dict], 
 
 def parse_news_item(item: dict, event_type: str) -> dict:
     import uuid as _uuid
+    # Steam GetNewsForApp API의 "contents" 필드 = 뉴스 본문 (HTML)
+    content = _strip_html(item.get("contents", ""))
     return {
         "event_id":       str(_uuid.uuid4()),
         "event_type":     event_type,
@@ -198,6 +216,7 @@ def parse_news_item(item: dict, event_type: str) -> dict:
         "is_sale_period": False,
         "sale_text":      "",
         "is_free_weekend": False,
+        "content":        content,
     }
 
 

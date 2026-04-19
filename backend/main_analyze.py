@@ -72,10 +72,16 @@ def run():
             timeline_rows = gs_get_timeline(game_ss)
 
         # 미분석 구간 식별 (language_scope=all, sentiment_rate가 없는 행)
+        # 예외: sparse인데 공식 이벤트이고 ai_patch_summary가 없으면 재처리 (패치 요약 생성)
         analyzed_ids = {
             r["event_id"]
             for r in timeline_rows
             if r.get("language_scope") == "all" and r.get("sentiment_rate") != ""
+            and not (
+                str(r.get("sentiment_rate")) == "sparse"
+                and r.get("event_type") == "official"
+                and not r.get("ai_patch_summary", "").strip()
+            )
         }
 
         # ── 직전 이벤트 재분석 조건 ─────────────────────────────
@@ -136,6 +142,19 @@ def run():
         raw_ss = open_raw_spreadsheet(game_sheet_id)
         top_languages = _get_top_languages(game, timeline_rows, raw_ss)
 
+        # 언어 분포 저장 (전체 RAW 리뷰 기반 — 프론트엔드 파이 차트용)
+        try:
+            raw_counts = get_language_counts(raw_ss)
+            if raw_counts:
+                lang_dist_str = json.dumps(
+                    {l: c for l, c in sorted(raw_counts.items(), key=lambda x: x[1], reverse=True)},
+                    ensure_ascii=False,
+                )
+                update_game(ss, appid, {"language_distribution": lang_dist_str})
+                print(f"  [lang_dist] 저장 완료 ({len(raw_counts)}개 언어)")
+        except Exception as e:
+            print(f"  [lang_dist] 저장 실패: {e}")
+
         # 스파스 버킷(리뷰 ≤5건)의 리뷰를 다음 버킷으로 이월
         carry_over_reviews: list = []
 
@@ -176,6 +195,15 @@ def run():
                 )
                 print(f"    title_kr: {title_kr}")
 
+                # 공식 이벤트의 경우 본문 기반 패치 요약 생성 (리뷰 없어도 패치 내용은 있음)
+                sparse_patch_summary = ""
+                if bucket.get("event_type") == "official":
+                    sparse_patch_summary = analyze_patch_summary(
+                        name, bucket["title"],
+                        bucket.get("url", ""), bucket.get("content", "")
+                    )
+                    print(f"    [sparse] 패치 요약 생성 완료")
+
                 # 스파스 마커 행 기록 (재실행 시 재처리 방지)
                 sparse_row = {
                     "event_id": event_id,
@@ -185,7 +213,7 @@ def run():
                     "language_scope": "all",
                     "sentiment_rate": "sparse",
                     "review_count": len(combined_reviews),
-                    "ai_patch_summary": "",
+                    "ai_patch_summary": sparse_patch_summary,
                     "ai_reaction_summary": "",
                     "top_keywords": "[]",
                     "top_reviews": "[]",
@@ -211,7 +239,10 @@ def run():
             # 패치 요약 — 스코프 루프 바깥에서 1회만 생성 (API 호출 최소화)
             patch_summary = ""
             if bucket.get("event_type") == "official":
-                patch_summary = analyze_patch_summary(name, bucket["title"], bucket.get("url", ""))
+                patch_summary = analyze_patch_summary(
+                    name, bucket["title"],
+                    bucket.get("url", ""), bucket.get("content", "")
+                )
 
             # AI 한국어 제목 — 사용자가 이미 수정한 경우 보존, 없으면 새로 생성
             if existing_title_kr.strip():

@@ -9,6 +9,8 @@ import type { TimelineRow } from "@/types";
 interface LanguageTabProps {
   timelineRows: TimelineRow[];
   crossAnalysisComment?: string;
+  /** RAW 리뷰 전체 기반 언어 분포 { language: reviewCount } — 파이 차트용 */
+  languageDistribution?: Record<string, number>;
 }
 
 const LANG_NAMES: Record<string, string> = {
@@ -26,47 +28,65 @@ const LANG_NAMES: Record<string, string> = {
 
 const PIE_COLORS = ["#4f87ff", "#5db865", "#8b6fe8", "#e08c45", "#e05c5c", "#d4b84a", "#64b5f6"];
 
-export default function LanguageTab({ timelineRows, crossAnalysisComment }: LanguageTabProps) {
+export default function LanguageTab({ timelineRows, crossAnalysisComment, languageDistribution }: LanguageTabProps) {
   const stats = useMemo(() => {
+    // ── 타임라인에서 언어별 감성/키워드 집계 ────────────────────────────
     const allScopeRows = timelineRows.filter(
       (r) => r.language_scope !== "all" && r.language_scope && r.event_type !== "news"
     );
 
-    const langMap: Record<string, { reviews: number; sentimentSum: number; count: number; keywords: string[] }> = {};
-
+    const sentimentMap: Record<string, { sentimentSum: number; count: number; keywords: string[] }> = {};
     for (const r of allScopeRows) {
       const lang = r.language_scope;
-      if (!langMap[lang]) langMap[lang] = { reviews: 0, sentimentSum: 0, count: 0, keywords: [] };
-      langMap[lang].reviews += Number(r.review_count || 0);
-      if (r.sentiment_rate !== "") {
-        langMap[lang].sentimentSum += Number(r.sentiment_rate);
-        langMap[lang].count += 1;
+      if (!sentimentMap[lang]) sentimentMap[lang] = { sentimentSum: 0, count: 0, keywords: [] };
+      if (r.sentiment_rate !== "" && String(r.sentiment_rate) !== "sparse") {
+        sentimentMap[lang].sentimentSum += Number(r.sentiment_rate);
+        sentimentMap[lang].count += 1;
       }
       if (r.top_keywords) {
         try {
           const kws: string[] = JSON.parse(r.top_keywords);
-          langMap[lang].keywords = [...new Set([...langMap[lang].keywords, ...kws])].slice(0, 5);
+          sentimentMap[lang].keywords = [...new Set([...sentimentMap[lang].keywords, ...kws])].slice(0, 5);
         } catch { /* ignore */ }
       }
     }
 
-    const total = Object.values(langMap).reduce((s, v) => s + v.reviews, 0);
-    return Object.entries(langMap)
-      .map(([lang, v]) => ({
+    // ── 파이 차트 기준 결정 ───────────────────────────────────────────
+    // languageDistribution(RAW 리뷰 전체) 이 있으면 그걸 사용 → 전 언어 표시
+    // 없으면 타임라인 review_count 합산으로 폴백 (분석된 언어만)
+    const hasDist = languageDistribution && Object.keys(languageDistribution).length > 0;
+
+    let langEntries: [string, number][];
+    if (hasDist) {
+      langEntries = Object.entries(languageDistribution).sort((a, b) => b[1] - a[1]);
+    } else {
+      // 폴백: 타임라인에서 review_count 집계
+      const reviewMap: Record<string, number> = {};
+      for (const r of allScopeRows) {
+        const lang = r.language_scope;
+        reviewMap[lang] = (reviewMap[lang] ?? 0) + Number(r.review_count || 0);
+      }
+      langEntries = Object.entries(reviewMap).sort((a, b) => b[1] - a[1]);
+    }
+
+    const total = langEntries.reduce((s, [, c]) => s + c, 0);
+    return langEntries.map(([lang, reviews]) => {
+      const s = sentimentMap[lang] ?? { sentimentSum: 0, count: 0, keywords: [] };
+      return {
         lang,
         name: LANG_NAMES[lang] ?? lang,
-        reviews: v.reviews,
-        pct: total > 0 ? Math.round((v.reviews / total) * 100 * 10) / 10 : 0,
-        avgRate: v.count > 0 ? Math.round(v.sentimentSum / v.count) : 0,
-        keywords: v.keywords,
-      }))
-      .sort((a, b) => b.reviews - a.reviews);
-  }, [timelineRows]);
+        reviews,
+        pct: total > 0 ? Math.round((reviews / total) * 100 * 10) / 10 : 0,
+        avgRate: s.count > 0 ? Math.round(s.sentimentSum / s.count) : 0,
+        keywords: s.keywords,
+      };
+    });
+  }, [timelineRows, languageDistribution]);
 
   if (stats.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-text-muted text-sm">
-        언어별 분석 데이터가 없습니다.
+        언어별 데이터가 없습니다.
       </div>
     );
   }
@@ -111,6 +131,9 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment }: Lang
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{s.name}</span>
                     <span className="text-xs text-text-muted">{s.pct}%</span>
+                    {s.avgRate === 0 && s.keywords.length === 0 && (
+                      <span className="text-xs text-text-muted opacity-50">(미분석)</span>
+                    )}
                   </div>
                   {s.avgRate > 0 && <Badge rate={s.avgRate} reviewCount={s.reviews} size="sm" />}
                 </div>

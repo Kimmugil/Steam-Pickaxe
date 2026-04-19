@@ -61,6 +61,8 @@ GAMES_HEADERS = [
     "genres", "developer", "publisher", "price",
     # 내부 참조
     "game_sheet_id",
+    # 언어 분포 (RAW 리뷰 기반 JSON — 프론트엔드 파이 차트용)
+    "language_distribution",
     # ── 제거된 컬럼 (하위호환 기록용, 실제로 사용하지 않음) ──
     # owners_estimate, avg_playtime, median_playtime, active_players_2weeks
     #   → SteamSpy 필드였으나 SteamSpy 수집 중단으로 미사용

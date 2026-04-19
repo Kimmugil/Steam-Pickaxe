@@ -56,6 +56,7 @@ def build_buckets(events: list[dict]) -> list[dict]:
             "is_sale_period": ev.get("is_sale_period", False),
             "sale_text": ev.get("sale_text", ""),
             "is_free_weekend": ev.get("is_free_weekend", False),
+            "content": ev.get("content", ""),   # 이벤트 본문 — AI 패치 요약에 사용
             "start_ts": start_ts,
             "end_ts": end_ts,
         })

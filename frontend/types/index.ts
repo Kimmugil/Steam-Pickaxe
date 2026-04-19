@@ -29,6 +29,7 @@ export interface Game {
   latest_sentiment_rate?: number | string;
   event_count?: number | string;
   game_sheet_id?: string;
+  language_distribution?: string; // JSON: { language: reviewCount, ... } — RAW 리뷰 전체 기준
 }
 
 export interface TimelineRow {

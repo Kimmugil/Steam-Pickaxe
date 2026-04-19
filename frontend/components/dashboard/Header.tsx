@@ -22,13 +22,24 @@ function formatReleaseDateKr(raw: string | undefined): string {
 
   let date: Date | null = null;
 
+  const MONTHS: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+  };
+
   // ISO 형식: 2021-11-18
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
     date = new Date(raw.trim() + "T12:00:00Z");
   } else {
-    // Steam API 형식: "18 Nov, 2021" 또는 "Nov 18, 2021"
-    const parsed = new Date(raw);
-    if (!isNaN(parsed.getTime())) date = parsed;
+    // Steam API 형식 "Mar 31, 2026" 또는 "31 Mar, 2026"
+    // new Date(raw)는 로컬 시간대로 파싱해 UTC 기준 날짜가 1일 밀릴 수 있으므로 수동 파싱
+    const m1 = raw.trim().match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);   // "Mar 31, 2026"
+    const m2 = raw.trim().match(/^(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})$/);   // "31 Mar, 2026"
+    if (m1 && MONTHS[m1[1]] !== undefined) {
+      date = new Date(Date.UTC(Number(m1[3]), MONTHS[m1[1]], Number(m1[2]), 12));
+    } else if (m2 && MONTHS[m2[2]] !== undefined) {
+      date = new Date(Date.UTC(Number(m2[3]), MONTHS[m2[2]], Number(m2[1]), 12));
+    }
   }
 
   if (!date || isNaN(date.getTime())) return raw;

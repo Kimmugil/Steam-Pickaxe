@@ -116,15 +116,28 @@ def generate_event_title_kr(
         return ""
 
 
-def analyze_patch_summary(game_name: str, event_title: str, patch_url: str) -> str:
-    """패치 내용 AI 요약 (공식 패치노트 URL 기반)"""
+def analyze_patch_summary(game_name: str, event_title: str, patch_url: str, content: str = "") -> str:
+    """
+    패치 내용 AI 요약.
+    content(이벤트 본문)가 있으면 본문 기반으로 요약하고,
+    없으면 제목과 URL만으로 추정 요약한다.
+    """
+    if content.strip():
+        content_section = f"\n\n패치노트 본문:\n{content.strip()[:5000]}"
+        source_note = "위 패치노트 본문을 기반으로 주요 변경 사항을 2~3문장으로 객관적으로 요약하세요."
+    else:
+        content_section = ""
+        source_note = (
+            "이 패치의 주요 변경 사항을 2~3문장으로 객관적으로 요약하세요.\n"
+            "본문 정보가 없으므로, 패치명만으로 추정 가능한 범위에서 서술하고 추정임을 명시하세요."
+        )
+
     prompt = f"""게임: {game_name}
 패치명: {event_title}
-패치노트 URL: {patch_url}
+패치노트 URL: {patch_url}{content_section}
 
-이 패치의 주요 변경 사항을 2~3문장으로 객관적으로 요약하세요.
+{source_note}
 지시적 어조 없이 변경 내용만 서술하세요.
-URL에 접근할 수 없다면 패치명만으로 추정 가능한 범위에서 서술하고, 추정임을 명시하세요.
 JSON 없이 텍스트만 반환하세요."""
 
     model = genai.GenerativeModel(MODEL)
