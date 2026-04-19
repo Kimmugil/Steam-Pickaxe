@@ -158,7 +158,7 @@ const FALLBACK: Record<string, string> = {
   // ── 타임라인 ────────────────────────────────────────────────────────
   TIMELINE_SORT_DESC: "▼ 최신순",
   TIMELINE_SORT_ASC: "▲ 과거순",
-  TIMELINE_PENDING: "AI 분석 진행 중...",
+  TIMELINE_PENDING: "AI 분석 진행 전",
   TIMELINE_TYPE_OFFICIAL: "공식 패치",
   TIMELINE_TYPE_MANUAL: "수동 이벤트",
   TIMELINE_TYPE_NEWS: "외부 뉴스",
