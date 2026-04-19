@@ -50,8 +50,9 @@ interface HeaderProps {
 export default function Header({ game, currentCcu, topSentimentRate }: HeaderProps) {
   const { t } = useUiText();
 
-  const ccuPct = game.peak_ccu && currentCcu
-    ? Math.round((currentCcu / Number(game.peak_ccu)) * 100)
+  const peakCcu = Number(game.peak_ccu) || 0;
+  const ccuPct = peakCcu > 0 && currentCcu != null
+    ? Math.round((currentCcu / peakCcu) * 100)
     : null;
 
   const genres = game.genres ? game.genres.split(",").map(g => g.trim()).filter(Boolean) : [];

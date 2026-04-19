@@ -32,7 +32,12 @@ export default async function GamePage({ params }: PageProps) {
 
   // 최신 전체 긍정률
   const allRows = timelineRows.filter(
-    (r) => r.language_scope === "all" && r.event_type !== "news" && r.sentiment_rate !== ""
+    (r) =>
+      r.language_scope === "all" &&
+      r.event_type !== "news" &&
+      r.sentiment_rate !== "" &&
+      r.sentiment_rate !== "sparse" &&
+      !isNaN(Number(r.sentiment_rate))
   );
   allRows.sort((a, b) => b.date.localeCompare(a.date));
   const topSentimentRate = allRows.length > 0 ? Number(allRows[0].sentiment_rate) : undefined;
