@@ -44,36 +44,95 @@ def set_config_value(spreadsheet: gspread.Spreadsheet, key: str, value: str):
 # ──────────────────────────────────────────────
 
 GAMES_HEADERS = [
+    # 식별자 / 기본 정보
     "appid", "name", "name_kr", "thumbnail", "status",
-    "collection_started_at", "last_cursor", "total_reviews_count",
-    "collected_reviews_count", "last_event_date", "top_languages",
-    "ai_briefing", "ai_briefing_date", "owners_estimate",
-    "avg_playtime", "median_playtime", "active_players_2weeks",
+    # 수집 상태
+    "collection_started_at", "last_cursor",
+    "total_reviews_count", "collected_reviews_count",
+    # 이벤트 / 언어
+    "last_event_date", "top_languages",
+    # AI 결과
+    "ai_briefing", "ai_briefing_date",
+    "latest_sentiment_rate", "event_count",
+    # Steam 기본 메타
     "peak_ccu", "metacritic_score", "is_free", "is_early_access",
-    "totalReviews",
-    # 신규 추가 필드
-    "release_date", "latest_sentiment_rate", "event_count", "game_sheet_id",
-    # 스토어 메타 필드 (스크래핑)
+    "totalReviews", "release_date",
+    # 스토어 스크래핑 메타
     "genres", "developer", "publisher", "price",
+    # 내부 참조
+    "game_sheet_id",
+    # ── 제거된 컬럼 (하위호환 기록용, 실제로 사용하지 않음) ──
+    # owners_estimate, avg_playtime, median_playtime, active_players_2weeks
+    #   → SteamSpy 필드였으나 SteamSpy 수집 중단으로 미사용
 ]
+
+# 실제 시트에서 제거할 구형 컬럼 목록 (ensure_games_headers 가 자동 삭제)
+_DEPRECATED_COLUMNS = ["owners_estimate", "avg_playtime", "median_playtime", "active_players_2weeks"]
 
 
 def ensure_games_headers(spreadsheet: gspread.Spreadsheet):
     """
-    실제 games 시트에 GAMES_HEADERS에 정의된 컬럼이 모두 있는지 확인하고,
-    없으면 오른쪽 끝에 추가합니다 (기존 데이터 보존).
-    main_collect.py 시작 시 1회 호출해 마이그레이션을 자동화합니다.
+    games 시트 헤더를 GAMES_HEADERS 기준으로 자동 마이그레이션합니다.
+
+    1. 누락 컬럼 추가: GAMES_HEADERS에 있지만 시트에 없는 컬럼을 오른쪽에 추가
+    2. 구형 컬럼 삭제: _DEPRECATED_COLUMNS에 있는 컬럼을 시트에서 제거
+       (안전을 위해 해당 컬럼의 데이터가 모두 비어있을 때만 삭제)
     """
+    import time as _time
+
     ws = spreadsheet.worksheet("games")
     current = ws.row_values(1)
+
+    # ── 1. 누락 컬럼 추가 ────────────────────────────────────
     missing = [h for h in GAMES_HEADERS if h not in current]
-    if not missing:
-        return
-    print(f"[migrate] games 시트에 누락 컬럼 추가: {missing}")
-    next_col = len(current) + 1
-    for i, col_name in enumerate(missing):
-        ws.update_cell(1, next_col + i, col_name)
-    print(f"[migrate] {len(missing)}개 컬럼 추가 완료")
+    if missing:
+        print(f"[migrate] games 누락 컬럼 추가: {missing}")
+        next_col = len(current) + 1
+        for i, col_name in enumerate(missing):
+            ws.update_cell(1, next_col + i, col_name)
+        print(f"[migrate] {len(missing)}개 컬럼 추가 완료")
+        _time.sleep(1)
+        current = ws.row_values(1)  # 헤더 재조회
+
+    # ── 2. 구형 컬럼 삭제 ────────────────────────────────────
+    # 컬럼을 뒤에서 앞 순서로 삭제해야 인덱스 밀림 없음
+    cols_to_delete = []
+    for col_name in _DEPRECATED_COLUMNS:
+        if col_name not in current:
+            continue
+        col_idx = current.index(col_name)  # 0-based
+        # 해당 컬럼 데이터 전체 읽기 (헤더 제외)
+        col_letter = chr(ord("A") + col_idx)
+        try:
+            col_values = ws.col_values(col_idx + 1)[1:]  # 헤더 제외
+        except Exception:
+            col_values = []
+        non_empty = [v for v in col_values if str(v).strip()]
+        if non_empty:
+            print(f"[migrate] '{col_name}' 컬럼에 데이터 있음({len(non_empty)}건) — 삭제 건너뜀")
+        else:
+            cols_to_delete.append(col_idx)
+
+    if cols_to_delete:
+        ss_id = spreadsheet.id
+        sheet_id = ws.id
+        # 뒤에서 앞 순서로 삭제 (인덱스 밀림 방지)
+        requests = [
+            {
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": col_idx,
+                        "endIndex": col_idx + 1,
+                    }
+                }
+            }
+            for col_idx in sorted(cols_to_delete, reverse=True)
+        ]
+        spreadsheet.batch_update({"requests": requests})
+        deleted_names = [current[i] for i in cols_to_delete]
+        print(f"[migrate] 구형 컬럼 삭제 완료: {deleted_names}")
 
 def get_all_games(spreadsheet: gspread.Spreadsheet) -> list[dict]:
     ws = spreadsheet.worksheet("games")

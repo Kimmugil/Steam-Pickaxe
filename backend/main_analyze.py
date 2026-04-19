@@ -274,13 +274,46 @@ def run():
 
         time.sleep(5)
 
+        # 최신 타임라인 재조회 (분석 완료 후)
+        final_timeline = gs_get_timeline(game_ss)
+
         # 전체 AI 브리핑 갱신
-        briefing = _generate_briefing(name, gs_get_timeline(game_ss))
+        briefing = _generate_briefing(name, final_timeline)
+
+        # latest_sentiment_rate: 가장 최근 버킷(scope=all)의 긍정률
+        # event_count: 공식/뉴스/수동 이벤트 고유 개수 (launch 버킷 제외)
+        all_scope_rows = [
+            r for r in final_timeline
+            if r.get("language_scope") == "all"
+            and r.get("event_type") not in ("launch",)
+            and r.get("sentiment_rate") not in ("", "sparse", None)
+            and not str(r.get("sentiment_rate", "")).strip() == ""
+        ]
+        all_scope_rows_sorted = sorted(
+            all_scope_rows, key=lambda r: r.get("date", ""), reverse=True
+        )
+        latest_rate = ""
+        if all_scope_rows_sorted:
+            try:
+                latest_rate = str(int(float(str(all_scope_rows_sorted[0].get("sentiment_rate", "")))))
+            except (ValueError, TypeError):
+                latest_rate = ""
+
+        event_ids = {
+            r["event_id"] for r in final_timeline
+            if r.get("language_scope") == "all"
+            and r.get("event_type") not in ("launch",)
+            and r.get("event_id")
+        }
+        ev_count = len(event_ids)
+
         update_game(ss, appid, {
-            "ai_briefing": briefing,
-            "ai_briefing_date": today,
+            "ai_briefing":          briefing,
+            "ai_briefing_date":     today,
+            "latest_sentiment_rate": latest_rate,
+            "event_count":          ev_count,
         })
-        print(f"AI 브리핑 갱신 완료")
+        print(f"AI 브리핑 갱신 완료 (긍정률={latest_rate}%, 이벤트={ev_count}건)")
 
     print("\n전체 분석 완료")
 
