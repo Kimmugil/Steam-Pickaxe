@@ -51,9 +51,181 @@ function Mono({ children }: { children: string }) {
   return <code className="font-mono bg-bg-secondary px-1.5 py-0.5 rounded text-accent-blue text-[11px]">{children}</code>;
 }
 
-export default function GuidePage() {
-  const [activeSection, setActiveSection] = useState<string>("overview");
+function TipBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-accent-green/5 border border-accent-green/20 rounded-lg px-4 py-3 text-xs text-accent-green leading-relaxed">
+      <span className="font-semibold">💡 Tip  </span>{children}
+    </div>
+  );
+}
 
+function AdminBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-accent-yellow/5 border border-accent-yellow/20 rounded-lg px-4 py-3 text-xs text-accent-yellow leading-relaxed">
+      <span className="font-semibold">🔐 관리자 기능  </span>{children}
+    </div>
+  );
+}
+
+export default function GuidePage() {
+  const [activeSection, setActiveSection] = useState<string>("user-guide");
+
+  // ── 이용 안내 (사용자 가이드) ────────────────────────────────────────
+  const userGuideContent = (
+    <div className="space-y-7">
+
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary mb-2">🎯 이 서비스는 무엇인가요?</h3>
+        <p className="text-sm text-text-secondary leading-relaxed">
+          Steam 게임의 업데이트 유저 반응, 동접자(CCU), 언어권 분포를 이벤트 타임라인에 맞춰 분석해주는 대시보드입니다.
+          개발사·퍼블리셔 관계자나 게임 시장 분석에 관심 있는 분들을 위해 설계됐습니다.
+          수집부터 AI 분석까지 대부분 자동으로 이루어지며, 하루에 한 번 업데이트됩니다.
+        </p>
+      </div>
+
+      {/* 게임 등록 */}
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary mb-3">📋 분석할 게임 등록하기</h3>
+        <ol className="text-sm text-text-secondary space-y-2 list-decimal list-inside">
+          <li>홈 화면 검색창에 <strong>게임명, AppID, 또는 스팀 상점 URL</strong>을 입력합니다.</li>
+          <li>검색 결과에서 <strong>[이 게임 분석 등록하기]</strong> 버튼을 클릭합니다.</li>
+          <li>수집 대기열에 올라가며, 리뷰 수에 따라 <strong>보통 1~3일 후 분석이 완료</strong>됩니다.</li>
+        </ol>
+        <div className="mt-3 space-y-2">
+          <TipBox>
+            한글 게임명 검색은 결과가 부정확할 수 있습니다. 영문명이나 AppID 검색을 권장합니다.
+          </TipBox>
+          <TipBox>
+            리뷰 수가 매우 많은 게임(10만 건 이상)은 수집에 더 오래 걸릴 수 있습니다.
+            대기열 화면에서 수집 진행 상황을 확인할 수 있습니다.
+          </TipBox>
+        </div>
+      </div>
+
+      {/* 대시보드 각 탭 */}
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary mb-3">📊 대시보드 각 탭 보는 법</h3>
+
+        <div className="space-y-5">
+
+          <div className="pl-3 border-l-2 border-accent-blue/30">
+            <p className="text-xs font-semibold text-text-primary mb-1">헤더 (게임 상단 정보)</p>
+            <ul className="text-xs text-text-secondary space-y-1.5">
+              <li>• <strong>긍정률 뱃지</strong>는 Steam 전체 누적 평가가 아닌, <strong>가장 최근 이벤트 이후</strong> 유저 반응입니다.
+                최신 업데이트에 대한 민심을 빠르게 확인하는 데 유용합니다.</li>
+              <li>• <strong>현재 CCU</strong>는 실시간 동시 접속자 수이며, 역대 최고 기록 대비 비율로 함께 표시됩니다.</li>
+              <li>• <strong>AI 현황 진단</strong>은 최근 이벤트·리뷰 데이터를 바탕으로 생성된 종합 요약입니다. 매일 새벽 자동 갱신됩니다.</li>
+            </ul>
+          </div>
+
+          <div className="pl-3 border-l-2 border-accent-blue/30">
+            <p className="text-xs font-semibold text-text-primary mb-1">글로벌 트래픽 (CCU) 탭</p>
+            <ul className="text-xs text-text-secondary space-y-1.5">
+              <li>• 시간 흐름에 따른 동시 접속자 수 변화를 확인할 수 있습니다.</li>
+              <li>• <strong>주황색 배경</strong>은 할인 기간, <strong>초록색 배경</strong>은 무료 주말입니다.
+                이 기간에 CCU가 급등한다면 프로모션 효과로 해석됩니다.</li>
+            </ul>
+            <div className="mt-2">
+              <AdminBox>
+                게임 등록 전 기간의 CCU 공백이 있다면, <strong>김무길</strong>에게 SteamDB CSV 업로드를 요청하세요.
+                차트 우측 상단 업로드 버튼을 통해 보정 데이터를 추가할 수 있습니다.
+              </AdminBox>
+            </div>
+          </div>
+
+          <div className="pl-3 border-l-2 border-accent-blue/30">
+            <p className="text-xs font-semibold text-text-primary mb-1">평가 추이 탭</p>
+            <ul className="text-xs text-text-secondary space-y-1.5">
+              <li>• 이벤트(업데이트, 패치 등)를 기준으로 나눈 각 구간의 <strong>긍정률 변화</strong>를 꺾은선 그래프로 보여줍니다.</li>
+              <li>• 상단 언어 버튼으로 <strong>여러 언어권의 반응을 동시에 비교</strong>할 수 있습니다.</li>
+            </ul>
+            <div className="mt-2">
+              <TipBox>
+                한국어 라인과 영어 라인이 반대 방향으로 움직인다면, 권역별로 업데이트에 대한 반응이 다르다는 신호입니다.
+              </TipBox>
+            </div>
+          </div>
+
+          <div className="pl-3 border-l-2 border-accent-blue/30">
+            <p className="text-xs font-semibold text-text-primary mb-1">언어권별 분포 탭</p>
+            <ul className="text-xs text-text-secondary space-y-1.5">
+              <li>• <strong>파이 차트</strong>: 수집된 전체 리뷰에서 언어권 분포를 보여줍니다. 상위 5개 언어 + 기타로 표시됩니다.</li>
+              <li>• <strong>리스트</strong>: 각 언어별 감성률, 핵심 키워드를 확인할 수 있습니다. 상위 3개 언어만 AI 분석이 수행되며, 나머지는 '미분석'으로 표시됩니다.</li>
+              <li>• 하단의 <strong>AI 언어권 교차 분석</strong>은 실제 주력 플레이 권역과 언어권 간 반응 온도차를 진단합니다.</li>
+            </ul>
+            <div className="mt-2">
+              <TipBox>
+                영어 리뷰 비율이 높아도 영미권 유저가 그만큼 많다는 뜻이 아닙니다.
+                영어로 리뷰를 남기는 비영미권 유저가 많기 때문입니다.
+                AI 언어권 교차 분석이 이 점을 감안해 실제 권역을 추정해줍니다.
+              </TipBox>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* 타임라인 */}
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary mb-3">📅 업데이트 히스토리(타임라인) 읽는 법</h3>
+        <ul className="text-sm text-text-secondary space-y-2">
+          <li>• 각 카드는 업데이트, 이벤트, 뉴스 1건을 나타냅니다. <strong>클릭하면</strong> 패치 요약, 유저 반응 진단, 대표 리뷰를 확인할 수 있습니다.</li>
+          <li>• <span className="text-accent-blue font-medium">파란 점</span>: 공식 패치 / <span className="text-text-muted font-medium">회색 점</span>: 외부 뉴스 / <span className="text-accent-green font-medium">초록 점</span>: 무료 주말</li>
+          <li>• <strong>"AI 분석 진행 전"</strong>: 분석이 아직 실행되지 않았습니다. 매일 새벽 6시경 자동 갱신됩니다.</li>
+          <li>• <strong>"리뷰 부족"</strong>: 해당 기간에 수집된 리뷰 수가 너무 적어 분석 대상에서 제외됩니다. 정상적인 상태입니다.</li>
+        </ul>
+        <div className="mt-3 space-y-2">
+          <TipBox>
+            패치노트 카드에 보이는 AI 반응 요약은 해당 구간 리뷰 기반입니다.
+            상단의 "AI 평가 추이 종합 진단"은 여러 구간을 가로지르는 장기 흐름을 별도로 분석한 것입니다.
+          </TipBox>
+          <AdminBox>
+            Steam에서 잡히지 않는 서버 장애, 공지, 커뮤니티 이슈가 있다면 <strong>김무길</strong>에게
+            수동 이벤트 등록을 요청하거나, 이벤트 폼에서 직접 등록할 수 있습니다 (관리자 비밀번호 필요).
+          </AdminBox>
+        </div>
+      </div>
+
+      {/* 데이터 갱신 주기 */}
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary mb-3">⏱️ 데이터 갱신 주기</h3>
+        <Table
+          headers={["데이터 종류", "갱신 시간 (KST)", "비고"]}
+          rows={[
+            ["현재 CCU (동접자)", "매 시간 정각", "Steam API 직접 수집"],
+            ["리뷰·뉴스 수집", "매일 새벽 5시경", "신규·미수집 게임 우선"],
+            ["AI 분석 결과", "매일 새벽 6시경", "수집 완료 즉시 자동 트리거"],
+            ["CCU 피크타임 분석", "매주 월요일", "비용 절감을 위해 주 1회"],
+          ]}
+        />
+        <div className="mt-3">
+          <TipBox>
+            대시보드가 아직 어제 데이터를 보여준다면, 새벽 6시 이후에 페이지를 새로고침 해보세요.
+            캐시 갱신까지 최대 5분이 소요될 수 있습니다.
+          </TipBox>
+        </div>
+      </div>
+
+      {/* 관리자 기능 */}
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary mb-3">🔐 관리자 기능이 필요한 경우</h3>
+        <p className="text-xs text-text-muted mb-3">아래 기능은 모두 관리자 비밀번호가 필요합니다. <strong className="text-text-secondary">김무길</strong>에게 문의하세요.</p>
+        <Table
+          headers={["기능", "위치", "설명"]}
+          rows={[
+            ["AI 분석 새로고침", "대시보드 하단", "최신 패치·뉴스 재수집 후 AI 분석 재실행. 분석 결과가 오래됐거나 누락됐을 때"],
+            ["SteamDB CSV 업로드", "CCU 탭 오른쪽", "등록 전 기간 CCU 공백 보정. SteamDB에서 CSV 다운로드 후 업로드"],
+            ["수동 이벤트 등록", "업데이트 히스토리 폼", "Steam에 없는 이슈·이벤트를 타임라인에 추가"],
+            ["이벤트 수정", "타임라인 카드 ✏️ 버튼", "이벤트 제목·유형·날짜 수정 및 재분석"],
+            ["게임 삭제", "대시보드 하단", "홈 목록에서 숨기기. 수집 데이터는 보존됨"],
+          ]}
+        />
+      </div>
+
+    </div>
+  );
+
+  // ── 기술 가이드 섹션들 ──────────────────────────────────────────────
   const sections: Section[] = [
     {
       id: "overview",
@@ -68,7 +240,7 @@ export default function GuidePage() {
             headers={["구성 요소", "역할", "기술"]}
             rows={[
               ["수집 엔진", "Steam API 호출 → Google Sheets 적재", "Python / GitHub Actions"],
-              ["AI 분석 엔진", "리뷰 감성 분석, 패치 요약, 추이 진단", "Google Gemini 2.5 Flash"],
+              ["AI 분석 엔진", "리뷰 감성 분석, 패치 요약, 추이 진단", "Google Gemini 2.5 Flash (Thinking 활성)"],
               ["데이터 저장소", "마스터 시트 + 게임별 전용 시트", "Google Sheets"],
               ["대시보드", "수집·분석 결과 시각화", "Next.js 15 / React"],
             ]}
@@ -98,7 +270,7 @@ export default function GuidePage() {
             정규 21:00 스케줄을 기다리지 않습니다.
           </InfoBox>
           <InfoBox color="yellow">
-            CCU AI 피크타임 분석은 매주 월요일에만 갱신됩니다. 매일 동일한 패턴 데이터에서 동일한 분석 결과가 반복 생성되는 비용 낭비를 방지하기 위한 조건부 실행입니다.
+            CCU AI 피크타임 분석과 언어권 교차 분석은 매주 월요일에만 갱신됩니다. 매일 동일한 패턴 데이터에서 동일한 분석 결과가 반복 생성되는 비용 낭비를 방지하기 위한 조건부 실행입니다.
           </InfoBox>
         </div>
       ),
@@ -123,7 +295,7 @@ export default function GuidePage() {
           <ul className="text-sm text-text-secondary space-y-1.5">
             <li>• Steam API가 반환하는 <Mono>cursor</Mono> 값을 다음 요청에 전달해 전체 리뷰를 순차 수집합니다.</li>
             <li>• 현재 커서 = 이전 커서 감지 시 → 자연 고갈(수집 완료)로 판단합니다.</li>
-            <li>• GitHub Actions 단일 Job 최대 6시간 제한. 1회 최대 450페이지(36,000건) 수집 후 커서를 저장하고 다음 실행에서 이어 수집합니다.</li>
+            <li>• 1회 최대 3,000페이지(240,000건) 수집 후 커서를 저장하고 다음 실행에서 이어 수집합니다. GitHub Actions 단일 Job 실행 시 약 25분 소요됩니다.</li>
           </ul>
           <h3 className="text-sm font-semibold text-text-primary mt-4">중복·수정·삭제 처리</h3>
           <ul className="text-sm text-text-secondary space-y-1.5">
@@ -218,6 +390,7 @@ export default function GuidePage() {
             <h3 className="text-sm font-semibold text-text-primary mb-2">모델 및 공통 원칙</h3>
             <ul className="text-sm text-text-secondary space-y-1.5">
               <li>• 모델: <strong>Google Gemini 2.5 Flash</strong></li>
+              <li>• <strong>Thinking 모드 활성</strong> (thinking_budget=8,192 토큰): 감성 분석·인과관계 판단 전에 내부 추론 과정을 거쳐 분석 품질을 높입니다.</li>
               <li>• 원칙: 현상 진단 + 인과관계만 서술. 지시적/주관적 어조 배제. 허구 수치 생성 금지.</li>
             </ul>
           </div>
@@ -294,6 +467,7 @@ export default function GuidePage() {
             <p className="text-sm text-text-secondary leading-relaxed">
               RAW 리뷰 전체의 언어 분포와 각 언어별 평균 감성률을 종합합니다.
               Steam 영어 과대표집 문제를 감안해 실제 주력 권역과 권역 간 평가 온도차를 진단합니다.
+              <strong> 매주 월요일에만 갱신</strong>됩니다.
             </p>
           </div>
 
@@ -329,7 +503,7 @@ export default function GuidePage() {
                 ["39% 이하", "부정적 — 광범위한 불만 또는 구조적 문제 가능성", "빨강"],
               ]}
             />
-            <InfoBox color="yellow" >
+            <InfoBox color="yellow">
               <strong>주의:</strong> 헤더의 긍정률은 Steam 전체 누적 평가가 아닌 <strong>가장 최근 이벤트 구간의 긍정률</strong>입니다.
               최근 업데이트 이후의 반응을 반영합니다. Steam 스토어 페이지의 종합 평가와 다를 수 있습니다.
             </InfoBox>
@@ -415,39 +589,45 @@ export default function GuidePage() {
       title: "💰 비용 추정",
       content: (
         <div className="space-y-4">
-          <p className="text-text-secondary text-sm">Gemini 2.5 Flash 기준 (2025년 4월 기준)</p>
+          <p className="text-text-secondary text-sm">Gemini 2.5 Flash 기준 (2026년 4월 기준)</p>
           <Table
-            headers={["요금 항목", "단가"]}
+            headers={["요금 항목", "단가", "비고"]}
             rows={[
-              ["입력 토큰", "$0.075 / 1M tokens"],
-              ["출력 토큰", "$0.30 / 1M tokens"],
+              ["입력 토큰", "$0.075 / 1M tokens", "Thinking 토큰 포함 (동일 요금)"],
+              ["출력 토큰", "$0.30 / 1M tokens", ""],
             ]}
           />
+          <InfoBox color="yellow">
+            <strong>Thinking 토큰:</strong> Thinking 모드 활성 시 모델 내부 추론 과정이 thinking 토큰으로 과금됩니다.
+            현재 thinking_budget=8,192 토큰으로 설정되어 있으며, 호출당 실제 사용량은 작업 복잡도에 따라 0~8,192 토큰 범위로 결정됩니다.
+          </InfoBox>
           <h3 className="text-sm font-semibold text-text-primary mt-4">게임 1개 기준 일일 비용 추정</h3>
           <Table
-            headers={["작업", "Gemini 호출 수", "입력 토큰 추정", "비용 추정"]}
+            headers={["작업", "Gemini 호출 수", "입력 토큰 추정 (thinking 포함)", "비용 추정"]}
             rows={[
-              ["구간 분석 (신규 1개, 4언어)", "4회", "~12,000", "~$0.003"],
-              ["패치 요약", "1회", "~2,000", "~$0.001"],
-              ["한국어 제목 생성", "1회", "~800", "<$0.001"],
-              ["추이 종합 진단", "1회", "~2,000", "~$0.001"],
-              ["AI 브리핑", "1회", "~3,000", "~$0.001"],
-              ["CCU 피크타임 (주 1회)", "1/7회", "~1,500", "~$0.001/주"],
-              ["언어 교차 분석 (주 1회)", "1/7회", "~2,000", "~$0.001/주"],
+              ["구간 분석 (신규 1개, 4언어)", "4회", "~20,000", "~$0.005"],
+              ["패치 요약", "1회", "~5,000", "~$0.001"],
+              ["한국어 제목 생성", "1회", "~2,000", "<$0.001"],
+              ["추이 종합 진단", "1회", "~7,000", "~$0.001"],
+              ["AI 브리핑", "1회", "~8,000", "~$0.001"],
+              ["CCU 피크타임 (주 1회)", "1/7회", "~5,000", "~$0.001/주"],
+              ["언어 교차 분석 (주 1회)", "1/7회", "~6,000", "~$0.001/주"],
             ]}
           />
           <InfoBox color="green">
             이미 분석된 구간은 skip됩니다. 안정기(신규 이벤트 없음)에는 하루 브리핑 1회 + 트렌드 분석 1회만
-            실행되어 <strong>일일 $0.002~0.005 수준</strong>으로 유지됩니다.
+            실행되어 <strong>일일 $0.003~0.008 수준</strong>으로 유지됩니다 (thinking 토큰 포함).
           </InfoBox>
           <InfoBox color="yellow">
             신규 게임 등록 후 첫 분석 시에는 모든 구간을 한꺼번에 분석하므로 일시적으로
-            이벤트 수 × $0.005~0.01 수준의 비용이 발생합니다.
+            이벤트 수 × $0.008~0.015 수준의 비용이 발생합니다 (thinking 토큰 포함).
           </InfoBox>
         </div>
       ),
     },
   ];
+
+  const allSectionIds = ["user-guide", ...sections.map((s) => s.id)];
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-10">
@@ -465,6 +645,23 @@ export default function GuidePage() {
         {/* 사이드바 네비게이션 */}
         <div className="hidden lg:block w-48 shrink-0">
           <div className="sticky top-6 space-y-1">
+            {/* 이용 안내 버튼 — 사이드바 최상단 */}
+            <button
+              onClick={() => setActiveSection("user-guide")}
+              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                activeSection === "user-guide"
+                  ? "bg-accent-green/15 text-accent-green"
+                  : "bg-accent-green/5 text-accent-green/70 border border-accent-green/20 hover:bg-accent-green/10"
+              }`}
+            >
+              📖 이용 안내
+            </button>
+
+            <div className="pt-2 pb-1">
+              <div className="border-t border-border-default" />
+              <p className="text-[10px] text-text-muted px-1 pt-2">기술 가이드</p>
+            </div>
+
             {sections.map((s) => (
               <button
                 key={s.id}
@@ -485,6 +682,16 @@ export default function GuidePage() {
         <div className="flex-1 min-w-0">
           {/* 모바일 탭 */}
           <div className="lg:hidden flex gap-1 flex-wrap mb-6">
+            <button
+              onClick={() => setActiveSection("user-guide")}
+              className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                activeSection === "user-guide"
+                  ? "bg-accent-green text-white"
+                  : "bg-bg-card border border-accent-green/30 text-accent-green/70 hover:text-accent-green"
+              }`}
+            >
+              📖 이용 안내
+            </button>
             {sections.map((s) => (
               <button
                 key={s.id}
@@ -500,6 +707,16 @@ export default function GuidePage() {
             ))}
           </div>
 
+          {/* 이용 안내 패널 */}
+          <div className={activeSection === "user-guide" ? "block" : "hidden"}>
+            <div className="bg-bg-card border border-accent-green/20 rounded-xl p-6">
+              <h2 className="text-lg font-bold text-text-primary mb-1">📖 이용 안내</h2>
+              <p className="text-xs text-text-muted mb-6">대시보드를 처음 사용하는 분들을 위한 설명서입니다.</p>
+              {userGuideContent}
+            </div>
+          </div>
+
+          {/* 기술 가이드 섹션들 */}
           {sections.map((s) => (
             <div
               key={s.id}
