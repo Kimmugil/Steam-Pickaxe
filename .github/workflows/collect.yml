@@ -31,6 +31,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
           GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
         run: |
           cd backend
           python main_collect.py

@@ -20,24 +20,47 @@ GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "")
 MAX_PAGES_PER_RUN = 450  # 약 36,000건 / 6시간 GitHub Actions 제한 대응
 
 
+def _dispatch_analyze():
+    """collect 완료 후 analyze.yml을 자동 트리거합니다."""
+    import requests as _req
+    token = os.environ.get("GH_PAT", "")
+    repo  = os.environ.get("GITHUB_REPO", "Kimmugil/Steam-Pickaxe")
+    if not token:
+        print("[WARN] GH_PAT 미설정 — analyze.yml 자동 트리거 생략")
+        return
+    r = _req.post(
+        f"https://api.github.com/repos/{repo}/actions/workflows/analyze.yml/dispatches",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        },
+        json={"ref": "main"},
+        timeout=15,
+    )
+    if r.status_code in (204, 200):
+        print("[AUTO] analyze.yml 트리거 완료")
+    else:
+        print(f"[WARN] analyze.yml 트리거 실패: {r.status_code} {r.text[:100]}")
+
+
 def run():
     ss = get_spreadsheet()
     games = get_all_games(ss)
+    newly_activated = []
 
     for game in games:
         status = game.get("status", "")
         appid = str(game.get("appid", ""))
-
         if status not in ("active", "collecting"):
             continue
-
         print(f"\n{'='*50}")
         print(f"처리 중: {game.get('name')} (AppID: {appid}, status: {status})")
-
         try:
-            _process_game(ss, game, appid, status)
+            activated = _process_game(ss, game, appid, status)
+            if activated:
+                newly_activated.append(appid)
         except Exception as e:
-            # 한 게임의 오류가 전체 루프를 중단시키지 않도록 반드시 캐치
             import traceback
             print(f"[ERROR] {game.get('name')} ({appid}) 처리 중 예외 발생 — 다음 게임으로 계속")
             print(traceback.format_exc())
@@ -45,12 +68,22 @@ def run():
 
     print("\n전체 수집 완료")
 
+    # 신규 활성화 게임이 있으면 AI 분석 자동 트리거
+    if newly_activated:
+        print(f"\n[AUTO] 신규 활성화 게임 {len(newly_activated)}개 — analyze.yml 트리거")
+        _dispatch_analyze()
 
-def _process_game(ss, game: dict, appid: str, status: str):
+
+def _process_game(ss, game: dict, appid: str, status: str) -> bool:
+    newly_activated = False
+    final_status = status
+
     # 1. 메타데이터 갱신
     app_data = fetch_app_details(appid)
+    name = game.get("name", appid)
     if app_data:
         meta = parse_game_meta(appid, app_data)
+        name = meta["name"]
         peak_ccu = fetch_peak_ccu(appid)
         update_game(ss, appid, {
             "name":           meta["name"],
@@ -66,11 +99,7 @@ def _process_game(ss, game: dict, appid: str, status: str):
         })
         print("메타데이터 갱신 완료")
 
-    # 2. 뉴스/패치노트 수집 (active 상태에서만)
-    if status == "active":
-        _collect_news(ss, appid, game.get("name", ""), game.get("game_sheet_id", ""))
-
-    # 3. 리뷰 수집
+    # 2. 리뷰 수집
     game_sheet_id = game.get("game_sheet_id", "")
 
     # cursor 일관성 검사:
@@ -99,7 +128,7 @@ def _process_game(ss, game: dict, appid: str, status: str):
         except RuntimeError as e:
             print(f"[ERROR] RAW 시트 준비 실패: {e}")
             print("[ERROR] GAS_WEBAPP_URL이 올바르게 설정되었는지 확인하세요.")
-            return  # 이 게임은 건너뜀
+            return newly_activated  # 이 게임은 건너뜀
 
         # 개별 게임 시트 ID를 master sheet에 저장 (아직 없을 때만)
         if not game_sheet_id:
@@ -107,7 +136,6 @@ def _process_game(ss, game: dict, appid: str, status: str):
             game_sheet_id = raw_ss.id
 
         # RAW 시트에 실제로 저장된 리뷰 수 확인
-        # game_sheet_id가 새로 생성됐거나, cursor가 *로 초기화된 경우 collected 기준 재산정
         actual_collected = int(game.get("collected_reviews_count", 0) or 0)
 
         added = append_reviews(raw_ss, reviews)
@@ -124,6 +152,9 @@ def _process_game(ss, game: dict, appid: str, status: str):
             updates["status"] = "active"
             updates["last_cursor"] = ""
             print("수집 완료 → active 전환")
+            if status == "collecting":
+                newly_activated = True
+                final_status = "active"
 
         update_game(ss, appid, updates)
 
@@ -132,6 +163,14 @@ def _process_game(ss, game: dict, appid: str, status: str):
         if status == "collecting":
             update_game(ss, appid, {"status": "active", "last_cursor": ""})
             print("수집 완료 (신규 없음) → active 전환")
+            newly_activated = True
+            final_status = "active"
+
+    # 3. 뉴스/패치노트 수집 (active 상태에서만, game_sheet_id 보장 후)
+    if final_status == "active":
+        _collect_news(ss, appid, name, game_sheet_id)
+
+    return newly_activated
 
 
 def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):

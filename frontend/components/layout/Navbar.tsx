@@ -26,6 +26,16 @@ export default function Navbar() {
           >
             {t("NAV_GUIDE")}
           </Link>
+          <Link
+            href="/admin"
+            className={`text-xs transition-colors ${
+              pathname === "/admin"
+                ? "text-accent-orange"
+                : "text-text-muted hover:text-text-secondary"
+            }`}
+          >
+            🔒 관계자외 출입금지
+          </Link>
         </div>
       </div>
     </nav>
