@@ -53,7 +53,27 @@ GAMES_HEADERS = [
     "totalReviews",
     # 신규 추가 필드
     "release_date", "latest_sentiment_rate", "event_count", "game_sheet_id",
+    # 스토어 메타 필드 (스크래핑)
+    "genres", "developer", "publisher", "price",
 ]
+
+
+def ensure_games_headers(spreadsheet: gspread.Spreadsheet):
+    """
+    실제 games 시트에 GAMES_HEADERS에 정의된 컬럼이 모두 있는지 확인하고,
+    없으면 오른쪽 끝에 추가합니다 (기존 데이터 보존).
+    main_collect.py 시작 시 1회 호출해 마이그레이션을 자동화합니다.
+    """
+    ws = spreadsheet.worksheet("games")
+    current = ws.row_values(1)
+    missing = [h for h in GAMES_HEADERS if h not in current]
+    if not missing:
+        return
+    print(f"[migrate] games 시트에 누락 컬럼 추가: {missing}")
+    next_col = len(current) + 1
+    for i, col_name in enumerate(missing):
+        ws.update_cell(1, next_col + i, col_name)
+    print(f"[migrate] {len(missing)}개 컬럼 추가 완료")
 
 def get_all_games(spreadsheet: gspread.Spreadsheet) -> list[dict]:
     ws = spreadsheet.worksheet("games")

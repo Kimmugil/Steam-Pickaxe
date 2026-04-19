@@ -7,7 +7,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from sheets.master_sheet import get_spreadsheet, get_all_games, update_game
+from sheets.master_sheet import get_spreadsheet, get_all_games, update_game, ensure_games_headers
 from sheets.raw_reviews import get_or_create_raw_spreadsheet, append_reviews
 from collectors.steam_reviews import collect_reviews_batch, get_total_review_count
 from collectors.steam_news import fetch_news, fetch_store_events, classify_news, parse_news_item, parse_store_event
@@ -21,7 +21,11 @@ MAX_PAGES_PER_RUN = 450  # 약 36,000건 / 6시간 GitHub Actions 제한 대응
 
 
 def _dispatch_analyze():
-    """collect 완료 후 analyze.yml을 자동 트리거합니다."""
+    """
+    collect 완료 후 analyze.yml을 자동 트리거합니다.
+    repository_dispatch(analyze-game) 방식 사용 — register-game과 동일한 API 경로.
+    workflow_dispatch는 Actions 권한 범위가 달라 실패할 수 있어 사용하지 않음.
+    """
     import requests as _req
     token = os.environ.get("GH_PAT", "")
     repo  = os.environ.get("GITHUB_REPO", "Kimmugil/Steam-Pickaxe")
@@ -29,23 +33,25 @@ def _dispatch_analyze():
         print("[WARN] GH_PAT 미설정 — analyze.yml 자동 트리거 생략")
         return
     r = _req.post(
-        f"https://api.github.com/repos/{repo}/actions/workflows/analyze.yml/dispatches",
+        f"https://api.github.com/repos/{repo}/dispatches",
         headers={
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
             "Content-Type": "application/json",
         },
-        json={"ref": "main"},
+        json={"event_type": "analyze-game"},
         timeout=15,
     )
     if r.status_code in (204, 200):
-        print("[AUTO] analyze.yml 트리거 완료")
+        print("[AUTO] analyze-game 디스패치 완료 → analyze.yml 트리거")
     else:
-        print(f"[WARN] analyze.yml 트리거 실패: {r.status_code} {r.text[:100]}")
+        print(f"[WARN] analyze-game 디스패치 실패: {r.status_code} {r.text[:100]}")
 
 
 def run():
     ss = get_spreadsheet()
+    # 누락 컬럼 자동 마이그레이션 (genres/developer/publisher/price 등)
+    ensure_games_headers(ss)
     games = get_all_games(ss)
     newly_activated = []
 

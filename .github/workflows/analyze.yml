@@ -5,7 +5,7 @@ on:
     - cron: "0 21 * * *"   # 매일 KST 06:00 (수집 완료 후 1시간 뒤)
   workflow_dispatch:
   repository_dispatch:
-    types: [reanalyze-game]  # 수동 이벤트 등록 후 재분석 트리거
+    types: [reanalyze-game, analyze-game]  # reanalyze-game: 수동, analyze-game: collect 완료 후 자동
 
 jobs:
   analyze:
