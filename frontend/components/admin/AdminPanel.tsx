@@ -16,6 +16,7 @@ export default function AdminPanel({ collectingGames }: { collectingGames: Game[
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { toast, show, clear } = useToast();
+  const [analyzingPending, setAnalyzingPending] = useState(false);
 
   // 세션에 저장된 비밀번호로 자동 인증 시도
   useEffect(() => {
@@ -50,6 +51,29 @@ export default function AdminPanel({ collectingGames }: { collectingGames: Game[
     sessionStorage.removeItem(SESSION_KEY);
     setAuthed(false);
     setPw("");
+  }
+
+  async function handleAnalyzePending() {
+    const savedPw = sessionStorage.getItem(SESSION_KEY);
+    if (!savedPw) return;
+    setAnalyzingPending(true);
+    try {
+      const res = await fetch("/api/admin/analyze-pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("미분석 이벤트 AI 분석을 시작했습니다. 수분 내 반영됩니다.", "success");
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setAnalyzingPending(false);
+    }
   }
 
   // ── 비밀번호 게이트 ────────────────────────────────────────────────────────
@@ -97,6 +121,14 @@ export default function AdminPanel({ collectingGames }: { collectingGames: Game[
         </div>
         <div className="flex items-center gap-3">
           <UiTextSyncButton />
+          <button
+            onClick={handleAnalyzePending}
+            disabled={analyzingPending}
+            title="수집은 됐지만 AI 분석이 안 된 이벤트만 전체 게임 대상으로 분석 실행 (뉴스 재수집 없음)"
+            className="text-xs px-3 py-1.5 border border-accent-blue/40 text-accent-blue rounded hover:bg-accent-blue/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {analyzingPending ? "분석 요청 중..." : "⚡ 미분석 AI 분석"}
+          </button>
           <QueueRetriggerButton />
           <button
             onClick={handleLogout}
