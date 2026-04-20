@@ -251,7 +251,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   }
 
   // ── UI 텍스트 동기화 ──────────────────────────────────────────────────────
-  async function handleSyncUiText(reset: boolean) {
+  async function handleSyncUiText(reset: boolean, force = false) {
     const savedPw = getSavedPw();
     if (!savedPw) return;
     setSyncing(true);
@@ -259,12 +259,14 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       const res = await fetch("/api/admin/sync-ui-text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: savedPw, reset }),
+        body: JSON.stringify({ password: savedPw, reset, force }),
       });
       const data = await res.json();
       if (data.ok) {
         setShowSyncModal(false);
-        if (reset) {
+        if (force) {
+          show(`강제 초기화 완료 — 코드 기본값으로 전체 덮어쓰기 (${data.added}건)`, "success");
+        } else if (reset) {
           show(`재설정 완료 — 유지 ${data.kept}건 / 추가 ${data.added}건 / 제거 ${data.removed}건`, "success");
         } else {
           show(`동기화 완료 — 추가 ${data.added}건 / 기존 유지 ${data.skipped}건`, "success");
@@ -667,9 +669,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-84 max-w-[calc(100vw-2rem)]">
             <p className="font-semibold mb-1">UI 텍스트 시트 관리</p>
-            <p className="text-xs text-text-muted mb-5 leading-relaxed">
+            <p className="text-xs text-text-muted mb-4 leading-relaxed">
               <span className="font-medium text-text-secondary">동기화</span>: 누락 키만 추가, 기존 커스텀 값 보존<br />
-              <span className="font-medium text-accent-orange">전체 재설정</span>: 실제 사용 키만 남기고 미사용 키 제거, 커스텀 값은 유지
+              <span className="font-medium text-accent-orange">전체 재설정</span>: 미사용 키 제거, 커스텀 값은 유지<br />
+              <span className="font-medium text-accent-red">강제 초기화</span>: 코드 기본값으로 전체 덮어씀 (커스텀 값 포함)
             </p>
             <div className="flex gap-2 mb-2">
               <button
@@ -684,9 +687,16 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 disabled={syncing}
                 className="flex-1 py-2 bg-accent-orange/20 border border-accent-orange/40 text-accent-orange rounded-lg text-sm disabled:opacity-40"
               >
-                {syncing ? "처리 중..." : "전체 재설정"}
+                {syncing ? "처리 중..." : "재설정"}
               </button>
             </div>
+            <button
+              onClick={() => handleSyncUiText(true, true)}
+              disabled={syncing}
+              className="w-full mb-2 py-2 bg-accent-red/10 border border-accent-red/40 text-accent-red rounded-lg text-sm disabled:opacity-40 hover:bg-accent-red/20 transition-colors"
+            >
+              {syncing ? "처리 중..." : "⚠️ 강제 초기화 (코드 기본값으로 전체 덮어쓰기)"}
+            </button>
             <button
               onClick={() => setShowSyncModal(false)}
               className="w-full py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover"

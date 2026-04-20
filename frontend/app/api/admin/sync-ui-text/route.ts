@@ -487,7 +487,11 @@ const FALLBACK: Record<string, string> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { password, reset = false } = body as { password: string; reset?: boolean };
+    const { password, reset = false, force = false } = body as {
+      password: string;
+      reset?: boolean;
+      force?: boolean;
+    };
 
     if (!password) {
       return NextResponse.json({ error: "비밀번호가 필요합니다." }, { status: 400 });
@@ -499,9 +503,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (reset) {
-      // 전체 재작성: FALLBACK 키만 남기고, 커스텀 값 보존, 미사용 키 제거
-      const result = await resetUiText(FALLBACK);
-      return NextResponse.json({ ok: true, mode: "reset", ...result });
+      // 전체 재작성: FALLBACK 키만 남기고, 미사용 키 제거
+      // force=true: 코드 FALLBACK 값으로 모두 덮어씀 (커스텀 값 무시)
+      // force=false: 기존 커스텀 값 보존
+      const result = await resetUiText(FALLBACK, force);
+      return NextResponse.json({ ok: true, mode: force ? "force" : "reset", ...result });
     } else {
       // 누락 키만 추가 (기존 값 보존)
       const result = await syncUiText(FALLBACK);

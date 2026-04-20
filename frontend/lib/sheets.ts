@@ -560,7 +560,8 @@ export async function syncUiText(
  * @returns {{ kept: number; added: number; removed: number }}
  */
 export async function resetUiText(
-  fallback: Record<string, string>
+  fallback: Record<string, string>,
+  forceOverwrite = false
 ): Promise<{ kept: number; added: number; removed: number }> {
   const sheets = await getSheetsClient();
 
@@ -579,18 +580,20 @@ export async function resetUiText(
     if (key) existingMap[key] = row[1] ?? "";
   }
 
-  // 새 탭 내용 구성: FALLBACK 키 순서 유지, 커스텀 값 우선
+  // 새 탭 내용 구성: FALLBACK 키 순서 유지
+  // forceOverwrite=true: 항상 코드 FALLBACK 값으로 덮어씀 (커스텀 값 무시)
+  // forceOverwrite=false: 기존 커스텀 값 우선 보존
   const newRows: string[][] = [["key", "value"]];
   let kept = 0;
   let added = 0;
 
   for (const [key, defaultVal] of Object.entries(fallback)) {
-    if (key in existingMap) {
+    if (!forceOverwrite && key in existingMap) {
       // 기존 값 보존 (빈 값이면 기본값 사용)
       newRows.push([key, existingMap[key] || defaultVal]);
       kept++;
     } else {
-      // 신규 키 — 기본값 사용
+      // 신규 키이거나 강제 덮어쓰기 — FALLBACK 값 사용
       newRows.push([key, defaultVal]);
       added++;
     }
