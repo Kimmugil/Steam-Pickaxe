@@ -3,6 +3,7 @@ MASTER_SPREADSHEET 읽기/쓰기 전담 모듈
 프론트엔드가 실제로 읽는 파일이므로 스키마 변경에 주의
 """
 import gspread
+from gspread.http_client import BackoffHTTPClient
 from google.oauth2.service_account import Credentials
 from datetime import datetime, date
 from typing import Optional
@@ -16,8 +17,9 @@ SCOPES = [
 ]
 
 def get_client() -> gspread.Client:
+    """BackoffHTTPClient: 429 쿼터 초과 시 지수 백오프로 자동 재시도"""
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
-    return gspread.authorize(creds)
+    return gspread.Client(auth=creds, http_client=BackoffHTTPClient)
 
 def get_spreadsheet() -> gspread.Spreadsheet:
     return get_client().open_by_key(MASTER_SPREADSHEET_ID)

@@ -5,6 +5,7 @@ master_sheet.py 의 timeline_{appid}, ccu_{appid} 탭 대신 이 모듈을 사�
 마스터 시트는 config / games / ui_text 탭만 유지한다.
 """
 import gspread
+from gspread.http_client import BackoffHTTPClient
 from google.oauth2.service_account import Credentials
 import sys, os, time, functools
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -45,8 +46,9 @@ TIMELINE_HEADERS = [
 
 
 def _get_client() -> gspread.Client:
+    """BackoffHTTPClient: 429 쿼터 초과 시 지수 백오프로 자동 재시도"""
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
-    return gspread.authorize(creds)
+    return gspread.Client(auth=creds, http_client=BackoffHTTPClient)
 
 
 def open_game_sheet(game_sheet_id: str) -> gspread.Spreadsheet:
