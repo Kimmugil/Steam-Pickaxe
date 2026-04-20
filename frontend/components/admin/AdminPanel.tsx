@@ -20,6 +20,87 @@ const STATUS_COLORS: Record<GameStatus, string> = {
   error_pool_empty: "bg-accent-red/20 text-accent-red border-accent-red/30",
 };
 
+// ── 컬럼 도움말 정의 ──────────────────────────────────────────────────────────
+const COLUMN_HELP: Record<string, { title: string; lines: string[] }> = {
+  status: {
+    title: "수집 활성 ON / OFF",
+    lines: [
+      "ON (활성): 봇이 이 게임의 리뷰와 이벤트를 주기적으로 수집하며, 홈 화면에 노출됩니다.",
+      "OFF (숨김): 수집이 중단되고 홈 화면에서 숨겨집니다. 기존 수집 데이터는 모두 보존되며, 언제든 다시 ON으로 복원할 수 있습니다.",
+      "수집 중(파란색) 또는 수집 오류(빨간색) 상태에서는 ON/OFF 전환이 비활성화됩니다.",
+    ],
+  },
+  ai_approved: {
+    title: "AI 승인",
+    lines: [
+      "✅ 승인됨: 매월 1일 자동 AI 분석 대상에 포함됩니다. 관리자 패널의 '이번 달' 버튼 또는 '재분석' 버튼으로 온디맨드 실행도 가능합니다.",
+      "⏳ 미승인: AI 분석이 실행되지 않습니다. 게임을 처음 등록하면 자동으로 미승인 상태가 됩니다.",
+      "AI 분석 범위: 게임 브리핑, 이벤트별 패치 요약 및 플레이어 반응 분석, 언어권 교차 분석, CCU 피크타임 분석, 감성 추이 진단.",
+    ],
+  },
+  reviews: {
+    title: "수집 리뷰 / Steam 총 리뷰",
+    lines: [
+      "좌측 (수집): Google Sheets RAW 시트에 실제 저장된 리뷰 수입니다. collect.yml 워크플로우가 매일 누적합니다.",
+      "우측 (Steam): Steam 스토어 기준 총 리뷰 수입니다. 수집 목표치로, 두 값이 같으면 모든 리뷰 수집이 완료된 상태입니다.",
+      "수집 도중 커서가 리셋되면 좌측 값이 일시적으로 낮게 표시될 수 있습니다.",
+    ],
+  },
+  events: {
+    title: "수집 이벤트",
+    lines: [
+      "Google Sheets 타임라인 시트에 수집된 이벤트(공식 패치노트 + 외부 뉴스·미디어) 총 수입니다.",
+      "공식 이벤트: Steam 공식 발표 및 패치노트. 외부 이벤트: 관련 뉴스·미디어 기사.",
+      "현재 Steam 전체 공개 이벤트 수는 별도로 추적하지 않습니다.",
+    ],
+  },
+  dates: {
+    title: "마지막 수집 / AI 분석",
+    lines: [
+      "마지막 수집: 이벤트가 마지막으로 수집·업데이트된 날짜입니다 (last_event_date 기준).",
+      "AI 분석: 게임 브리핑과 이벤트 AI 분석이 마지막으로 실행된 날짜입니다 (ai_briefing_date 기준).",
+      "두 날짜 차이가 클수록 수집 이후 AI 분석이 아직 반영되지 않은 구간이 있을 수 있습니다.",
+    ],
+  },
+};
+
+// ── 도움말 버튼 ───────────────────────────────────────────────────────────────
+function HelpBtn({ col, onClick }: { col: string; onClick: (c: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(col); }}
+      className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-text-muted/20 text-text-muted hover:bg-accent-blue/20 hover:text-accent-blue text-[9px] font-bold transition-colors ml-1 flex-shrink-0"
+      title="도움말"
+    >
+      ?
+    </button>
+  );
+}
+
+// ── ON/OFF 토글 스위치 ────────────────────────────────────────────────────────
+function ToggleSwitch({ on, loading, disabled, onClick }: {
+  on: boolean; loading: boolean; disabled?: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading || disabled}
+      title={on ? "ON — 클릭하면 수집 중단(숨김)" : "OFF — 클릭하면 수집 재개(활성)"}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-40 focus:outline-none ${
+        on ? "bg-accent-green" : "bg-border-default"
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+          on ? "translate-x-[18px]" : "translate-x-[2px]"
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
@@ -27,6 +108,9 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { toast, show, clear } = useToast();
+
+  // 도움말 팝업
+  const [activeHelp, setActiveHelp] = useState<string | null>(null);
 
   // 시스템 도구 상태
   const [showSyncModal, setShowSyncModal] = useState(false);
@@ -38,36 +122,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   // 순서 편집 상태
   const [sortOrderMap, setSortOrderMap] = useState<Record<string, string>>({});
 
-  // ── 표시 순서 저장 ────────────────────────────────────────────────────────
-  async function handleSortOrder(appid: string, value: string) {
-    const savedPw = getSavedPw();
-    if (!savedPw) return;
-    try {
-      const res = await fetch("/api/admin/sort-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: savedPw, appid, sort_order: value }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        show("표시 순서가 저장되었습니다.", "success");
-        router.refresh();
-      } else {
-        show(data.error ?? "오류가 발생했습니다.", "error");
-      }
-    } catch {
-      show("서버 연결 오류", "error");
-    }
-  }
-
-  // 게임별 액션 로딩 상태 (appid별)
+  // 게임별 액션 로딩 상태
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
   const [unapprovingIds, setUnapprovingIds] = useState<Set<string>>(new Set());
   const [collectingMonthIds, setCollectingMonthIds] = useState<Set<string>>(new Set());
   const [reanalyzingIds, setReanalyzingIds] = useState<Set<string>>(new Set());
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-  const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY);
@@ -99,6 +159,32 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
   function getSavedPw(): string | null {
     return sessionStorage.getItem(SESSION_KEY);
+  }
+
+  // ── 수집 활성 ON/OFF 토글 ─────────────────────────────────────────────────
+  async function handleToggleActive(appid: string, isCurrentlyActive: boolean) {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setTogglingIds((prev) => new Set(prev).add(appid));
+    const endpoint = isCurrentlyActive ? "/api/admin/delete" : "/api/admin/restore";
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show(isCurrentlyActive ? "수집을 중단했습니다. 데이터는 보존됩니다." : "수집을 재개했습니다.", "success");
+        router.refresh();
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setTogglingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
   }
 
   // ── AI 분석 승인 ──────────────────────────────────────────────────────────
@@ -199,54 +285,25 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
     }
   }
 
-  // ── 소프트 삭제 ───────────────────────────────────────────────────────────
-  async function handleDelete(appid: string) {
+  // ── 표시 순서 저장 ────────────────────────────────────────────────────────
+  async function handleSortOrder(appid: string, value: string) {
     const savedPw = getSavedPw();
     if (!savedPw) return;
-    setDeletingIds((prev) => new Set(prev).add(appid));
-    setConfirmDeleteId(null);
     try {
-      const res = await fetch("/api/admin/delete", {
+      const res = await fetch("/api/admin/sort-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: savedPw, appid }),
+        body: JSON.stringify({ password: savedPw, appid, sort_order: value }),
       });
       const data = await res.json();
       if (data.ok) {
-        show("게임을 숨겼습니다. 데이터는 보존됩니다.", "success");
+        show("표시 순서가 저장되었습니다.", "success");
         router.refresh();
       } else {
         show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
       show("서버 연결 오류", "error");
-    } finally {
-      setDeletingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
-    }
-  }
-
-  // ── 복원 ─────────────────────────────────────────────────────────────────
-  async function handleRestore(appid: string) {
-    const savedPw = getSavedPw();
-    if (!savedPw) return;
-    setRestoringIds((prev) => new Set(prev).add(appid));
-    try {
-      const res = await fetch("/api/admin/restore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: savedPw, appid }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        show("게임을 복원했습니다.", "success");
-        router.refresh();
-      } else {
-        show(data.error ?? "오류가 발생했습니다.", "error");
-      }
-    } catch {
-      show("서버 연결 오류", "error");
-    } finally {
-      setRestoringIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
   }
 
@@ -361,13 +418,15 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   }
 
   // ── 관리자 콘텐츠 ────────────────────────────────────────────────────────
-  const activeGames = allGames.filter((g) => g.status === "active");
   const pendingAiGames = allGames.filter(
     (g) =>
       g.status === "active" &&
       !String(g.ai_briefing ?? "").trim() &&
       String(g.ai_approved ?? "").toLowerCase() !== "true"
   );
+
+  // 현재 도움말 내용
+  const helpData = activeHelp ? COLUMN_HELP[activeHelp] : null;
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-10">
@@ -395,27 +454,67 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
             <p>등록된 게임이 없습니다.</p>
           </div>
         ) : (
-          <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[900px]">
               <thead>
                 <tr className="border-b border-border-default bg-bg-secondary">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">게임</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">상태</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">AI 승인</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">수집 대상 / Steam 총계</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">순서</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">마지막 분석</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-text-muted">액션</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">게임</th>
+
+                  {/* 수집 활성 */}
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
+                    <span className="inline-flex items-center gap-0.5">
+                      수집 활성
+                      <HelpBtn col="status" onClick={setActiveHelp} />
+                    </span>
+                  </th>
+
+                  {/* AI 승인 */}
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
+                    <span className="inline-flex items-center gap-0.5">
+                      AI 승인
+                      <HelpBtn col="ai_approved" onClick={setActiveHelp} />
+                    </span>
+                  </th>
+
+                  {/* 수집 리뷰 */}
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
+                    <span className="inline-flex items-center gap-0.5">
+                      수집 리뷰 / Steam 리뷰
+                      <HelpBtn col="reviews" onClick={setActiveHelp} />
+                    </span>
+                  </th>
+
+                  {/* 수집 이벤트 */}
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
+                    <span className="inline-flex items-center gap-0.5">
+                      수집 이벤트
+                      <HelpBtn col="events" onClick={setActiveHelp} />
+                    </span>
+                  </th>
+
+                  {/* 마지막 수집 / AI 분석 */}
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
+                    <span className="inline-flex items-center gap-0.5">
+                      마지막 수집 / AI 분석
+                      <HelpBtn col="dates" onClick={setActiveHelp} />
+                    </span>
+                  </th>
+
+                  {/* 순서 */}
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">순서</th>
+
+                  {/* 액션 */}
+                  <th className="text-right px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">액션</th>
                 </tr>
               </thead>
               <tbody>
                 {allGames.map((game, i) => {
                   const appid = String(game.appid);
-                  const isArchived = game.status === "archived";
                   const isActive = game.status === "active";
+                  const isArchived = game.status === "archived";
+                  const canToggle = isActive || isArchived;
                   const isApproved = String(game.ai_approved ?? "").toLowerCase() === "true";
-                  const needsApproval =
-                    isActive && !String(game.ai_briefing ?? "").trim() && !isApproved;
+                  const needsApproval = isActive && !String(game.ai_briefing ?? "").trim() && !isApproved;
 
                   return (
                     <tr
@@ -433,20 +532,33 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                           {game.name_kr || game.name}
                         </a>
                         {game.name_kr && game.name_kr !== game.name && (
-                          <p className="text-xs text-text-muted truncate max-w-[200px]">{game.name}</p>
+                          <p className="text-xs text-text-muted truncate max-w-[180px]">{game.name}</p>
                         )}
                         <p className="text-xs text-text-muted">AppID {appid}</p>
                       </td>
 
-                      {/* 상태 */}
+                      {/* 수집 활성 ON/OFF */}
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
-                            STATUS_COLORS[game.status]
-                          }`}
-                        >
-                          {STATUS_LABELS[game.status]}
-                        </span>
+                        {canToggle ? (
+                          <div className="flex flex-col gap-1">
+                            <ToggleSwitch
+                              on={isActive}
+                              loading={togglingIds.has(appid)}
+                              onClick={() => handleToggleActive(appid, isActive)}
+                            />
+                            <span className={`text-[10px] ${isActive ? "text-accent-green" : "text-text-muted"}`}>
+                              {togglingIds.has(appid) ? "처리 중..." : isActive ? "ON" : "OFF"}
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
+                              STATUS_COLORS[game.status]
+                            }`}
+                          >
+                            {STATUS_LABELS[game.status]}
+                          </span>
+                        )}
                       </td>
 
                       {/* AI 승인 토글 */}
@@ -456,7 +568,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             <button
                               onClick={() => handleUnapproveGame(appid)}
                               disabled={unapprovingIds.has(appid)}
-                              title="클릭하면 AI 분석 승인이 취소됩니다. 이후 analyze.yml이 이 게임을 건너뜁니다."
+                              title="클릭하면 AI 분석 승인이 취소됩니다."
                               className="text-xs text-accent-green hover:text-accent-red hover:line-through transition-colors disabled:opacity-40 cursor-pointer"
                             >
                               {unapprovingIds.has(appid) ? "취소 중..." : "✅ 승인됨"}
@@ -476,12 +588,42 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                         )}
                       </td>
 
-                      {/* Steam API 수집 대상 / 스토어 총계 */}
-                      <td className="px-4 py-3 text-xs text-text-secondary">
-                        <span title="Steam API 기준 수집 대상 리뷰 수 / Steam 스토어 표시 총 리뷰 수">
-                          {Number(game.total_reviews_count ?? 0).toLocaleString()}
-                          <span className="text-text-muted"> / {Number(game.totalReviews ?? 0).toLocaleString()}건</span>
+                      {/* 수집 리뷰 / Steam 총 리뷰 */}
+                      <td className="px-4 py-3 text-xs">
+                        <span className="text-text-primary font-medium">
+                          {Number(game.collected_reviews_count ?? 0).toLocaleString()}
                         </span>
+                        <span className="text-text-muted"> 리뷰</span>
+                        <br />
+                        <span className="text-text-muted text-[10px]">
+                          Steam: {Number(game.totalReviews ?? 0).toLocaleString()}건
+                        </span>
+                      </td>
+
+                      {/* 수집 이벤트 */}
+                      <td className="px-4 py-3 text-xs">
+                        <span className="text-text-primary font-medium">
+                          {Number(game.event_count ?? 0).toLocaleString()}
+                        </span>
+                        <span className="text-text-muted"> 건</span>
+                      </td>
+
+                      {/* 마지막 수집 / AI 분석 날짜 */}
+                      <td className="px-4 py-3 text-xs">
+                        <div className="space-y-0.5">
+                          <div>
+                            <span className="text-text-muted text-[10px]">수집 </span>
+                            <span className="text-text-secondary">
+                              {game.last_event_date || "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-text-muted text-[10px]">분석 </span>
+                            <span className="text-text-secondary">
+                              {game.ai_briefing_date || "—"}
+                            </span>
+                          </div>
+                        </div>
                       </td>
 
                       {/* 표시 순서 */}
@@ -494,19 +636,14 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                           onChange={(e) => setSortOrderMap((prev) => ({ ...prev, [appid]: e.target.value }))}
                           onBlur={(e) => handleSortOrder(appid, e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                          className="w-16 bg-bg-secondary border border-border-default rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent-blue"
+                          className="w-14 bg-bg-secondary border border-border-default rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent-blue"
                         />
-                      </td>
-
-                      {/* 마지막 분석 */}
-                      <td className="px-4 py-3 text-xs text-text-secondary">
-                        {game.ai_briefing_date || "—"}
                       </td>
 
                       {/* 액션 버튼 */}
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1.5 justify-end">
-                          {/* AI 분석 승인 */}
+                          {/* AI 분석 승인 (미승인 게임만) */}
                           {needsApproval && (
                             <button
                               onClick={() => handleApproveGame(appid)}
@@ -539,42 +676,6 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             >
                               {reanalyzingIds.has(appid) ? "요청 중..." : "🔄 재분석"}
                             </button>
-                          )}
-
-                          {/* 소프트 삭제 / 복원 */}
-                          {isArchived ? (
-                            <button
-                              onClick={() => handleRestore(appid)}
-                              disabled={restoringIds.has(appid)}
-                              className="px-2.5 py-1 text-xs bg-accent-green/10 border border-accent-green/30 text-accent-green rounded hover:bg-accent-green/20 transition-colors disabled:opacity-40"
-                            >
-                              {restoringIds.has(appid) ? "복원 중..." : "↩️ 복원"}
-                            </button>
-                          ) : (
-                            confirmDeleteId === appid ? (
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => handleDelete(appid)}
-                                  disabled={deletingIds.has(appid)}
-                                  className="px-2.5 py-1 text-xs bg-accent-red/20 border border-accent-red/40 text-accent-red rounded disabled:opacity-40"
-                                >
-                                  {deletingIds.has(appid) ? "삭제 중..." : "확인"}
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteId(null)}
-                                  className="px-2.5 py-1 text-xs bg-bg-secondary text-text-muted rounded hover:bg-bg-hover"
-                                >
-                                  취소
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setConfirmDeleteId(appid)}
-                                className="px-2.5 py-1 text-xs bg-bg-secondary border border-border-default text-text-muted rounded hover:border-accent-red/30 hover:text-accent-red transition-colors"
-                              >
-                                🗑️ 숨기기
-                              </button>
-                            )
                           )}
                         </div>
                       </td>
@@ -663,6 +764,35 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
         </div>
       </section>
+
+      {/* ── 도움말 모달 ──────────────────────────────────────────────────────── */}
+      {activeHelp && helpData && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setActiveHelp(null)}
+        >
+          <div
+            className="bg-bg-card border border-border-default rounded-xl p-6 max-w-md w-[calc(100vw-2rem)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-semibold text-text-primary mb-3">{helpData.title}</p>
+            <ul className="space-y-2">
+              {helpData.lines.map((line, idx) => (
+                <li key={idx} className="flex gap-2 text-xs text-text-secondary leading-relaxed">
+                  <span className="text-accent-blue mt-0.5 flex-shrink-0">•</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setActiveHelp(null)}
+              className="mt-5 w-full py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover transition-colors"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* UI 텍스트 동기화 모달 */}
       {showSyncModal && (
