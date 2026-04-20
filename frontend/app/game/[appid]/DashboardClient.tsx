@@ -179,7 +179,7 @@ export default function DashboardClient({
         {/* ── 업데이트 히스토리 ────────────────────────────────────── */}
         <div className="bg-bg-card border border-border-default rounded-xl p-6">
           <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
-          <Timeline timelineRows={timelineRows} appid={String(game.appid)} />
+          <Timeline timelineRows={timelineRows} appid={String(game.appid)} releaseDate={game.release_date} />
         </div>
 
         {/* ── 관리자 도구 (비밀번호 게이트) ──────────────────────── */}

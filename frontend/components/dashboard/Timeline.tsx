@@ -8,6 +8,7 @@ import type { TimelineRow, TopReview } from "@/types";
 interface TimelineProps {
   timelineRows: TimelineRow[];
   appid: string;
+  releaseDate?: string;
 }
 
 // ── 이벤트 수정 모달 ─────────────────────────────────────────────────────────
@@ -115,9 +116,9 @@ function EventItem({
   const typeColor = TYPE_COLORS[row.event_type] ?? "text-text-muted border-border-default bg-bg-secondary";
 
   const TYPE_LABELS: Record<string, string> = {
-    official: t("TIMELINE_TYPE_OFFICIAL"),
-    manual:   t("TIMELINE_TYPE_MANUAL"),
-    news:     t("TIMELINE_TYPE_NEWS"),
+    official:     "공식 이벤트",
+    manual:       t("TIMELINE_TYPE_MANUAL"),
+    news:         "외부 이벤트",
     free_weekend: t("TIMELINE_TYPE_FREE_WEEKEND"),
   };
 
@@ -178,13 +179,14 @@ function EventItem({
 
 // ── 월별 카드 ────────────────────────────────────────────────────────────────
 function MonthCard({
-  summaryRow, eventRows, sortAsc, appid, onEdit,
+  summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm,
 }: {
   summaryRow: TimelineRow | null;
   eventRows: TimelineRow[];
   sortAsc: boolean;
   appid: string;
   onEdit: (r: TimelineRow) => void;
+  releaseYm?: string;
 }) {
   const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
@@ -239,24 +241,28 @@ function MonthCard({
           {officialCount > 0 && ` · 공식 이벤트 ${officialCount}건`}
         </span>
 
-        {/* 긍정률 배지 */}
-        {isPending ? (
-          <span className="ml-auto text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
-            {t("TIMELINE_PENDING")}
+        {/* 출시 마커 */}
+        {releaseYm && ym === releaseYm && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-green border-accent-green/40 bg-accent-green/10 shrink-0">
+            🚀 출시
           </span>
-        ) : isSparse ? (
-          <span className="ml-auto text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
-            {t("TIMELINE_SPARSE_LABEL")}
-          </span>
-        ) : rate !== null ? (
-          <span className="ml-auto">
-            <Badge rate={rate} reviewCount={reviewCount} size="sm" labelOnly />
-          </span>
-        ) : null}
+        )}
 
-        <span className={`${rate !== null ? "" : "ml-auto"} text-text-muted text-xs`}>
-          {expanded ? "▲" : "▼"}
-        </span>
+        {/* 오른쪽: 상태 배지 + 토글 화살표 */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {isPending ? (
+            <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
+              {t("TIMELINE_PENDING")}
+            </span>
+          ) : isSparse ? (
+            <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
+              {t("TIMELINE_SPARSE_LABEL")}
+            </span>
+          ) : rate !== null ? (
+            <Badge rate={rate} reviewCount={reviewCount} size="sm" labelOnly />
+          ) : null}
+          <span className="text-text-muted text-xs">{expanded ? "▲" : "▼"}</span>
+        </div>
       </button>
 
       {/* 펼침 영역 */}
@@ -332,7 +338,7 @@ function MonthCard({
 }
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
-export default function Timeline({ timelineRows, appid }: TimelineProps) {
+export default function Timeline({ timelineRows, appid, releaseDate }: TimelineProps) {
   const { t } = useUiText();
   const [sortAsc, setSortAsc]     = useState(false);
   const [editingRow, setEditingRow] = useState<TimelineRow | null>(null);
@@ -363,6 +369,14 @@ export default function Timeline({ timelineRows, appid }: TimelineProps) {
     }
     return map;
   }, [timelineRows]);
+
+  // 출시 월 파싱 (예: "Apr 14, 2026" → "2026-04")
+  const releaseYm = useMemo(() => {
+    if (!releaseDate) return undefined;
+    const d = new Date(releaseDate);
+    if (isNaN(d.getTime())) return undefined;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, [releaseDate]);
 
   // 모든 YYYY-MM 목록 (summary + event rows 합집합)
   const allYms = useMemo(() => {
@@ -399,6 +413,7 @@ export default function Timeline({ timelineRows, appid }: TimelineProps) {
             sortAsc={sortAsc}
             appid={appid}
             onEdit={setEditingRow}
+            releaseYm={releaseYm}
           />
         ))}
       </div>
