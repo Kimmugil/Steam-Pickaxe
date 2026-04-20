@@ -331,11 +331,13 @@ def _call_gemini(prompt: str, retries: int = 3) -> dict | None:
         try:
             resp = model.generate_content(prompt)
             text = resp.text.strip()
-            # response_mime_type=application/json 설정 시 마크다운 펜스가 없어야 하나,
-            # 폴백 모드(설정 미지원)를 위해 안전망으로 유지
             if text.startswith("```"):
                 text = text.split("\n", 1)[1].rsplit("```", 1)[0]
-            return json.loads(text)
+            parsed = json.loads(text)
+            if not isinstance(parsed, dict):
+                print(f"[gemini] 예상치 못한 응답 타입 ({type(parsed).__name__}) 시도 {attempt+1}: {str(parsed)[:100]}")
+                continue
+            return parsed
         except json.JSONDecodeError as e:
             print(f"[gemini] JSON 파싱 오류 시도 {attempt+1}: {e}")
         except Exception as e:
