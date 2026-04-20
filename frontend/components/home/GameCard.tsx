@@ -5,12 +5,6 @@ import Badge, { getSteamLabel } from "@/components/shared/Badge";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
-function parseBool(v: boolean | string | undefined): boolean {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "string") return v.toUpperCase() === "TRUE";
-  return false;
-}
-
 function daysSince(dateStr: string): number {
   if (!dateStr) return 0;
   const d = new Date(dateStr);
@@ -29,7 +23,6 @@ export default function GameCard({ game }: GameCardProps) {
   const eventDaysColor =
     eventDays >= 60 ? "text-accent-red" : eventDays >= 30 ? "text-accent-orange" : "text-text-muted";
 
-  const isFree = parseBool(game.is_free);
   const sentimentRate =
     game.latest_sentiment_rate !== undefined && game.latest_sentiment_rate !== ""
       ? Number(game.latest_sentiment_rate)
@@ -57,19 +50,15 @@ export default function GameCard({ game }: GameCardProps) {
         ) : (
           <div className="w-full h-full bg-bg-secondary" />
         )}
-        {isFree && (
-          <span className="absolute top-2 right-2 text-xs bg-accent-green/90 text-white px-2 py-0.5 rounded font-medium">
-            {t("BADGE_F2P")}
-          </span>
-        )}
-        {sentimentRate !== null && !isFree && (
+        {sentimentRate !== null && (
           <div className="absolute top-2 right-2">
-            <Badge rate={sentimentRate} reviewCount={Number(game.totalReviews || 0)} size="sm" />
-          </div>
-        )}
-        {sentimentRate !== null && isFree && (
-          <div className="absolute top-2 left-2">
-            <Badge rate={sentimentRate} reviewCount={Number(game.totalReviews || 0)} size="sm" />
+            <Badge
+              rate={sentimentRate}
+              reviewCount={Number(game.totalReviews || 0)}
+              size="sm"
+              labelOnly
+              overlay
+            />
           </div>
         )}
       </div>
