@@ -165,7 +165,8 @@ def run():
                     print(f"  [재분석 예약] 직전 이벤트: {buckets[-2]['title']}")
 
         # ── ai_patch_summary 오염 정제 ───────────────────────────────────
-        # 프롬프트 단계 레이블("[1단계]", "UPDATE:" 등)이 노출된 행을 감지해 재생성
+        # 프롬프트 단계 레이블("[1단계]", "UPDATE:" 등)이 노출된 행을 정규식으로 정제.
+        # API 재호출 없이 문자열 치환만으로 해결하여 불필요한 API 비용을 제거한다.
         import re as _re
         _bad_pattern = _re.compile(r"^\s*(\[\d?단계\]|UPDATE\s*[:：]|EVENT\s*[:：]|DELAY\s*[:：]|MAINTENANCE\s*[:：]|ANNOUNCEMENT\s*[:：])")
         rows_with_bad_summary = [
@@ -176,18 +177,18 @@ def run():
         ]
         if rows_with_bad_summary:
             _ev_row_map_bad = build_event_row_map(timeline_rows)
-            print(f"  [patch_summary 정제] {len(rows_with_bad_summary)}건 재생성 시작")
+            print(f"  [patch_summary 정제] {len(rows_with_bad_summary)}건 정규식 정제 시작 (API 재호출 없음)")
             for r in rows_with_bad_summary:
                 try:
-                    fixed = analyze_patch_summary(
-                        name, r.get("title", ""),
-                        r.get("url", ""), r.get("content", "")
-                    )
-                    if fixed:
+                    raw_text = str(r.get("ai_patch_summary", ""))
+                    fixed = _re.sub(r"^\s*\[\d?단계\][^\n]*\n?", "", raw_text, flags=_re.MULTILINE).strip()
+                    fixed = _re.sub(r"^\s*(UPDATE|DELAY|MAINTENANCE|EVENT|ANNOUNCEMENT|OTHER)\s*[:：]\s*", "", fixed).strip()
+                    if fixed and fixed != raw_text:
                         gs_update_event_field(game_ss, r["event_id"], "ai_patch_summary", fixed,
                                               event_row_map=_ev_row_map_bad)
-                        print(f"    [{r.get('date')}] {r.get('title')[:40]} → 재생성 완료")
-                        time.sleep(2)
+                        print(f"    [{r.get('date')}] {r.get('title', '')[:40]} → 정제 완료")
+                    else:
+                        print(f"    [{r.get('date')}] {r.get('title', '')[:40]} → 변경 없음")
                 except Exception as e:
                     print(f"    [patch_summary 정제 오류] {r.get('title')}: {e}")
             print(f"  [patch_summary 정제] 완료")
@@ -352,14 +353,17 @@ def run():
                 print(f"    title_kr: {title_kr}")
 
             # 언어별 분석
+            # all 스코프: 기존 max 2000 유지 / 개별 언어 스코프: max 500으로 축소
+            # (언어 필터링 후 남은 리뷰에서 500건만 샘플해도 충분한 통계적 대표성 확보)
             scopes = ["all"] + top_languages
             for scope in scopes:
                 if scope == "all":
                     scope_reviews = combined_reviews  # carry-over 포함
+                    sampled = sample_reviews(scope_reviews)
                 else:
                     scope_reviews = [r for r in combined_reviews if r.get("language") == scope]
+                    sampled = sample_reviews(scope_reviews, max_total=500)
 
-                sampled = sample_reviews(scope_reviews)
                 analysis = analyze_bucket(name, bucket["title"], sampled, scope)
 
                 row = {

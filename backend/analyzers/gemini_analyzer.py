@@ -3,6 +3,7 @@ Gemini 2.5 Flash API — 리뷰 분석, 키워드 추출, AI 브리핑 생성
 기획서 4장 AI 분석 원칙: 현상 진단 + 인과관계만, 지시적 어조 금지
 """
 import json
+import re
 import time
 import google.generativeai as genai
 import sys, os
@@ -12,29 +13,39 @@ from config import GEMINI_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 MODEL = "gemini-2.5-flash"
 
-# Thinking 모드 설정 (google-generativeai >= 0.8 필요)
-# Gemini 2.5 Flash는 thinking이 기본 활성화되어 있으며,
-# SDK 버전에 따라 예산 상한 설정 가능 여부가 다름.
-_THINKING_CONFIG = None
+# ── Generation Config 분리 ─────────────────────────────────────────────────────
+# analyze_bucket: thinking 활성(budget=2048) + JSON structured output
+# 텍스트 전용 함수: thinking 비활성(budget=0)으로 은닉 토큰 낭비 방지
+_ANALYSIS_GEN_CONFIG = None
+_TEXT_GEN_CONFIG = None
 try:
-    _THINKING_CONFIG = genai.types.GenerationConfig(
-        thinking_config=genai.types.ThinkingConfig(thinking_budget=8192),
+    _ANALYSIS_GEN_CONFIG = genai.types.GenerationConfig(
+        thinking_config=genai.types.ThinkingConfig(thinking_budget=2048),
+        response_mime_type="application/json",
     )
-    print("[gemini] Thinking 모드 활성 (budget=8192)")
-except AttributeError:
-    print("[gemini] ThinkingConfig 미지원 버전 — 모델 기본값으로 실행 (thinking 자동 활성)")
+    _TEXT_GEN_CONFIG = genai.types.GenerationConfig(
+        thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
+    )
+    print("[gemini] Thinking 분리: analyze_bucket=2048 (JSON mime), text=thinking 비활성")
+except (AttributeError, TypeError, ValueError) as e:
+    print(f"[gemini] GenerationConfig 분리 불가 ({e}) — 기본값으로 실행")
 
 
-def _make_model(system_instruction: str = None) -> genai.GenerativeModel:
-    """공통 모델 인스턴스 생성. ThinkingConfig 지원 시 thinking 예산 제한 적용."""
+def _make_analysis_model(system_instruction: str = None) -> genai.GenerativeModel:
+    """analyze_bucket 전용: thinking 2048 + JSON structured output."""
     kwargs = {}
-    if _THINKING_CONFIG is not None:
-        kwargs["generation_config"] = _THINKING_CONFIG
-    return genai.GenerativeModel(
-        MODEL,
-        system_instruction=system_instruction,
-        **kwargs,
-    )
+    if _ANALYSIS_GEN_CONFIG is not None:
+        kwargs["generation_config"] = _ANALYSIS_GEN_CONFIG
+    return genai.GenerativeModel(MODEL, system_instruction=system_instruction, **kwargs)
+
+
+def _make_text_model(system_instruction: str = None) -> genai.GenerativeModel:
+    """텍스트 응답 전용: thinking 비활성으로 은닉 토큰 비용 절감."""
+    kwargs = {}
+    if _TEXT_GEN_CONFIG is not None:
+        kwargs["generation_config"] = _TEXT_GEN_CONFIG
+    return genai.GenerativeModel(MODEL, system_instruction=system_instruction, **kwargs)
+
 
 LANGUAGE_NAMES = {
     "all": "전체",
@@ -68,7 +79,7 @@ def analyze_bucket(game_name: str, event_title: str, reviews: list[dict], langua
         return _empty_analysis()
 
     lang_name = LANGUAGE_NAMES.get(language_scope, language_scope)
-    reviews_text = _format_reviews(reviews[:2000])
+    reviews_text = _format_reviews(reviews)
 
     prompt = f"""게임: {game_name}
 이벤트/구간: {event_title}
@@ -131,7 +142,7 @@ def generate_event_title_kr(
 - 좋은 예: "주말 특가 이벤트"
 - 텍스트만 반환, JSON/마크다운 없이."""
 
-    model = _make_model()
+    model = _make_text_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()[:60]
@@ -182,15 +193,14 @@ URL: {patch_url}{content_section}
 {source_note}
 지시적 어조 없이 사실만 서술하세요. JSON 없이 텍스트만 반환하세요."""
 
-    model = _make_model()
+    model = _make_text_model()
     try:
         resp = model.generate_content(prompt)
         text = resp.text.strip()
         # 프롬프트 단계 레이블이 응답에 포함된 경우 제거 (예: "[1단계] ...\n[2단계] 실제요약")
-        import re as _re
-        text = _re.sub(r"^\s*\[\d?단계\][^\n]*\n?", "", text, flags=_re.MULTILINE).strip()
+        text = re.sub(r"^\s*\[\d?단계\][^\n]*\n?", "", text, flags=re.MULTILINE).strip()
         # "UPDATE:" / "EVENT:" 등 유형 레이블이 맨 앞에 붙은 경우 제거
-        text = _re.sub(r"^\s*(UPDATE|DELAY|MAINTENANCE|EVENT|ANNOUNCEMENT|OTHER)\s*[:：]\s*", "", text).strip()
+        text = re.sub(r"^\s*(UPDATE|DELAY|MAINTENANCE|EVENT|ANNOUNCEMENT|OTHER)\s*[:：]\s*", "", text).strip()
         return text
     except Exception as e:
         print(f"[gemini] patch_summary 오류: {e}")
@@ -215,7 +225,7 @@ def generate_ai_briefing(game_name: str, timeline_summary: str, trend_direction:
 데이터:
 {timeline_summary}"""
 
-    model = _make_model()
+    model = _make_text_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -255,7 +265,7 @@ def generate_sentiment_trend_comment(game_name: str, trend_buckets: list[dict]) 
 - 수치(%)는 반드시 데이터에 있는 값만 사용
 - JSON 없이 텍스트만 반환"""
 
-    model = _make_model()
+    model = _make_text_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -278,7 +288,7 @@ def generate_ccu_peaktime_comment(game_name: str, ccu_data: list[dict]) -> str:
 
 {summary}"""
 
-    model = _make_model()
+    model = _make_text_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -300,7 +310,7 @@ CCU 피크타임 분석:
 스팀 영어 과대표집 문제를 감안하여 실제 주력 권역과 권역 간 평가 온도차를 진단하세요.
 3~4문장, 지시적 어조 금지, JSON 없이 텍스트만 반환."""
 
-    model = _make_model()
+    model = _make_text_model()
     try:
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -310,11 +320,19 @@ CCU 피크타임 분석:
 
 
 def _call_gemini(prompt: str, retries: int = 3) -> dict | None:
-    model = _make_model(system_instruction=ANALYSIS_SYSTEM_PROMPT)
+    """
+    analyze_bucket 전용 Gemini 호출.
+    _make_analysis_model (thinking=2048 + JSON mime) 사용으로
+    - 불필요한 thinking 토큰 상한 제어
+    - response_mime_type=application/json으로 파싱 오류 최소화
+    """
+    model = _make_analysis_model(system_instruction=ANALYSIS_SYSTEM_PROMPT)
     for attempt in range(retries):
         try:
             resp = model.generate_content(prompt)
             text = resp.text.strip()
+            # response_mime_type=application/json 설정 시 마크다운 펜스가 없어야 하나,
+            # 폴백 모드(설정 미지원)를 위해 안전망으로 유지
             if text.startswith("```"):
                 text = text.split("\n", 1)[1].rsplit("```", 1)[0]
             return json.loads(text)
