@@ -187,7 +187,7 @@ const FALLBACK: Record<string, string> = {
   REANALYZE_DESC: "최신 뉴스·패치 재수집 후 AI 분석을 다시 실행합니다. 완료까지 수분~수십 분 소요될 수 있습니다.",
   REANALYZE_BTN: "분석 새로고침",
   REANALYZE_BTN_LOADING: "요청 중...",
-  REANALYZE_SUCCESS: "분석 새로고침이 요청됐습니다. 수분 내 반영됩니다.",
+  REANALYZE_SUCCESS: "분석 새로고침이 요청됐습니다. 뉴스·패치 재수집 후 AI 분석이 시작됩니다. 완료까지 수 분~수십 분 소요될 수 있습니다.",
   REANALYZE_AUTH_DESC: "최신 뉴스·패치를 재수집하고 AI 분석을 다시 실행합니다.",
 
   // ── 게임 삭제 ────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ const FALLBACK: Record<string, string> = {
   GUIDE_OV_T4_3: "Next.js 15 / React",
 
   // ── 자동화 스케줄 ────────────────────────────────────────────────────
-  GUIDE_SCH_INFO1: "AI 분석(analyze.yml)은 매월 1일 00:00 UTC에 자동 실행됩니다. 관리자 패널에서 게임별로 '이번 달' 또는 '재분석' 버튼을 눌러 온디맨드로 즉시 트리거할 수도 있습니다. 신규 게임은 관리자 승인 후 첫 분석이 실행됩니다.",
+  GUIDE_SCH_INFO1: "AI 분석(analyze.yml)은 매월 1일 00:00 UTC에 자동 실행됩니다. 관리자 패널에서 게임별로 '이번 달' 또는 '재분석' 버튼을 눌러 온디맨드로 즉시 트리거할 수도 있습니다. 각 게임 페이지의 'AI 분석 새로고침' 버튼은 reanalyze.yml을 트리거해 뉴스·패치 재수집(NEWS_ONLY) → 60초 대기 → AI 분석 순으로 실행됩니다. 신규 게임은 관리자 승인 후 첫 분석이 실행됩니다.",
   GUIDE_SCH_INFO2: "CCU AI 피크타임 분석과 언어권 교차 분석은 매주 월요일에만 갱신됩니다. 동일 패턴 데이터에서 동일한 분석이 매일 반복 생성되는 비용 낭비를 방지하기 위한 조건부 실행입니다. 감성 추이 종합 진단은 신규 버킷이 작성된 경우에만 갱신됩니다.",
   GUIDE_SCH_T1_1: "collect.yml",
   GUIDE_SCH_T1_2: "매일 20:00 UTC",
@@ -283,7 +283,7 @@ const FALLBACK: Record<string, string> = {
   GUIDE_NEWS_SRC_T2_1: "Store Events API",
   GUIDE_NEWS_SRC_T2_2: "store.steampowered.com/events/ajaxgetadjacentpartnerevents",
   GUIDE_NEWS_SRC_T2_3: "스팀 스토어 이벤트. cursor 페이지네이션으로 GetNewsForApp 누락분 보완",
-  GUIDE_NEWS_CLS_T1_1: "official (공식 패치)",
+  GUIDE_NEWS_CLS_T1_1: "official (공식 이벤트)",
   GUIDE_NEWS_CLS_T1_2: "feed_type=1 또는 appauthor 일치 + Store event_type 9/13/14/15/22/28",
   GUIDE_NEWS_CLS_T1_3: "파란 점",
   GUIDE_NEWS_CLS_T2_1: "news (외부 뉴스)",
@@ -311,7 +311,7 @@ const FALLBACK: Record<string, string> = {
   GUIDE_BKT_T4_1: "뉴스 이벤트(news)",
   GUIDE_BKT_T4_2: "타임라인에 표시되지만 AI 패치 요약 대상에서 제외 — 공식/수동 이벤트만 종합 요약",
   GUIDE_BKT_T5_1: "수동 이벤트 추가 시",
-  GUIDE_BKT_T5_2: "해당 월 재분석 대상에 포함 — collect-month 온디맨드 또는 다음 월말 자동화",
+  GUIDE_BKT_T5_2: "해당 월 재분석 대상에 포함 — AI 분석 새로고침(reanalyze-game) 또는 다음 월별 자동 분석",
   GUIDE_BKT_H_REANALYZE: "월별 패치 요약 방식",
   GUIDE_BKT_REANALYZE_DESC: "한 달 내 공식 이벤트 전체를 하나의 프롬프트로 종합해 월간 패치 요약을 생성합니다. 이벤트가 많아질수록 AI 호출 횟수가 폭증하던 이전 구조를 개선해 비용을 크게 절감합니다.",
   GUIDE_BKT_H_SPARSE: "스파스(sparse) 월",
@@ -389,7 +389,7 @@ const FALLBACK: Record<string, string> = {
   GUIDE_MTR_LANG_L3: "리스트의 감성률/키워드는 AI가 분석한 언어(top 5)만 표시됩니다. 그 외는 '(미분석)'으로 표시됩니다.",
   GUIDE_MTR_LANG_L4: "Steam 리뷰는 영어 리뷰가 과대표집되는 경향이 있습니다. AI 언어권 교차 분석은 이를 감안해 실제 주력 권역을 추정합니다.",
   GUIDE_MTR_H_TIMELINE: "타임라인 카드 상태",
-  GUIDE_MTR_TL_T1_1: "AI 분석 진행 전",
+  GUIDE_MTR_TL_T1_1: "AI 분석 전",
   GUIDE_MTR_TL_T1_2: "이 구간의 AI 분석이 아직 실행되지 않았습니다",
   GUIDE_MTR_TL_T2_1: "리뷰 부족 (N건)",
   GUIDE_MTR_TL_T2_2: "구간 내 리뷰가 ≤5건 — 통계적으로 의미 있는 분석 불가",
@@ -435,7 +435,7 @@ const FALLBACK: Record<string, string> = {
   USAGE_CCU_ADMIN: "게임 등록 전 기간의 CCU 공백이 있다면, 글로벌 트래픽 탭 하단 업로드 버튼을 통해 SteamDB CSV 보정 데이터를 추가할 수 있습니다 (관리자 비밀번호 필요).",
 
   USAGE_H_SENTIMENT: "평가 추이 탭",
-  USAGE_SENTIMENT_L1: "이벤트(업데이트, 패치 등)를 기준으로 나눈 각 구간의 긍정률 변화를 꺾은선 그래프로 보여줍니다.",
+  USAGE_SENTIMENT_L1: "월 단위로 나눈 각 구간의 긍정률 변화를 꺾은선 그래프로 보여줍니다. 각 구간에 속한 공식 이벤트가 있으면 그래프 위에 표시됩니다.",
   USAGE_SENTIMENT_L2: "상단 언어 버튼으로 여러 언어권의 반응을 동시에 비교할 수 있습니다.",
   USAGE_SENTIMENT_TIP: "한국어 라인과 영어 라인이 반대 방향으로 움직인다면, 권역별로 업데이트에 대한 반응이 다르다는 신호입니다.",
 
@@ -448,7 +448,7 @@ const FALLBACK: Record<string, string> = {
   USAGE_H_TIMELINE: "📅 업데이트 히스토리(타임라인) 읽는 법",
   USAGE_TIMELINE_L1: "각 카드는 업데이트, 이벤트, 뉴스 1건을 나타냅니다. 클릭하면 패치 요약, 유저 반응 진단, 대표 리뷰를 확인할 수 있습니다.",
   USAGE_TIMELINE_L2: "파란 점: 공식 패치 / 회색 점: 외부 뉴스 / 초록 점: 무료 주말",
-  USAGE_TIMELINE_L3: "'AI 분석 진행 전': 분석이 아직 실행되지 않았습니다. 매월 1일 자동 갱신되며, 관리자 패널 → 이번 달 / 재분석 버튼으로 즉시 실행할 수 있습니다.",
+  USAGE_TIMELINE_L3: "'AI 분석 전': 분석이 아직 실행되지 않았습니다. 매월 1일 자동 갱신되며, 각 게임 페이지의 'AI 분석 새로고침' 버튼이나 관리자 패널에서 즉시 실행할 수 있습니다.",
   USAGE_TIMELINE_L4: "'리뷰 부족': 해당 기간에 수집된 리뷰 수가 너무 적어 분석 대상에서 제외됩니다. 정상적인 상태입니다.",
   USAGE_TIMELINE_TIP: "패치노트 카드에 보이는 AI 반응 요약은 해당 구간 리뷰 기반입니다. 상단의 'AI 평가 추이 종합 진단'은 여러 구간을 가로지르는 장기 흐름을 별도로 분석한 것입니다.",
   USAGE_TIMELINE_ADMIN: "Steam에서 잡히지 않는 서버 장애, 공지, 커뮤니티 이슈가 있다면 각 게임 페이지 타임라인 하단 🔒 버튼을 클릭해 직접 등록할 수 있습니다 (관리자 비밀번호 필요).",

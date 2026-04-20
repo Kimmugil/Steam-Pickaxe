@@ -14,7 +14,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 MODEL = "gemini-2.5-flash"
 
 # ── Generation Config 분리 ─────────────────────────────────────────────────────
-# analyze_bucket: thinking 활성(budget=2048) + JSON structured output
+# analyze_bucket: thinking 활성(budget=512) + JSON structured output
 # 텍스트 전용 함수: thinking 비활성(budget=0)으로 은닉 토큰 낭비 방지
 _ANALYSIS_GEN_CONFIG = None
 _TEXT_GEN_CONFIG = None
@@ -32,7 +32,7 @@ except (AttributeError, TypeError, ValueError) as e:
 
 
 def _make_analysis_model(system_instruction: str = None) -> genai.GenerativeModel:
-    """analyze_bucket 전용: thinking 2048 + JSON structured output."""
+    """analyze_bucket 전용: thinking 512 + JSON structured output."""
     kwargs = {}
     if _ANALYSIS_GEN_CONFIG is not None:
         kwargs["generation_config"] = _ANALYSIS_GEN_CONFIG

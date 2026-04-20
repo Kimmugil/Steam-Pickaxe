@@ -132,7 +132,8 @@ def run():
             for r in rows_needing_title_kr:
                 try:
                     tkr = generate_event_title_kr(
-                        name, r.get("title", ""), r.get("event_type", ""), ""
+                        name, r.get("title", ""), r.get("event_type", ""),
+                        r.get("ai_patch_summary", ""),
                     )
                     gs_update_event_field(game_ss, r["event_id"], "title_kr", tkr,
                                          event_row_map=_ev_row_map)
@@ -200,11 +201,11 @@ def run():
             print(f"  월간 분석: {bucket['title']} ({ym})")
 
             # ── RAW 리뷰 수집 ────────────────────────────────────────────
+            # 월별 버킷은 단일 달 안에서만 구간이 잡히므로, 항상 하나의 연도 탭만 읽으면 됨
+            # 이전 코드는 start_year~현재_year 전체 탭을 읽어 불필요한 Sheets API 호출을 다수 발생시켰음
             from datetime import datetime as _dt
-            years = list(range(
-                _dt.utcfromtimestamp(max(bucket["start_ts"], 1)).year,
-                _dt.utcnow().year + 1,
-            ))
+            bucket_year = _dt.utcfromtimestamp(max(bucket["start_ts"], 1)).year
+            years = [bucket_year]
             month_reviews = get_reviews_in_range(raw_ss, bucket["start_ts"], bucket["end_ts"], years)
             print(f"    → 리뷰 {len(month_reviews)}건")
 
