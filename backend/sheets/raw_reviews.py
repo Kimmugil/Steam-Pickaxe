@@ -156,6 +156,41 @@ def get_existing_ids(ss: gspread.Spreadsheet, year: int) -> set:
         return set()
 
 
+_APPEND_CHUNK_SIZE = 1000  # append_rows 1회 최대 행 수 (500/429 방지)
+_APPEND_RETRY_WAITS = [5, 15, 30, 60]  # 재시도 대기(초) — 500·429 공통
+
+
+def _append_rows_with_retry(ws: gspread.Worksheet, rows: list[list]) -> None:
+    """
+    ws.append_rows를 청크 단위로 나눠 호출하고,
+    Google Sheets API 500(서버 오류) / 429(쿼터 초과) 시 지수 백오프 재시도.
+
+    한 번에 너무 많은 행을 보내면 Google 서버에서 500을 반환하는 경우가 있어
+    _APPEND_CHUNK_SIZE 단위로 분할 적재합니다.
+    """
+    import time as _time
+    for chunk_start in range(0, len(rows), _APPEND_CHUNK_SIZE):
+        chunk = rows[chunk_start: chunk_start + _APPEND_CHUNK_SIZE]
+        last_exc = None
+        for attempt, wait in enumerate(_APPEND_RETRY_WAITS + [None]):
+            try:
+                ws.append_rows(chunk)
+                break  # 성공
+            except gspread.exceptions.APIError as e:
+                code = str(e)
+                if "500" in code or "429" in code:
+                    if wait is None:
+                        raise  # 재시도 소진 → 상위로 전파
+                    print(f"[append_retry] {code[:40]} — {wait}초 대기 후 재시도 ({attempt+1}/{len(_APPEND_RETRY_WAITS)})")
+                    _time.sleep(wait)
+                    last_exc = e
+                else:
+                    raise
+        else:
+            if last_exc:
+                raise last_exc
+
+
 def append_reviews(ss: gspread.Spreadsheet, reviews: list[dict]) -> int:
     """
     중복을 제외한 신규 리뷰만 연도별 탭에 추가합니다.
@@ -189,7 +224,7 @@ def append_reviews(ss: gspread.Spreadsheet, reviews: list[dict]) -> int:
                 ])
                 existing.add(rid)
         if new_rows:
-            ws.append_rows(new_rows)
+            _append_rows_with_retry(ws, new_rows)
             added += len(new_rows)
     return added
 
