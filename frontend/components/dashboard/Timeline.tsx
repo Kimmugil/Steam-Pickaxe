@@ -213,6 +213,7 @@ function MonthCard({
   })();
 
   const officialCount = eventRows.filter(r => r.event_type === "official" || r.event_type === "manual").length;
+  const externalCount = eventRows.filter(r => r.event_type === "news" || r.event_type === "free_weekend").length;
 
   const sortedEvents = [...eventRows].sort((a, b) =>
     sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)
@@ -237,8 +238,10 @@ function MonthCard({
 
         {/* 이벤트 수 뱃지 */}
         <span className="text-xs text-text-muted">
-          {t("CARD_EVENTS_LABEL", { n: eventRows.length })}
-          {officialCount > 0 && ` · 공식 이벤트 ${officialCount}건`}
+          {[
+            officialCount > 0 && `공식 이벤트 ${officialCount}건`,
+            externalCount > 0 && `외부 이벤트 ${externalCount}건`,
+          ].filter(Boolean).join(" · ") || "이벤트 없음"}
         </span>
 
         {/* 출시 마커 */}
