@@ -1,16 +1,20 @@
-name: AI 분석 새로고침 (특정 게임)
-# 프론트엔드 [AI 분석 새로고침] 버튼이 repository_dispatch(reanalyze-game)를 보내면
-# 1) 해당 게임의 뉴스·패치 재수집 (리뷰 제외)
-# 2) 이어서 해당 게임의 AI 분석 재실행
+name: 현재 월 수집 + AI 분석 (관리자 온디맨드)
+# 관리자 패널에서 특정 게임의 현재 월 이벤트를 수집하고 즉시 AI 분석합니다.
 
 on:
-  repository_dispatch:
-    types: [reanalyze-game]
+  workflow_dispatch:
+    inputs:
+      appid:
+        description: '처리할 게임 AppID'
+        required: true
+      year_month:
+        description: '분석할 월 (YYYY-MM, 미입력 시 현재 월)'
+        required: false
 
 jobs:
-  reanalyze:
+  collect-and-analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -23,21 +27,21 @@ jobs:
       - name: 의존성 설치
         run: pip install -r backend/requirements.txt
 
-      - name: 뉴스·패치 재수집 (리뷰 제외)
+      - name: 뉴스·이벤트 수집 (리뷰 제외)
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           MASTER_SPREADSHEET_ID: ${{ secrets.MASTER_SPREADSHEET_ID }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
           GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
-          TARGET_APPID: ${{ github.event.client_payload.appid }}
+          TARGET_APPID: ${{ github.event.inputs.appid }}
           NEWS_ONLY: "true"
         run: |
           cd backend
           python main_collect.py
 
-      - name: Sheets API 쿼터 회복 대기 (60초)
-        run: sleep 60
+      - name: Sheets API 쿼터 회복 대기
+        run: sleep 30
 
       - name: AI 분석 실행
         env:
@@ -45,8 +49,8 @@ jobs:
           MASTER_SPREADSHEET_ID: ${{ secrets.MASTER_SPREADSHEET_ID }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          TARGET_APPID: ${{ github.event.client_payload.appid }}
-          TARGET_YEAR_MONTH: ${{ github.event.client_payload.year_month }}
+          TARGET_APPID: ${{ github.event.inputs.appid }}
+          TARGET_YEAR_MONTH: ${{ github.event.inputs.year_month }}
         run: |
           cd backend
           python main_analyze.py

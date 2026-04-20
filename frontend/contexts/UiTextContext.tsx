@@ -174,6 +174,7 @@ const FALLBACK: Record<string, string> = {
   TIMELINE_TYPE_FREE_WEEKEND: "무료 주말",
   TIMELINE_TYPE_LAUNCH: "런칭",
   TIMELINE_SALE_TEXT: "할인 중",
+  TIMELINE_MONTH_NO_EVENTS: "이번 달 등록된 이벤트가 없습니다.",
   TIMELINE_PATCH_SUMMARY: "패치 내용 요약",
   TIMELINE_REACTION: "유저 반응 진단",
   TIMELINE_REVIEW_COUNT: "해당 구간 수집 리뷰: {n}건",

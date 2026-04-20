@@ -10,9 +10,11 @@ const SESSION_KEY = "steam_admin_pw";
 export default function AdminPanel({
   collectingGames,
   pendingAiGames,
+  activeGames,
 }: {
   collectingGames: Game[];
   pendingAiGames: Game[];
+  activeGames: Game[];
 }) {
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
@@ -30,6 +32,9 @@ export default function AdminPanel({
 
   // AI 분석 승인 로딩 상태 (appid별)
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
+
+  // 월별 수집+분석 로딩 상태 (appid별)
+  const [collectingMonthIds, setCollectingMonthIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY);
@@ -134,6 +139,30 @@ export default function AdminPanel({
       show("서버 연결 오류", "error");
     } finally {
       setApprovingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
+  }
+
+  // ── 현재 월 수집+분석 ─────────────────────────────────────────────────────
+  async function handleCollectMonth(appid: string) {
+    const savedPw = sessionStorage.getItem(SESSION_KEY);
+    if (!savedPw) return;
+    setCollectingMonthIds((prev) => new Set(prev).add(appid));
+    try {
+      const res = await fetch("/api/admin/collect-month", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("이번 달 수집+분석을 시작했습니다. 수분 내 반영됩니다.", "success");
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setCollectingMonthIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
   }
 
@@ -271,6 +300,48 @@ export default function AdminPanel({
                     className="w-full py-2 text-sm bg-accent-orange/10 border border-accent-orange/40 text-accent-orange rounded-lg hover:bg-accent-orange/20 transition-colors disabled:opacity-40"
                   >
                     {isApproving ? "승인 중..." : "✅ AI 분석 승인"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 현재 월 수집+분석 */}
+      {activeGames.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-accent-blue rounded-full" />
+            현재 월 수집+분석
+            <span className="text-xs font-normal text-text-muted">({activeGames.length}개)</span>
+          </h2>
+          <p className="text-xs text-text-muted mb-4">
+            게임별로 이번 달 뉴스·이벤트를 재수집하고 AI 분석을 즉시 실행합니다.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeGames.map((game) => {
+              const appid = String(game.appid);
+              const isRunning = collectingMonthIds.has(appid);
+              return (
+                <div
+                  key={appid}
+                  className="bg-bg-card border border-border-default rounded-xl p-4 flex flex-col gap-3"
+                >
+                  <div>
+                    <p className="font-semibold text-text-primary text-sm truncate">
+                      {game.name_kr || game.name}
+                    </p>
+                    {game.name_kr && game.name_kr !== game.name && (
+                      <p className="text-xs text-text-muted truncate">{game.name}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleCollectMonth(appid)}
+                    disabled={isRunning}
+                    className="w-full py-2 text-sm bg-accent-blue/10 border border-accent-blue/40 text-accent-blue rounded-lg hover:bg-accent-blue/20 transition-colors disabled:opacity-40"
+                  >
+                    {isRunning ? "요청 중..." : "📅 이번 달 수집+분석"}
                   </button>
                 </div>
               );

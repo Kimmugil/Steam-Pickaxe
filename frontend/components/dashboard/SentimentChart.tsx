@@ -62,59 +62,57 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
     });
   }
 
-  // 날짜 목록 (전체 스코프에서 추출, 정렬)
-  const allDates = useMemo(() => {
-    const dates = new Set<string>();
+  // 월 목록 (monthly_summary 행의 YYYY-MM, 정렬)
+  const allMonths = useMemo(() => {
+    const months = new Set<string>();
     for (const r of timelineRows) {
-      if (r.date && r.event_type !== "news" && r.sentiment_rate !== "" && String(r.sentiment_rate) !== "sparse") {
-        dates.add(r.date);
+      if (
+        r.event_type === "monthly_summary" &&
+        r.date &&
+        r.sentiment_rate !== "" &&
+        String(r.sentiment_rate) !== "sparse"
+      ) {
+        const ym = r.date.slice(0, 7);
+        if (ym) months.add(ym);
       }
     }
-    return [...dates].sort();
+    return [...months].sort();
   }, [timelineRows]);
 
-  // 날짜 × 언어 → 긍정률 맵
+  // 월 × 언어 → 긍정률 맵
   const rateMap = useMemo(() => {
     const map: Record<string, Record<string, number | null>> = {};
     for (const r of timelineRows) {
-      if (!r.date || r.event_type === "news" || r.sentiment_rate === "" || String(r.sentiment_rate) === "sparse") continue;
-      const scope = r.language_scope;
+      if (r.event_type !== "monthly_summary" || !r.date) continue;
+      if (r.sentiment_rate === "" || String(r.sentiment_rate) === "sparse") continue;
+      const ym = r.date.slice(0, 7);
       const rate = Number(r.sentiment_rate);
-      if (isNaN(rate)) continue;
-      if (!map[r.date]) map[r.date] = {};
-      map[r.date][scope] = rate;
+      if (!ym || isNaN(rate)) continue;
+      if (!map[ym]) map[ym] = {};
+      map[ym][r.language_scope] = rate;
     }
     return map;
   }, [timelineRows]);
 
-  // title 맵 (날짜 → title, all 스코프 기준)
-  const titleMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const r of timelineRows) {
-      if (r.language_scope === "all" && r.date && r.title) {
-        m[r.date] = r.title;
-      }
-    }
-    return m;
-  }, [timelineRows]);
-
-  // 차트 데이터: 날짜별로 선택된 언어들의 값
+  // 차트 데이터: 월별로 선택된 언어들의 값
   const chartData = useMemo(() => {
-    return allDates.map((date) => {
-      const entry: Record<string, string | number | null> = { date };
+    return allMonths.map((ym) => {
+      const entry: Record<string, string | number | null> = { date: ym };
       for (const lang of langOptions) {
-        entry[lang] = rateMap[date]?.[lang] ?? null;
+        entry[lang] = rateMap[ym]?.[lang] ?? null;
       }
       return entry;
     });
-  }, [allDates, rateMap, langOptions]);
+  }, [allMonths, rateMap, langOptions]);
 
-  // 하단 코멘트: sentiment_trend_comment 우선, 없으면 최신 ai_reaction_summary 폴백
+  // 하단 코멘트: sentiment_trend_comment 우선, 없으면 최신 monthly_summary의 ai_reaction_summary 폴백
   const trendComment = useMemo(() => {
     if (sentimentTrendComment) return sentimentTrendComment;
-    const allRows = timelineRows.filter((r) => r.language_scope === "all" && r.ai_reaction_summary);
-    allRows.sort((a, b) => b.date.localeCompare(a.date));
-    return allRows[0]?.ai_reaction_summary ?? "";
+    const summaryRows = timelineRows.filter(
+      (r) => r.event_type === "monthly_summary" && r.language_scope === "all" && r.ai_reaction_summary
+    );
+    summaryRows.sort((a, b) => b.date.localeCompare(a.date));
+    return summaryRows[0]?.ai_reaction_summary ?? "";
   }, [sentimentTrendComment, timelineRows]);
 
   if (chartData.length === 0) {
@@ -165,8 +163,12 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
             contentStyle={{ background: "#1e2130", border: "1px solid #2a2f45", borderRadius: 8, color: "#e8eaf0" }}
             formatter={(v: number, name: string) => [`${v}%`, LANG_LABELS[name] ?? name]}
             labelFormatter={(label) => {
-              const title = titleMap[label as string];
-              return title ? `${label} — ${title}` : String(label);
+              const ym = String(label);
+              if (/^\d{4}-\d{2}$/.test(ym)) {
+                const [y, m] = ym.split("-");
+                return `${y}년 ${m}월`;
+              }
+              return ym;
             }}
           />
           {selectedLangs.size > 1 && (

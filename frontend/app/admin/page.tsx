@@ -21,5 +21,7 @@ export default async function AdminPage() {
       String(g.ai_approved ?? "").toLowerCase() !== "true"
   );
 
-  return <AdminPanel collectingGames={collectingGames} pendingAiGames={pendingAiGames} />;
+  const activeGames = games.filter((g) => g.status === "active");
+
+  return <AdminPanel collectingGames={collectingGames} pendingAiGames={pendingAiGames} activeGames={activeGames} />;
 }

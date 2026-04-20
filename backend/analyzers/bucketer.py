@@ -1,8 +1,8 @@
 """
-시계열 버킷팅 — 이벤트 기준으로 리뷰 구간 분할
-기획서 4장: [이벤트N 00:00:00] ~ [이벤트N+1 전날 23:59:59]
+시계열 버킷팅 — 이벤트 기준 / 월 단위 리뷰 구간 분할
 """
 from datetime import datetime, timezone, timedelta
+from calendar import monthrange
 from typing import Optional
 import uuid
 
@@ -92,6 +92,77 @@ def split_bucket(buckets: list[dict], split_date: str, new_event_id: str,
         else:
             new_buckets.append(b)
     return new_buckets
+
+
+def build_monthly_buckets(timeline_events: list[dict]) -> list[dict]:
+    """
+    타임라인 이벤트를 YYYY-MM 단위로 묶어 월별 버킷을 반환합니다.
+
+    반환: [
+      {
+        "year_month":       "2025-04",
+        "event_id":         "monthly_2025_04",  # timeline 행 식별자
+        "date":             "2025-04-01",
+        "title":            "2025년 04월",
+        "start_ts":         ...,   # 월 1일 00:00:00 UTC
+        "end_ts":           ...,   # 월 마지막 날 23:59:59 UTC (현재 월은 now())
+        "official_events":  [...], # 해당 월의 official/manual 이벤트 행
+        "all_events":       [...], # 해당 월의 모든 이벤트 행
+        "is_current_month": bool,
+      }, ...
+    ]
+    """
+    now = datetime.now(tz=timezone.utc)
+    current_ym = now.strftime("%Y-%m")
+
+    # language_scope=all 행만 사용하고, monthly_summary 행은 제외
+    events = [
+        e for e in timeline_events
+        if e.get("language_scope") == "all"
+        and e.get("event_type") != "monthly_summary"
+    ]
+
+    # YYYY-MM으로 그룹화
+    month_events: dict[str, list[dict]] = {}
+    for ev in events:
+        date_str = str(ev.get("date", "")).strip()
+        if not date_str or len(date_str) < 7:
+            continue
+        ym = date_str[:7]
+        month_events.setdefault(ym, []).append(ev)
+
+    # 이벤트가 없거나 현재 월이 없으면 현재 월 빈 버킷 추가
+    if not month_events or current_ym not in month_events:
+        month_events.setdefault(current_ym, [])
+
+    buckets = []
+    for ym in sorted(month_events.keys()):
+        year, month = int(ym[:4]), int(ym[5:7])
+        _, last_day = monthrange(year, month)
+
+        start_dt = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
+        is_current = (ym == current_ym)
+        end_dt = now if is_current else datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+
+        month_evs = sorted(
+            month_events[ym],
+            key=lambda e: (e.get("date", ""), e.get("event_id", "")),
+        )
+        official_evs = [e for e in month_evs if e.get("event_type") in ("official", "manual")]
+
+        buckets.append({
+            "year_month":       ym,
+            "event_id":         f"monthly_{ym.replace('-', '_')}",
+            "date":             f"{ym}-01",
+            "title":            f"{year}년 {month:02d}월",
+            "start_ts":         int(start_dt.timestamp()),
+            "end_ts":           int(end_dt.timestamp()),
+            "official_events":  official_evs,
+            "all_events":       month_evs,
+            "is_current_month": is_current,
+        })
+
+    return buckets
 
 
 def filter_reviews_for_bucket(reviews: list[dict], start_ts: int, end_ts: int) -> list[dict]:
