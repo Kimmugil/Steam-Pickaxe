@@ -38,7 +38,7 @@ TARGET_YEAR_MONTH  = os.environ.get("TARGET_YEAR_MONTH",  "").strip()
 
 def run():
     ss = get_spreadsheet()
-    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
     now_ym = datetime.now(tz=timezone.utc).strftime("%Y-%m")
 
     if TARGET_APPID:

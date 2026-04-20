@@ -5,6 +5,26 @@ import Badge, { getSteamLabel } from "@/components/shared/Badge";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
+const MONTHS: Record<string, string> = {
+  Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06",
+  Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12",
+};
+
+/** Steam API 날짜를 YYYY-MM-DD로 정규화. 이미 그 형식이면 그대로. */
+function toIsoDate(raw: string | undefined): string {
+  if (!raw) return "";
+  const s = raw.trim();
+  // 이미 ISO
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  // "Mar 30, 2026"
+  const m1 = s.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (m1 && MONTHS[m1[1]]) return `${m1[3]}-${MONTHS[m1[1]]}-${m1[2].padStart(2, "0")}`;
+  // "30 Mar, 2026"
+  const m2 = s.match(/^(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})$/);
+  if (m2 && MONTHS[m2[2]]) return `${m2[3]}-${MONTHS[m2[2]]}-${m2[1].padStart(2, "0")}`;
+  return s;
+}
+
 function daysSince(dateStr: string): number {
   if (!dateStr) return 0;
   const d = new Date(dateStr);
@@ -32,6 +52,8 @@ export default function GameCard({ game }: GameCardProps) {
     game.event_count !== undefined && game.event_count !== ""
       ? Number(game.event_count)
       : null;
+
+  const releaseIso = toIsoDate(game.release_date);
 
   return (
     <Link
@@ -90,8 +112,8 @@ export default function GameCard({ game }: GameCardProps) {
 
           {/* 출시일 + 최근 이벤트 날짜 */}
           <div className="flex items-center justify-between text-xs">
-            {game.release_date ? (
-              <span className="text-text-muted">{game.release_date}</span>
+            {releaseIso ? (
+              <span className="text-text-muted">{releaseIso}</span>
             ) : (
               <span />
             )}
@@ -103,7 +125,7 @@ export default function GameCard({ game }: GameCardProps) {
             )}
           </div>
 
-          {/* AI 분석 날짜 (이벤트 날짜와 분리) */}
+          {/* AI 분석 날짜+시간 */}
           {game.ai_briefing_date && (
             <div className="flex items-center justify-end text-xs text-text-muted">
               <span>{t("CARD_AI_DATE_LABEL")}: {game.ai_briefing_date}</span>
