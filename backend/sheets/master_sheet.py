@@ -127,7 +127,6 @@ def ensure_games_headers(spreadsheet: gspread.Spreadsheet):
             continue
         col_idx = current.index(col_name)  # 0-based
         # 해당 컬럼 데이터 전체 읽기 (헤더 제외)
-        col_letter = chr(ord("A") + col_idx)
         try:
             col_values = ws.col_values(col_idx + 1)[1:]  # 헤더 제외
         except Exception:
@@ -139,7 +138,6 @@ def ensure_games_headers(spreadsheet: gspread.Spreadsheet):
             cols_to_delete.append(col_idx)
 
     if cols_to_delete:
-        ss_id = spreadsheet.id
         sheet_id = ws.id
         # 뒤에서 앞 순서로 삭제 (인덱스 밀림 방지)
         requests = [
@@ -185,86 +183,13 @@ def update_game(spreadsheet: gspread.Spreadsheet, appid: str, updates: dict):
     for i, rec in enumerate(records):
         if str(rec.get("appid")) == str(appid):
             row_idx = i + 2
+            cells = []
             for key, val in updates.items():
                 if key in headers:
                     col_idx = headers.index(key) + 1
-                    ws.update_cell(row_idx, col_idx, val)
+                    cells.append(gspread.Cell(row_idx, col_idx, val))
+            if cells:
+                ws.update_cells(cells)
             return
     raise ValueError(f"appid {appid} not found in games tab")
 
-# ──────────────────────────────────────────────
-# timeline_{appid} 탭
-# ──────────────────────────────────────────────
-
-TIMELINE_HEADERS = [
-    "event_id", "event_type", "date", "title", "language_scope",
-    "sentiment_rate", "review_count", "ai_patch_summary",
-    "ai_reaction_summary", "top_keywords", "top_reviews", "url",
-    "is_sale_period", "sale_text", "is_free_weekend",
-]
-
-def get_or_create_timeline_tab(spreadsheet: gspread.Spreadsheet, appid: str) -> gspread.Worksheet:
-    tab_name = f"timeline_{appid}"
-    try:
-        ws = spreadsheet.worksheet(tab_name)
-    except gspread.WorksheetNotFound:
-        ws = spreadsheet.add_worksheet(title=tab_name, rows=1000, cols=len(TIMELINE_HEADERS))
-        ws.append_row(TIMELINE_HEADERS)
-    return ws
-
-def get_timeline(spreadsheet: gspread.Spreadsheet, appid: str) -> list[dict]:
-    ws = get_or_create_timeline_tab(spreadsheet, appid)
-    return ws.get_all_records()
-
-def append_timeline_row(spreadsheet: gspread.Spreadsheet, appid: str, row: dict):
-    ws = get_or_create_timeline_tab(spreadsheet, appid)
-    ws.append_row([row.get(h, "") for h in TIMELINE_HEADERS])
-
-def delete_timeline_rows_by_event(spreadsheet: gspread.Spreadsheet, appid: str, event_id: str):
-    ws = get_or_create_timeline_tab(spreadsheet, appid)
-    records = ws.get_all_records()
-    rows_to_delete = [i + 2 for i, r in enumerate(records) if str(r.get("event_id")) == str(event_id)]
-    for row_idx in sorted(rows_to_delete, reverse=True):
-        ws.delete_rows(row_idx)
-
-def update_timeline_row(spreadsheet: gspread.Spreadsheet, appid: str, event_id: str, language_scope: str, updates: dict):
-    ws = get_or_create_timeline_tab(spreadsheet, appid)
-    records = ws.get_all_records()
-    headers = ws.row_values(1)
-    for i, rec in enumerate(records):
-        if str(rec.get("event_id")) == str(event_id) and str(rec.get("language_scope")) == language_scope:
-            row_idx = i + 2
-            for key, val in updates.items():
-                if key in headers:
-                    col_idx = headers.index(key) + 1
-                    ws.update_cell(row_idx, col_idx, val)
-            return
-
-# ──────────────────────────────────────────────
-# ccu_{appid} 탭
-# ──────────────────────────────────────────────
-
-CCU_HEADERS = ["timestamp", "ccu_value", "is_sale_period", "is_free_weekend", "is_archived_gap"]
-
-def get_or_create_ccu_tab(spreadsheet: gspread.Spreadsheet, appid: str) -> gspread.Worksheet:
-    tab_name = f"ccu_{appid}"
-    try:
-        ws = spreadsheet.worksheet(tab_name)
-    except gspread.WorksheetNotFound:
-        ws = spreadsheet.add_worksheet(title=tab_name, rows=10000, cols=len(CCU_HEADERS))
-        ws.append_row(CCU_HEADERS)
-    return ws
-
-def append_ccu(spreadsheet: gspread.Spreadsheet, appid: str, timestamp: str, ccu_value: int,
-               is_sale: bool = False, is_free_weekend: bool = False):
-    ws = get_or_create_ccu_tab(spreadsheet, appid)
-    ws.append_row([timestamp, ccu_value, is_sale, is_free_weekend, False])
-
-def get_ccu_data(spreadsheet: gspread.Spreadsheet, appid: str) -> list[dict]:
-    ws = get_or_create_ccu_tab(spreadsheet, appid)
-    return ws.get_all_records()
-
-def bulk_append_ccu(spreadsheet: gspread.Spreadsheet, appid: str, rows: list[list]):
-    """rows: [[timestamp, ccu_value, is_sale, is_free_weekend, is_archived_gap], ...]"""
-    ws = get_or_create_ccu_tab(spreadsheet, appid)
-    ws.append_rows(rows)

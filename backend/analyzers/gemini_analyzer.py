@@ -20,13 +20,13 @@ _ANALYSIS_GEN_CONFIG = None
 _TEXT_GEN_CONFIG = None
 try:
     _ANALYSIS_GEN_CONFIG = genai.types.GenerationConfig(
-        thinking_config=genai.types.ThinkingConfig(thinking_budget=2048),
+        thinking_config=genai.types.ThinkingConfig(thinking_budget=512),
         response_mime_type="application/json",
     )
     _TEXT_GEN_CONFIG = genai.types.GenerationConfig(
         thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
     )
-    print("[gemini] Thinking 분리: analyze_bucket=2048 (JSON mime), text=thinking 비활성")
+    print("[gemini] Thinking 분리: analyze_bucket=512 (JSON mime), text=thinking 비활성")
 except (AttributeError, TypeError, ValueError) as e:
     print(f"[gemini] GenerationConfig 분리 불가 ({e}) — 기본값으로 실행")
 

@@ -145,18 +145,6 @@ const FALLBACK: Record<string, string> = {
   BADGE_F2P: "F2P",
   BADGE_EARLY_ACCESS: "Early Access",
 
-  // ── 통계 항목 레이블 + 툴팁 ─────────────────────────────────────────
-  STAT_OWNERS_LABEL: "추정 소유자",
-  STAT_OWNERS_TOOLTIP: "SteamSpy 통계적 추정치입니다. 실제값과 차이가 있을 수 있습니다.",
-  STAT_AVG_PLAYTIME_LABEL: "평균 플레이타임",
-  STAT_AVG_PLAYTIME_TOOLTIP: "SteamSpy 추정치 기반입니다.",
-  STAT_MEDIAN_PLAYTIME_LABEL: "중간값 플레이타임",
-  STAT_MEDIAN_PLAYTIME_TOOLTIP: "SteamSpy 추정치 기반입니다.",
-  STAT_ACTIVE_2W_LABEL: "2주 활성 플레이어",
-  STAT_ACTIVE_2W_TOOLTIP: "최근 2주간 플레이한 유저 수. SteamSpy 추정치입니다.",
-  STAT_RETENTION_LABEL: "잔존율",
-  STAT_RETENTION_TOOLTIP: "최근 2주 활성 플레이어 ÷ 추정 소유자 수. SteamSpy 추정치 기반으로 절대값이 아닌 상대 비교 지표로 활용하세요.",
-
   // ── 대시보드 탭 ─────────────────────────────────────────────────────
   TAB_CCU: "글로벌 트래픽 (CCU)",
   TAB_SENTIMENT: "평가 추이",

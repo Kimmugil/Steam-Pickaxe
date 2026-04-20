@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Toast, { useToast } from "@/components/shared/Toast";
 import { useUiText } from "@/contexts/UiTextContext";
+import { getSteamLabel } from "@/components/shared/Badge";
 
 interface SearchResult {
   appid: string;
@@ -137,62 +138,49 @@ export default function SearchBox() {
         </p>
       )}
 
-      {/* ── 검색 결과 카드: GameCard 스타일 (세로) ───────────────────────── */}
+      {/* ── 검색 결과 카드: 컴팩트 가로형 ───────────────────────── */}
       {result && (
-        <div className="mt-4 bg-bg-card border border-accent-blue/30 rounded-xl overflow-hidden">
+        <div className="mt-4 bg-bg-card border border-accent-blue/30 rounded-xl overflow-hidden flex gap-3 p-3">
           {/* 썸네일 */}
-          <div className="relative aspect-[460/215] w-full overflow-hidden bg-bg-secondary">
-            {result.thumbnail && (
+          {result.thumbnail && (
+            <div className="relative w-28 h-14 flex-shrink-0 rounded overflow-hidden bg-bg-secondary">
               <Image
                 src={result.thumbnail}
                 alt={result.name}
                 fill
                 className="object-cover"
-                sizes="(max-width: 768px) 100vw, 672px"
+                sizes="112px"
               />
-            )}
-          </div>
+            </div>
+          )}
 
           {/* 정보 + 버튼 */}
-          <div className="p-4">
-            <p className="font-semibold text-text-primary text-sm mb-2">{result.name}</p>
-            <div className="space-y-0.5 mb-4">
-              <p className="text-xs text-text-secondary">
-                <span className="text-text-muted">{t("RESULT_LABEL_APPID")}:</span> {result.appid}
-              </p>
-              {result.release_date && (
-                <p className="text-xs text-text-secondary">
-                  <span className="text-text-muted">{t("RESULT_LABEL_RELEASE")}:</span> {result.release_date}
-                </p>
-              )}
-              {result.developers && result.developers.length > 0 && (
-                <p className="text-xs text-text-secondary">
-                  <span className="text-text-muted">{t("RESULT_LABEL_DEVELOPER")}:</span>{" "}
-                  {result.developers.join(", ")}
-                </p>
-              )}
-              {result.publishers &&
-                result.publishers.length > 0 &&
-                result.publishers.join(",") !== result.developers?.join(",") && (
-                  <p className="text-xs text-text-secondary">
-                    <span className="text-text-muted">{t("RESULT_LABEL_PUBLISHER")}:</span>{" "}
-                    {result.publishers.join(", ")}
-                  </p>
+          <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
+            <div>
+              <p className="font-semibold text-text-primary text-sm truncate">{result.name}</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                <span className="text-xs text-text-muted">AppID {result.appid}</span>
+                {result.release_date && (
+                  <span className="text-xs text-text-muted">{result.release_date}</span>
                 )}
-              {result.positiveRate !== undefined && result.totalReviews !== undefined && (
-                <p className="text-xs text-text-secondary">
-                  <span className="text-text-muted">{t("RESULT_LABEL_REVIEWS")}:</span>{" "}
-                  {result.totalReviews.toLocaleString()}건
-                  <span className="mx-1 text-text-muted">·</span>
-                  <span className="text-text-muted">{t("RESULT_LABEL_POSITIVE_RATE")}:</span>{" "}
-                  {result.positiveRate}%
-                </p>
-              )}
+                {result.developers && result.developers.length > 0 && (
+                  <span className="text-xs text-text-muted truncate">{result.developers[0]}</span>
+                )}
+                {result.positiveRate !== undefined && result.totalReviews !== undefined && (
+                  <span className="text-xs text-text-muted">
+                    {result.totalReviews.toLocaleString()}건
+                    <span className="mx-1">·</span>
+                    <span className="text-text-secondary font-medium">
+                      {getSteamLabel(result.positiveRate, result.totalReviews)}
+                    </span>
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={handleRegister}
               disabled={registering}
-              className="w-full py-2.5 bg-accent-green/20 border border-accent-green/40 text-accent-green rounded-lg text-sm font-medium hover:bg-accent-green/30 disabled:opacity-40 transition-colors"
+              className="self-start px-3 py-1.5 bg-accent-green/20 border border-accent-green/40 text-accent-green rounded-lg text-xs font-medium hover:bg-accent-green/30 disabled:opacity-40 transition-colors"
             >
               {registering ? t("REGISTER_BTN_LOADING") : t("REGISTER_BTN")}
             </button>

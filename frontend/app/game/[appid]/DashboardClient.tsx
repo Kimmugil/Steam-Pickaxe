@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/dashboard/Header";
 import CcuChart from "@/components/dashboard/CcuChart";
@@ -32,14 +32,13 @@ export default function DashboardClient({
   const [activeTab, setActiveTab] = useState<Tab>("ccu");
   const [showEventModal, setShowEventModal] = useState(false);
 
-  // 언어 분포 파싱 (RAW 리뷰 기반 JSON — 파이 차트용)
-  const languageDistribution: Record<string, number> = (() => {
+  const languageDistribution = useMemo<Record<string, number>>(() => {
     try {
       return game.language_distribution ? JSON.parse(game.language_distribution) : {};
     } catch {
       return {};
     }
-  })();
+  }, [game.language_distribution]);
 
   const TABS: { key: Tab; labelKey: string }[] = [
     { key: "ccu",       labelKey: "TAB_CCU" },

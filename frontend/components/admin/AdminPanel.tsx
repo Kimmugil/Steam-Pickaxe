@@ -375,7 +375,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">게임</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">상태</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">AI 승인</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">RAW 수집 / Steam 총계</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">수집 대상 / Steam 총계</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">마지막 분석</th>
                   <th className="text-right px-4 py-3 text-xs font-medium text-text-muted">액션</th>
                 </tr>
@@ -448,10 +448,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                         )}
                       </td>
 
-                      {/* RAW 수집 / Steam 총계 */}
+                      {/* Steam API 수집 대상 / 스토어 총계 */}
                       <td className="px-4 py-3 text-xs text-text-secondary">
-                        <span title="RAW 시트에 저장된 리뷰 수 / Steam 스토어 총 리뷰 수">
-                          {Number(game.collected_reviews_count ?? 0).toLocaleString()}
+                        <span title="Steam API 기준 수집 대상 리뷰 수 / Steam 스토어 표시 총 리뷰 수">
+                          {Number(game.total_reviews_count ?? 0).toLocaleString()}
                           <span className="text-text-muted"> / {Number(game.totalReviews ?? 0).toLocaleString()}건</span>
                         </span>
                       </td>

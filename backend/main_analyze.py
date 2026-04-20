@@ -70,13 +70,25 @@ def run():
 
         print(f"\n{'='*50}\n분석 시작: {name} ({appid})")
 
-        # ── top_languages 재계산 ────────────────────────────────────────────
-        lang_dist_raw = game.get("language_distribution", "")
-        if lang_dist_raw:
+        # top_languages 재계산은 cached_lang_counts 로드 후 처리 (아래에서 수행)
+
+        game_ss  = open_game_sheet(game_sheet_id)
+        raw_ss   = open_raw_spreadsheet(game_sheet_id)
+
+        # 언어 카운트 1회 캐싱 (lang_dist 저장 + top_languages + lang_cross 재사용)
+        cached_lang_counts: dict | None = None
+        try:
+            cached_lang_counts = get_language_counts(raw_ss)
+        except Exception as e:
+            print(f"  [lang_counts] 실패: {e}")
+
+        top_languages = _get_top_languages(game, cached_lang_counts)
+
+        # ── top_languages 재계산 (cached_lang_counts 기반) ──────────────────
+        if cached_lang_counts:
             try:
-                lang_dist = json.loads(lang_dist_raw)
                 new_top = [
-                    l for l, _ in sorted(lang_dist.items(), key=lambda x: x[1], reverse=True)
+                    l for l, _ in sorted(cached_lang_counts.items(), key=lambda x: x[1], reverse=True)
                     [:TOP_LANGUAGES_COUNT]
                 ]
                 stored_top = [l.strip() for l in game.get("top_languages", "").split(",") if l.strip()]
@@ -84,13 +96,10 @@ def run():
                     update_game(ss, appid, {"top_languages": ",".join(new_top)})
                     game = dict(game)
                     game["top_languages"] = ",".join(new_top)
+                    top_languages = new_top
                     print(f"  [top_languages] 재계산: {new_top}")
             except Exception as _e:
                 print(f"  [top_languages] 재계산 실패: {_e}")
-
-        game_ss  = open_game_sheet(game_sheet_id)
-        raw_ss   = open_raw_spreadsheet(game_sheet_id)
-        top_languages = _get_top_languages(game, [], raw_ss)
 
         # ── 중복 이벤트 정리 ────────────────────────────────────────────────
         _dedup_removed = deduplicate_timeline(game_ss)
@@ -100,16 +109,15 @@ def run():
         timeline_rows = gs_get_timeline(game_ss)
 
         # ── 언어 분포 저장 ──────────────────────────────────────────────────
-        try:
-            raw_counts = get_language_counts(raw_ss)
-            if raw_counts:
+        if cached_lang_counts:
+            try:
                 lang_dist_str = json.dumps(
-                    {l: c for l, c in sorted(raw_counts.items(), key=lambda x: x[1], reverse=True)},
+                    {l: c for l, c in sorted(cached_lang_counts.items(), key=lambda x: x[1], reverse=True)},
                     ensure_ascii=False,
                 )
                 update_game(ss, appid, {"language_distribution": lang_dist_str})
-        except Exception as e:
-            print(f"  [lang_dist] 실패: {e}")
+            except Exception as e:
+                print(f"  [lang_dist] 실패: {e}")
 
         # ── title_kr 백필 (개별 이벤트) ─────────────────────────────────────
         rows_needing_title_kr = [
@@ -177,6 +185,7 @@ def run():
         existing_scope_ids = {(r["event_id"], r["language_scope"]) for r in timeline_rows}
 
         MONTHLY_SPARSE = 5  # 월간 리뷰 이 건수 이하면 sparse
+        wrote_new_bucket = False
 
         for bucket in monthly_buckets:
             ym = bucket["year_month"]
@@ -206,7 +215,7 @@ def run():
                 for ev in bucket["official_events"]:
                     content = str(ev.get("content", "")).strip()
                     if content:
-                        parts.append(f"[{ev.get('date')}] {ev.get('title', '')}\n{content[:2000]}")
+                        parts.append(f"[{ev.get('date')}] {ev.get('title', '')}\n{content[:1000]}")
                     else:
                         parts.append(f"[{ev.get('date')}] {ev.get('title', '')}")
                 combined_content = "\n\n---\n\n".join(parts)
@@ -292,13 +301,11 @@ def run():
                     existing_scope_ids.add((bucket["event_id"], scope))
                 time.sleep(2)
 
+            wrote_new_bucket = True
             print(f"  월간 분석 완료: {bucket['title']}")
 
-        # top_languages 초기 저장
-        if not game.get("top_languages") and top_languages:
-            update_game(ss, appid, {"top_languages": ",".join(top_languages)})
-
-        time.sleep(5)
+        if wrote_new_bucket:
+            time.sleep(5)
 
         # ── 최신 타임라인 재조회 ─────────────────────────────────────────
         final_timeline = gs_get_timeline(game_ss)
@@ -331,8 +338,9 @@ def run():
         }
         ev_count = len(event_ids)
 
-        # ── CCU 피크타임 AI 분석 (주 1회) ─────────────────────────────
+        # ── CCU 피크타임 AI 분석 + 언어권 교차 분석 (주 1회) ─────────────
         ccu_peaktime_comment = game.get("ccu_peaktime_comment", "")
+        language_cross_comment = game.get("language_cross_comment", "")
         today_weekday = datetime.now(tz=timezone.utc).weekday()
         should_refresh_ccu = not ccu_peaktime_comment or today_weekday == 0
         if should_refresh_ccu:
@@ -346,62 +354,61 @@ def run():
             except Exception as e:
                 print(f"  [ccu_peaktime] 오류: {e}")
 
-        # ── 언어권 교차 분석 ─────────────────────────────────────────
-        language_cross_comment = ""
-        try:
-            raw_counts = get_language_counts(raw_ss)
-            if raw_counts:
-                total_raw = sum(raw_counts.values())
-                lang_sentiment: dict[str, list[float]] = {}
-                for r in final_timeline:
-                    scope = r.get("language_scope", "")
-                    rate  = r.get("sentiment_rate", "")
-                    if scope and scope != "all" and rate not in ("", "sparse", None):
-                        try:
-                            lang_sentiment.setdefault(scope, []).append(float(rate))
-                        except (ValueError, TypeError):
-                            pass
-                language_stats = []
-                for lang, cnt in sorted(raw_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
-                    rates = lang_sentiment.get(lang, [])
-                    entry = {
-                        "language":     LANGUAGE_NAMES.get(lang, lang),
-                        "review_count": cnt,
-                        "review_pct":   round(cnt / total_raw * 100, 1) if total_raw else 0,
-                    }
-                    if rates:
-                        entry["avg_sentiment_rate"] = round(sum(rates) / len(rates), 1)
-                    language_stats.append(entry)
-                language_cross_comment = generate_language_cross_analysis(
-                    name, language_stats, ccu_peaktime_comment
-                )
-                time.sleep(2)
-        except Exception as e:
-            print(f"  [lang_cross] 오류: {e}")
+            # 언어권 교차 분석 (CCU 갱신 주와 동일하게 주 1회)
+            if cached_lang_counts:
+                try:
+                    total_raw = sum(cached_lang_counts.values())
+                    lang_sentiment: dict[str, list[float]] = {}
+                    for r in final_timeline:
+                        scope = r.get("language_scope", "")
+                        rate  = r.get("sentiment_rate", "")
+                        if scope and scope != "all" and rate not in ("", "sparse", None):
+                            try:
+                                lang_sentiment.setdefault(scope, []).append(float(rate))
+                            except (ValueError, TypeError):
+                                pass
+                    language_stats = []
+                    for lang, cnt in sorted(cached_lang_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+                        rates = lang_sentiment.get(lang, [])
+                        entry = {
+                            "language":     LANGUAGE_NAMES.get(lang, lang),
+                            "review_count": cnt,
+                            "review_pct":   round(cnt / total_raw * 100, 1) if total_raw else 0,
+                        }
+                        if rates:
+                            entry["avg_sentiment_rate"] = round(sum(rates) / len(rates), 1)
+                        language_stats.append(entry)
+                    language_cross_comment = generate_language_cross_analysis(
+                        name, language_stats, ccu_peaktime_comment
+                    )
+                    time.sleep(2)
+                except Exception as e:
+                    print(f"  [lang_cross] 오류: {e}")
 
-        # ── 감성 추이 종합 분석 ────────────────────────────────────────
+        # ── 감성 추이 종합 분석 (신규 버킷 작성 시만 갱신) ────────────────
         sentiment_trend_comment = game.get("sentiment_trend_comment", "")
-        analyzed_monthly_rows = [
-            r for r in final_timeline
-            if r.get("event_type") == "monthly_summary"
-            and r.get("language_scope") == "all"
-            and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse")
-        ]
-        if len(analyzed_monthly_rows) >= 2:
-            trend_buckets = [
-                {
-                    "date":           r.get("date", ""),
-                    "title":          r.get("title", ""),
-                    "sentiment_rate": r.get("sentiment_rate", ""),
-                    "review_count":   r.get("review_count", 0),
-                }
-                for r in sorted(analyzed_monthly_rows, key=lambda r: r.get("date", ""))
+        if wrote_new_bucket:
+            analyzed_monthly_rows = [
+                r for r in final_timeline
+                if r.get("event_type") == "monthly_summary"
+                and r.get("language_scope") == "all"
+                and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse")
             ]
-            try:
-                sentiment_trend_comment = generate_sentiment_trend_comment(name, trend_buckets)
-                time.sleep(2)
-            except Exception as e:
-                print(f"  [sentiment_trend] 오류: {e}")
+            if len(analyzed_monthly_rows) >= 2:
+                trend_buckets = [
+                    {
+                        "date":           r.get("date", ""),
+                        "title":          r.get("title", ""),
+                        "sentiment_rate": r.get("sentiment_rate", ""),
+                        "review_count":   r.get("review_count", 0),
+                    }
+                    for r in sorted(analyzed_monthly_rows, key=lambda r: r.get("date", ""))
+                ]
+                try:
+                    sentiment_trend_comment = generate_sentiment_trend_comment(name, trend_buckets)
+                    time.sleep(2)
+                except Exception as e:
+                    print(f"  [sentiment_trend] 오류: {e}")
 
         update_game(ss, appid, {
             "ai_briefing":             briefing,
@@ -417,19 +424,14 @@ def run():
     print("\n전체 분석 완료")
 
 
-def _get_top_languages(game: dict, timeline_rows: list[dict], raw_ss=None) -> list[str]:
+def _get_top_languages(game: dict, cached_lang_counts: dict | None = None) -> list[str]:
     stored = game.get("top_languages", "")
     if stored:
         return [l.strip() for l in stored.split(",") if l.strip()]
-    if raw_ss is not None:
-        try:
-            raw_counts = get_language_counts(raw_ss)
-            if raw_counts:
-                top = [l for l, _ in sorted(raw_counts.items(), key=lambda x: x[1], reverse=True)[:TOP_LANGUAGES_COUNT]]
-                if top:
-                    return top
-        except Exception:
-            pass
+    if cached_lang_counts:
+        top = [l for l, _ in sorted(cached_lang_counts.items(), key=lambda x: x[1], reverse=True)[:TOP_LANGUAGES_COUNT]]
+        if top:
+            return top
     return ["koreana", "english"]
 
 

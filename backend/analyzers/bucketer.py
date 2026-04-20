@@ -4,7 +4,6 @@
 from datetime import datetime, timezone, timedelta
 from calendar import monthrange
 from typing import Optional
-import uuid
 
 
 def _to_ts(date_str: str, end_of_day: bool = False) -> int:
@@ -17,81 +16,6 @@ def _to_ts(date_str: str, end_of_day: bool = False) -> int:
     except Exception:
         return 0
 
-
-def build_buckets(events: list[dict]) -> list[dict]:
-    """
-    events: timeline_{appid}에서 language_scope=all 행 중 이벤트 목록
-    각 이벤트 = {"event_id", "event_type", "date", "title", ...}
-    반환: 버킷 목록 [{"event_id", "start_ts", "end_ts", ...}]
-    """
-    officials = [e for e in events if e.get("event_type") in ("official", "manual")]
-    officials.sort(key=lambda e: (e.get("date", ""), e.get("event_id", "")))
-
-    if not officials:
-        # event_id를 고정값으로 사용해 analyze 재실행 시 중복 행 생성 방지
-        return [{
-            "event_id": "launch_bucket",
-            "event_type": "launch",
-            "date": "",
-            "title": "런칭",
-            "start_ts": 0,
-            "end_ts": int(datetime.now(tz=timezone.utc).timestamp()),
-        }]
-
-    buckets = []
-    for i, ev in enumerate(officials):
-        start_ts = _to_ts(ev.get("date", ""), end_of_day=False)
-        if i + 1 < len(officials):
-            next_date = officials[i + 1].get("date", "")
-            end_ts = _to_ts(next_date, end_of_day=True) - 86400
-        else:
-            end_ts = int(datetime.now(tz=timezone.utc).timestamp())
-
-        buckets.append({
-            "event_id": ev.get("event_id"),
-            "event_type": ev.get("event_type"),
-            "date": ev.get("date"),
-            "title": ev.get("title"),
-            "url": ev.get("url", ""),
-            "is_sale_period": ev.get("is_sale_period", False),
-            "sale_text": ev.get("sale_text", ""),
-            "is_free_weekend": ev.get("is_free_weekend", False),
-            "content": ev.get("content", ""),   # 이벤트 본문 — AI 패치 요약에 사용
-            "start_ts": start_ts,
-            "end_ts": end_ts,
-        })
-    return buckets
-
-
-def split_bucket(buckets: list[dict], split_date: str, new_event_id: str,
-                 new_title: str, new_type: str = "manual") -> list[dict]:
-    """
-    수동 이벤트 등록 시 기존 버킷을 날짜 기준으로 2개로 분할
-    """
-    split_ts = _to_ts(split_date)
-    new_buckets = []
-    for b in buckets:
-        if b["start_ts"] < split_ts <= b["end_ts"]:
-            before = dict(b)
-            before["end_ts"] = split_ts - 1
-
-            after = {
-                "event_id": new_event_id,
-                "event_type": new_type,
-                "date": split_date,
-                "title": new_title,
-                "url": "",
-                "is_sale_period": False,
-                "sale_text": "",
-                "is_free_weekend": False,
-                "start_ts": split_ts,
-                "end_ts": b["end_ts"],
-            }
-            new_buckets.append(before)
-            new_buckets.append(after)
-        else:
-            new_buckets.append(b)
-    return new_buckets
 
 
 def build_monthly_buckets(timeline_events: list[dict],
