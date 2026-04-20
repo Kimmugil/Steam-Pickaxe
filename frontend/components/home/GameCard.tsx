@@ -43,8 +43,11 @@ export default function GameCard({ game }: GameCardProps) {
   const eventDaysColor =
     eventDays >= 60 ? "text-accent-red" : eventDays >= 30 ? "text-accent-orange" : "text-text-muted";
 
+  // Steam 상점 전체 누적 긍정률 우선, 없으면 최근 이벤트 구간 긍정률로 fallback
   const sentimentRate =
-    game.latest_sentiment_rate !== undefined && game.latest_sentiment_rate !== ""
+    game.steam_positive_rate !== undefined && game.steam_positive_rate !== ""
+      ? Number(game.steam_positive_rate)
+      : game.latest_sentiment_rate !== undefined && game.latest_sentiment_rate !== ""
       ? Number(game.latest_sentiment_rate)
       : null;
 

@@ -111,12 +111,21 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
 
             {/* 핵심 지표 */}
             <div className="flex items-center gap-4 mt-3 flex-wrap">
-              {topSentimentRate !== undefined && (
-                <div className="flex flex-col gap-0.5">
-                  <Badge rate={topSentimentRate} reviewCount={Number(game.totalReviews || 0)} size="lg" labelOnly />
-                  <span className="text-[10px] text-text-muted pl-0.5">최근 이벤트 구간 기준</span>
-                </div>
-              )}
+              {(() => {
+                // Steam 상점 전체 누적 긍정률 우선, 없으면 최근 이벤트 구간 긍정률로 fallback
+                const steamRate =
+                  game.steam_positive_rate !== undefined && game.steam_positive_rate !== ""
+                    ? Number(game.steam_positive_rate)
+                    : undefined;
+                const displayRate = steamRate ?? topSentimentRate;
+                const rateLabel   = steamRate !== undefined ? "Steam 전체 누적 평가 기준" : "최근 이벤트 구간 기준";
+                return displayRate !== undefined ? (
+                  <div className="flex flex-col gap-0.5">
+                    <Badge rate={displayRate} reviewCount={Number(game.totalReviews || 0)} size="lg" labelOnly />
+                    <span className="text-[10px] text-text-muted pl-0.5">{rateLabel}</span>
+                  </div>
+                ) : null;
+              })()}
               <div className="text-sm text-text-secondary">
                 {t("HEADER_REVIEWS_LABEL")}{" "}
                 <span className="text-text-primary font-medium">

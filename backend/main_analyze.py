@@ -34,6 +34,8 @@ TOP_LANGUAGES_COUNT = 5
 # TARGET_YEAR_MONTH:  "YYYY-MM" 설정 시 해당 월만 분석 (미설정 = 미분석+현재 월 전체)
 TARGET_APPID       = os.environ.get("TARGET_APPID",       "").strip()
 TARGET_YEAR_MONTH  = os.environ.get("TARGET_YEAR_MONTH",  "").strip()
+# CORE_ONLY: true 일 때 이벤트 수집/월간 분석을 건너뛰고 4개 종합 분석만 강제 실행
+CORE_ONLY          = os.environ.get("CORE_ONLY",          "").strip().lower() == "true"
 
 
 def run():
@@ -168,9 +170,12 @@ def run():
                     pass
             timeline_rows = gs_get_timeline(game_ss)
 
+        if CORE_ONLY:
+            print(f"  [CORE_ONLY] 이벤트 수집·월간 분석 건너뜀 — 4개 종합 분석만 실행")
+
         # ── 월별 버킷 구성 ──────────────────────────────────────────────────
         release_date = str(game.get("release_date", "")).strip()
-        monthly_buckets = build_monthly_buckets(timeline_rows, release_date=release_date or None)
+        monthly_buckets = build_monthly_buckets(timeline_rows, release_date=release_date or None) if not CORE_ONLY else []
 
         # 이미 완료된 월 (monthly_summary 행이 있고 sentiment_rate가 채워진 것)
         completed_months = {
@@ -339,11 +344,12 @@ def run():
         }
         ev_count = len(event_ids)
 
-        # ── CCU 피크타임 AI 분석 + 언어권 교차 분석 (주 1회) ─────────────
+        # ── CCU 피크타임 AI 분석 + 언어권 교차 분석 (주 1회 or CORE_ONLY) ──
         ccu_peaktime_comment = game.get("ccu_peaktime_comment", "")
         language_cross_comment = game.get("language_cross_comment", "")
         today_weekday = datetime.now(tz=timezone.utc).weekday()
-        should_refresh_ccu = not ccu_peaktime_comment or today_weekday == 0
+        # CORE_ONLY 시 주기 무시하고 항상 강제 갱신
+        should_refresh_ccu = not ccu_peaktime_comment or today_weekday == 0 or CORE_ONLY
         if should_refresh_ccu:
             try:
                 ccu_rows = get_ccu_data(game_ss)
@@ -386,9 +392,9 @@ def run():
                 except Exception as e:
                     print(f"  [lang_cross] 오류: {e}")
 
-        # ── 감성 추이 종합 분석 (신규 버킷 작성 시만 갱신) ────────────────
+        # ── 감성 추이 종합 분석 (신규 버킷 작성 시 or CORE_ONLY 강제 갱신) ──
         sentiment_trend_comment = game.get("sentiment_trend_comment", "")
-        if wrote_new_bucket:
+        if wrote_new_bucket or CORE_ONLY:
             analyzed_monthly_rows = [
                 r for r in final_timeline
                 if r.get("event_type") == "monthly_summary"
@@ -411,16 +417,22 @@ def run():
                 except Exception as e:
                     print(f"  [sentiment_trend] 오류: {e}")
 
-        update_game(ss, appid, {
+        core_updates = {
             "ai_briefing":             briefing,
             "ai_briefing_date":        today,
-            "latest_sentiment_rate":   latest_rate,
-            "event_count":             ev_count,
             "ccu_peaktime_comment":    ccu_peaktime_comment,
             "language_cross_comment":  language_cross_comment,
             "sentiment_trend_comment": sentiment_trend_comment,
-        })
-        print(f"분석 완료 (긍정률={latest_rate}%, 이벤트={ev_count}건)")
+        }
+        if not CORE_ONLY:
+            # 월간 분석 결과도 함께 저장 (CORE_ONLY 시 기존 값 보존)
+            core_updates["latest_sentiment_rate"] = latest_rate
+            core_updates["event_count"]           = ev_count
+        update_game(ss, appid, core_updates)
+        if CORE_ONLY:
+            print(f"종합 분석 완료 (브리핑+CCU+언어+추이)")
+        else:
+            print(f"분석 완료 (긍정률={latest_rate}%, 이벤트={ev_count}건)")
 
     print("\n전체 분석 완료")
 

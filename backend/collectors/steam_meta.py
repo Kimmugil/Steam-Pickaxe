@@ -185,6 +185,34 @@ def _scrape_store_page(appid: str) -> dict:
     return result
 
 
+def fetch_steam_positive_rate(appid: str) -> float | None:
+    """
+    Steam appreviews API에서 전체 누적 긍정률(%) 계산.
+    반환: 0.0 ~ 100.0 범위의 소수, 오류 시 None.
+    """
+    try:
+        r = requests.get(
+            f"https://store.steampowered.com/appreviews/{appid}",
+            params={
+                "json": "1",
+                "num_per_page": "0",
+                "language": "all",
+                "purchase_type": "all",
+                "filter_offtopic_activity": "0",
+            },
+            timeout=15,
+        )
+        r.raise_for_status()
+        summary = r.json().get("query_summary", {})
+        total    = int(summary.get("total_reviews",  0))
+        positive = int(summary.get("total_positive", 0))
+        if total > 0:
+            return round(positive / total * 100, 1)
+    except Exception as e:
+        print(f"[steam_meta] 긍정률 fetch 오류 appid={appid}: {e}")
+    return None
+
+
 def is_game_type(app_data: dict) -> bool:
     return app_data.get("type") == "game"
 
@@ -215,6 +243,9 @@ def parse_game_meta(appid: str, app_data: dict) -> dict:
     else:
         api_price = ""
 
+    # ── Steam 긍정률 ──────────────────────────────────────────────
+    positive_rate = fetch_steam_positive_rate(appid)
+
     # ── 스크래핑 (always, primary) ────────────────────────────────
     print(f"[steam_meta] 스토어 페이지 스크래핑 시도 appid={appid}")
     scraped = _scrape_store_page(appid)
@@ -237,5 +268,6 @@ def parse_game_meta(appid: str, app_data: dict) -> dict:
         "genres":           genres,
         "developer":        developer,
         "publisher":        publisher,
-        "price":            price,
+        "price":               price,
+        "steam_positive_rate": positive_rate if positive_rate is not None else "",
     }

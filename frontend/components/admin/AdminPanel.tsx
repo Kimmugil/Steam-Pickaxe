@@ -128,6 +128,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [collectingMonthIds, setCollectingMonthIds] = useState<Set<string>>(new Set());
   const [reanalyzingIds, setReanalyzingIds] = useState<Set<string>>(new Set());
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  const [coreAnalyzingIds, setCoreAnalyzingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY);
@@ -258,6 +259,30 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show("서버 연결 오류", "error");
     } finally {
       setCollectingMonthIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
+  }
+
+  // ── 종합 분석 (4개 핵심 분석만) ──────────────────────────────────────────
+  async function handleCoreAnalyze(appid: string) {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setCoreAnalyzingIds((prev) => new Set(prev).add(appid));
+    try {
+      const res = await fetch("/api/admin/analyze-core", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("종합 분석을 요청했습니다. 수분 내 반영됩니다. (이벤트 수집 없이 브리핑·CCU·언어·추이만 갱신)", "success");
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setCoreAnalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
   }
 
@@ -666,7 +691,19 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             </button>
                           )}
 
-                          {/* AI 재분석 */}
+                          {/* 종합 분석 (이벤트 수집 없이 4개 핵심 분석만) */}
+                          {isActive && isApproved && (
+                            <button
+                              onClick={() => handleCoreAnalyze(appid)}
+                              disabled={coreAnalyzingIds.has(appid)}
+                              title="이벤트 수집 없이 AI 브리핑·CCU 피크타임·평가 추이·언어권 교차 분석만 즉시 갱신합니다."
+                              className="px-2.5 py-1 text-xs bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded hover:bg-accent-blue/20 transition-colors disabled:opacity-40"
+                            >
+                              {coreAnalyzingIds.has(appid) ? "요청 중..." : "🔬 종합 분석"}
+                            </button>
+                          )}
+
+                          {/* AI 재분석 (뉴스 재수집 + 전범위) */}
                           {isActive && isApproved && (
                             <button
                               onClick={() => handleReanalyze(appid)}
