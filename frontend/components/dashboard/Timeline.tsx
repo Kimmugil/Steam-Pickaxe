@@ -236,7 +236,7 @@ function MonthCard({
         {/* 이벤트 수 뱃지 */}
         <span className="text-xs text-text-muted">
           {t("CARD_EVENTS_LABEL", { n: eventRows.length })}
-          {officialCount > 0 && ` · 패치 ${officialCount}건`}
+          {officialCount > 0 && ` · 공식 이벤트 ${officialCount}건`}
         </span>
 
         {/* 긍정률 배지 */}
@@ -250,7 +250,7 @@ function MonthCard({
           </span>
         ) : rate !== null ? (
           <span className="ml-auto">
-            <Badge rate={rate} reviewCount={reviewCount} size="sm" />
+            <Badge rate={rate} reviewCount={reviewCount} size="sm" labelOnly />
           </span>
         ) : null}
 
