@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 from sheets.master_sheet import get_spreadsheet, get_all_games
 from sheets.game_sheet import open_game_sheet, append_ccu as gs_append_ccu
 from collectors.steam_ccu import fetch_current_ccu, now_utc_iso
-from collectors.steam_news import fetch_sale_info
 
 
 def run():
@@ -33,13 +32,10 @@ def run():
             print(f"[CCU] {name} ({appid}): 수집 실패")
             continue
 
-        sale_info = fetch_sale_info(appid)
-        is_sale = sale_info.get("is_sale", False)
-
         timestamp = now_utc_iso()
         game_ss = open_game_sheet(game_sheet_id)
-        gs_append_ccu(game_ss, timestamp, ccu, is_sale=is_sale)
-        print(f"[CCU] {name} ({appid}): {ccu:,}명 {'(할인 중)' if is_sale else ''}")
+        gs_append_ccu(game_ss, timestamp, ccu)
+        print(f"[CCU] {name} ({appid}): {ccu:,}명")
 
     print("CCU 수집 완료")
 

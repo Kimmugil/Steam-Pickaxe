@@ -8,6 +8,7 @@ import SentimentChart from "@/components/dashboard/SentimentChart";
 import LanguageTab from "@/components/dashboard/LanguageTab";
 import Timeline from "@/components/dashboard/Timeline";
 import EventForm from "@/components/dashboard/EventForm";
+import { Lock } from "lucide-react";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { Game, TimelineRow, CcuRow } from "@/types";
 
@@ -29,6 +30,7 @@ export default function DashboardClient({
   const router = useRouter();
   const { t } = useUiText();
   const [activeTab, setActiveTab] = useState<Tab>("ccu");
+  const [showEventModal, setShowEventModal] = useState(false);
 
   // 언어 분포 파싱 (RAW 리뷰 기반 JSON — 파이 차트용)
   const languageDistribution: Record<string, number> = (() => {
@@ -104,17 +106,42 @@ export default function DashboardClient({
         <div className="bg-bg-card border border-border-default rounded-xl p-6">
           <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
           <Timeline timelineRows={timelineRows} appid={String(game.appid)} releaseDate={game.release_date} />
-        </div>
 
-        {/* ── 수동 이벤트 등록 (관리자) ────────────────────────────── */}
-        <div className="bg-bg-card border border-border-default rounded-xl p-6">
-          <EventForm
-            appid={String(game.appid)}
-            onEventAdded={() => router.refresh()}
-          />
+          {/* 수동 이벤트 등록 버튼 */}
+          <div className="mt-6 pt-4 border-t border-border-default">
+            <button
+              onClick={() => setShowEventModal(true)}
+              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors"
+            >
+              <Lock className="w-3 h-3" />
+              수동 이슈/이벤트 등록 (관리자)
+            </button>
+          </div>
         </div>
 
       </div>
+
+      {/* 수동 이벤트 등록 모달 */}
+      {showEventModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-bg-card border border-border-default rounded-xl p-6 w-[520px] max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-text-primary text-sm">수동 이슈/이벤트 등록</h3>
+              <button
+                onClick={() => setShowEventModal(false)}
+                className="text-text-muted hover:text-text-primary text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+            <EventForm
+              appid={String(game.appid)}
+              onEventAdded={() => { router.refresh(); setShowEventModal(false); }}
+              inModal
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );

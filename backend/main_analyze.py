@@ -160,7 +160,8 @@ def run():
             timeline_rows = gs_get_timeline(game_ss)
 
         # ── 월별 버킷 구성 ──────────────────────────────────────────────────
-        monthly_buckets = build_monthly_buckets(timeline_rows)
+        release_date = str(game.get("release_date", "")).strip()
+        monthly_buckets = build_monthly_buckets(timeline_rows, release_date=release_date or None)
 
         # 이미 완료된 월 (monthly_summary 행이 있고 sentiment_rate가 채워진 것)
         completed_months = {

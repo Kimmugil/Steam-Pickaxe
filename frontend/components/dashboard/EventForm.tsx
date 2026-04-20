@@ -8,13 +8,14 @@ import { useUiText } from "@/contexts/UiTextContext";
 interface EventFormProps {
   appid: string;
   onEventAdded: () => void;
-  prefillPassword?: string; // admin already unlocked → skip modal
+  prefillPassword?: string;
+  inModal?: boolean; // when true: always open, no toggle button
 }
 
-export default function EventForm({ appid, onEventAdded, prefillPassword }: EventFormProps) {
+export default function EventForm({ appid, onEventAdded, prefillPassword, inModal }: EventFormProps) {
   const { t } = useUiText();
   const { toast, show, clear } = useToast();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!inModal);
 
   const [eventTitle, setEventTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -51,15 +52,17 @@ export default function EventForm({ appid, onEventAdded, prefillPassword }: Even
   }
 
   return (
-    <div className="mb-6">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary border border-dashed border-border-default hover:border-border-hover rounded-lg px-3 py-2 transition-colors"
-      >
-        {!prefillPassword && <Lock className="w-3 h-3" />}
-        수동 이슈/이벤트 등록
-        <span className="ml-auto">{open ? "▲" : "▼"}</span>
-      </button>
+    <div className={inModal ? "" : "mb-6"}>
+      {!inModal && (
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary border border-dashed border-border-default hover:border-border-hover rounded-lg px-3 py-2 transition-colors"
+        >
+          {!prefillPassword && <Lock className="w-3 h-3" />}
+          수동 이슈/이벤트 등록
+          <span className="ml-auto">{open ? "▲" : "▼"}</span>
+        </button>
+      )}
 
       {open && (
         <div className="mt-3 bg-bg-secondary border border-border-default rounded-xl p-4 space-y-2">

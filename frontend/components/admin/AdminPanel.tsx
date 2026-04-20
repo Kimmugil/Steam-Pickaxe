@@ -37,6 +37,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
   // 게임별 액션 로딩 상태 (appid별)
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
+  const [unapprovingIds, setUnapprovingIds] = useState<Set<string>>(new Set());
   const [collectingMonthIds, setCollectingMonthIds] = useState<Set<string>>(new Set());
   const [reanalyzingIds, setReanalyzingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -97,6 +98,31 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show("서버 연결 오류", "error");
     } finally {
       setApprovingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
+  }
+
+  // ── AI 분석 승인 취소 ─────────────────────────────────────────────────────
+  async function handleUnapproveGame(appid: string) {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setUnapprovingIds((prev) => new Set(prev).add(appid));
+    try {
+      const res = await fetch("/api/admin/unapprove-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("AI 분석 승인이 취소되었습니다.", "success");
+        router.refresh();
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setUnapprovingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
   }
 
@@ -395,13 +421,27 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                         </span>
                       </td>
 
-                      {/* AI 승인 */}
+                      {/* AI 승인 토글 */}
                       <td className="px-4 py-3">
                         {isActive ? (
                           isApproved ? (
-                            <span className="text-xs text-accent-green">✅ 승인됨</span>
+                            <button
+                              onClick={() => handleUnapproveGame(appid)}
+                              disabled={unapprovingIds.has(appid)}
+                              title="클릭하면 AI 분석 승인이 취소됩니다. 이후 analyze.yml이 이 게임을 건너뜁니다."
+                              className="text-xs text-accent-green hover:text-accent-red hover:line-through transition-colors disabled:opacity-40 cursor-pointer"
+                            >
+                              {unapprovingIds.has(appid) ? "취소 중..." : "✅ 승인됨"}
+                            </button>
                           ) : (
-                            <span className="text-xs text-accent-orange">⏳ 미승인</span>
+                            <button
+                              onClick={() => handleApproveGame(appid)}
+                              disabled={approvingIds.has(appid)}
+                              title="클릭하면 AI 분석을 승인하고 즉시 분석 워크플로우가 트리거됩니다."
+                              className="text-xs text-accent-orange hover:text-accent-green transition-colors disabled:opacity-40 cursor-pointer"
+                            >
+                              {approvingIds.has(appid) ? "승인 중..." : "⏳ 미승인"}
+                            </button>
                           )
                         ) : (
                           <span className="text-xs text-text-muted">—</span>
@@ -437,6 +477,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             <button
                               onClick={() => handleCollectMonth(appid)}
                               disabled={collectingMonthIds.has(appid)}
+                              title="이번 달 뉴스·이벤트를 재수집하고 AI 분석을 즉시 실행합니다."
                               className="px-2.5 py-1 text-xs bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded hover:bg-accent-blue/20 transition-colors disabled:opacity-40"
                             >
                               {collectingMonthIds.has(appid) ? "요청 중..." : "📅 이번 달"}
@@ -448,6 +489,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             <button
                               onClick={() => handleReanalyze(appid)}
                               disabled={reanalyzingIds.has(appid)}
+                              title="최신 뉴스·패치를 재수집하고 전체 기간 AI 분석을 다시 실행합니다."
                               className="px-2.5 py-1 text-xs bg-bg-secondary border border-border-default text-text-secondary rounded hover:border-accent-blue/40 hover:text-accent-blue transition-colors disabled:opacity-40"
                             >
                               {reanalyzingIds.has(appid) ? "요청 중..." : "🔄 재분석"}
@@ -502,7 +544,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         {/* AI 분석 미승인 요약 */}
         {pendingAiGames.length > 0 && (
           <p className="mt-3 text-xs text-accent-orange">
-            ⚠️ AI 분석 미승인 게임 {pendingAiGames.length}개 — 위 테이블에서 게임별로 승인하세요.
+            ⚠️ AI 분석 미승인 게임 {pendingAiGames.length}개 — AI 승인 셀을 클릭해 게임별로 ON/OFF 설정하세요.
           </p>
         )}
       </section>

@@ -94,20 +94,22 @@ def split_bucket(buckets: list[dict], split_date: str, new_event_id: str,
     return new_buckets
 
 
-def build_monthly_buckets(timeline_events: list[dict]) -> list[dict]:
+def build_monthly_buckets(timeline_events: list[dict],
+                          release_date: Optional[str] = None) -> list[dict]:
     """
     타임라인 이벤트를 YYYY-MM 단위로 묶어 월별 버킷을 반환합니다.
+    release_date가 제공되면 출시 월부터 현재 월까지 모든 월을 포함합니다.
 
     반환: [
       {
         "year_month":       "2025-04",
-        "event_id":         "monthly_2025_04",  # timeline 행 식별자
+        "event_id":         "monthly_2025_04",
         "date":             "2025-04-01",
         "title":            "2025년 04월",
-        "start_ts":         ...,   # 월 1일 00:00:00 UTC
-        "end_ts":           ...,   # 월 마지막 날 23:59:59 UTC (현재 월은 now())
-        "official_events":  [...], # 해당 월의 official/manual 이벤트 행
-        "all_events":       [...], # 해당 월의 모든 이벤트 행
+        "start_ts":         ...,
+        "end_ts":           ...,
+        "official_events":  [...],
+        "all_events":       [...],
         "is_current_month": bool,
       }, ...
     ]
@@ -130,6 +132,25 @@ def build_monthly_buckets(timeline_events: list[dict]) -> list[dict]:
             continue
         ym = date_str[:7]
         month_events.setdefault(ym, []).append(ev)
+
+    # 출시 월부터 현재 월까지 빈 버킷 보장
+    if release_date:
+        try:
+            release_ym = str(release_date).strip()[:7]
+            if len(release_ym) == 7 and release_ym[4] == "-":
+                # release_ym ~ current_ym 사이 모든 월 추가
+                ry, rm = int(release_ym[:4]), int(release_ym[5:7])
+                cy, cm = int(current_ym[:4]), int(current_ym[5:7])
+                y, m = ry, rm
+                while (y, m) <= (cy, cm):
+                    ym_key = f"{y:04d}-{m:02d}"
+                    month_events.setdefault(ym_key, [])
+                    m += 1
+                    if m > 12:
+                        m = 1
+                        y += 1
+        except Exception:
+            pass
 
     # 이벤트가 없거나 현재 월이 없으면 현재 월 빈 버킷 추가
     if not month_events or current_ym not in month_events:
