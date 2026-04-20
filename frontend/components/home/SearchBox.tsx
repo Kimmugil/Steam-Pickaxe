@@ -140,7 +140,7 @@ export default function SearchBox() {
 
       {/* ── 검색 결과 카드: 컴팩트 가로형 ───────────────────────── */}
       {result && (
-        <div className="mt-4 bg-bg-card border border-accent-blue/30 rounded-xl overflow-hidden flex gap-3 p-3">
+        <div className="mt-4 bg-bg-card border border-accent-blue/30 rounded-xl overflow-hidden flex items-center gap-3 p-3">
           {/* 썸네일 */}
           {result.thumbnail && (
             <div className="relative w-28 h-14 flex-shrink-0 rounded overflow-hidden bg-bg-secondary">
@@ -148,43 +148,43 @@ export default function SearchBox() {
                 src={result.thumbnail}
                 alt={result.name}
                 fill
-                className="object-cover"
+                className="object-cover object-center"
                 sizes="112px"
               />
             </div>
           )}
 
-          {/* 정보 + 버튼 */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
-            <div>
-              <p className="font-semibold text-text-primary text-sm truncate">{result.name}</p>
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                <span className="text-xs text-text-muted">AppID {result.appid}</span>
-                {result.release_date && (
-                  <span className="text-xs text-text-muted">{result.release_date}</span>
-                )}
-                {result.developers && result.developers.length > 0 && (
-                  <span className="text-xs text-text-muted truncate">{result.developers[0]}</span>
-                )}
-                {result.positiveRate !== undefined && result.totalReviews !== undefined && (
-                  <span className="text-xs text-text-muted">
-                    {result.totalReviews.toLocaleString()}건
-                    <span className="mx-1">·</span>
-                    <span className="text-text-secondary font-medium">
-                      {getSteamLabel(result.positiveRate, result.totalReviews)}
-                    </span>
+          {/* 정보 */}
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-text-primary text-sm truncate">{result.name}</p>
+            <div className="flex items-center gap-2 mt-0.5 flex-nowrap overflow-hidden">
+              <span className="text-xs text-text-muted whitespace-nowrap">AppID {result.appid}</span>
+              {result.release_date && (
+                <span className="text-xs text-text-muted whitespace-nowrap">{result.release_date}</span>
+              )}
+              {result.developers && result.developers.length > 0 && (
+                <span className="text-xs text-text-muted truncate">{result.developers[0]}</span>
+              )}
+              {result.positiveRate !== undefined && result.totalReviews !== undefined && (
+                <span className="text-xs text-text-muted whitespace-nowrap">
+                  {result.totalReviews.toLocaleString()}건
+                  <span className="mx-1">·</span>
+                  <span className="text-text-secondary font-medium">
+                    {getSteamLabel(result.positiveRate, result.totalReviews)}
                   </span>
-                )}
-              </div>
+                </span>
+              )}
             </div>
-            <button
-              onClick={handleRegister}
-              disabled={registering}
-              className="self-start px-3 py-1.5 bg-accent-green/20 border border-accent-green/40 text-accent-green rounded-lg text-xs font-medium hover:bg-accent-green/30 disabled:opacity-40 transition-colors"
-            >
-              {registering ? t("REGISTER_BTN_LOADING") : t("REGISTER_BTN")}
-            </button>
           </div>
+
+          {/* 등록 버튼 — 오른쪽 고정 */}
+          <button
+            onClick={handleRegister}
+            disabled={registering}
+            className="flex-shrink-0 px-3 py-1.5 bg-accent-green/20 border border-accent-green/40 text-accent-green rounded-lg text-xs font-medium hover:bg-accent-green/30 disabled:opacity-40 transition-colors whitespace-nowrap"
+          >
+            {registering ? t("REGISTER_BTN_LOADING") : t("REGISTER_BTN")}
+          </button>
         </div>
       )}
 

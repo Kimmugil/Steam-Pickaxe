@@ -17,7 +17,16 @@ export default async function HomePage() {
     (g) => g.status === "collecting" || g.status === "error_pool_empty"
   );
 
-  const t = (key: string) => (uiText as Record<string, string>)[key] ?? key;
+  const FALLBACK: Record<string, string> = {
+    HOME_TITLE: "Steam 게임 마켓 인텔리전스",
+    HOME_SUBTITLE: "업데이트 민심 · 트래픽 · 언어권 반응을 한눈에 꿰뚫는 스팀 분석 대시보드",
+    GAMES_SECTION_TITLE: "분석 완료된 게임",
+    GAMES_EMPTY_ICON: "🎮",
+    GAMES_EMPTY_TITLE: "아직 등록된 게임이 없습니다.",
+    GAMES_EMPTY_SUBTITLE: "위 검색창에서 Steam 게임을 검색하고 등록해 보세요.",
+    SEARCH_SECTION_TITLE: "게임 등록",
+  };
+  const t = (key: string) => (uiText as Record<string, string>)[key] ?? FALLBACK[key] ?? key;
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-12">
