@@ -45,6 +45,7 @@ const FALLBACK: Record<string, string> = {
   REGISTER_SUCCESS: "{name} 등록 완료! 수집이 시작됩니다.",
   REGISTER_ERROR: "등록 중 오류가 발생했습니다.",
   REGISTER_QUOTA_EXCEEDED: "곳간 용량 부족! 농장주(김무길)에게 곳간을 늘려달라고 하세요.",
+  REGISTER_APPROVAL_NOTICE: "페이지 생성 후 AI 분석은 관리자 승인 이후 진행됩니다. 수집이 완료되면 대기열에서 진행 상황을 확인할 수 있습니다.",
 
   // ── 검색 결과 메타 레이블 ────────────────────────────────────────────
   RESULT_LABEL_APPID: "AppID",
@@ -372,7 +373,7 @@ const FALLBACK: Record<string, string> = {
   GUIDE_AI_S6_DESC: "RAW 리뷰 전체의 언어 분포와 각 언어별 평균 감성률을 종합합니다. Steam 영어 과대표집 문제를 감안해 실제 주력 권역과 권역 간 평가 온도차를 진단합니다. 매주 월요일에만 갱신됩니다.",
   GUIDE_AI_H7: "⑦ AI 브리핑 (generate_ai_briefing)",
   GUIDE_AI_S7_DESC: "최근 10개 구간의 날짜·제목·긍정률·리뷰수·요약을 종합하고 최근 3건 vs 이전 3건 추이 방향을 계산한 뒤, 게임 전반 현황을 3~5문장으로 진단합니다. 매일 갱신됩니다.",
-  GUIDE_AI_INFO: "분석 언어 수: 기본적으로 상위 3개 언어만 언어별 감성 분석이 수행됩니다. 나머지 언어는 리뷰 분포(파이 차트)에는 표시되지만 AI 감성 분석 데이터는 없습니다. 언어 수를 늘리면 Gemini API 비용이 언어 수 × 이벤트 수만큼 증가합니다.",
+  GUIDE_AI_INFO: "분석 언어 수: 상위 5개 언어에 대해 언어별 감성 분석이 수행됩니다. 나머지 언어는 리뷰 분포(파이 차트)에는 표시되지만 AI 감성 분석 데이터는 없습니다. 언어 수를 늘리면 Gemini API 비용이 언어 수 × 이벤트 수만큼 증가합니다.",
 
   // ── 지표 해석 가이드 ─────────────────────────────────────────────────
   GUIDE_MTR_H_SENTIMENT: "긍정률 (sentiment_rate)",
@@ -397,7 +398,7 @@ const FALLBACK: Record<string, string> = {
   GUIDE_MTR_H_LANG: "언어 분포",
   GUIDE_MTR_LANG_L1: "RAW 리뷰 전체(수집된 모든 리뷰)의 언어 분포를 보여줍니다.",
   GUIDE_MTR_LANG_L2: "파이 차트는 상위 5개 언어 + 기타로 표시됩니다.",
-  GUIDE_MTR_LANG_L3: "리스트의 감성률/키워드는 AI가 분석한 언어(top 3)만 표시됩니다. 그 외는 '(미분석)'으로 표시됩니다.",
+  GUIDE_MTR_LANG_L3: "리스트의 감성률/키워드는 AI가 분석한 언어(top 5)만 표시됩니다. 그 외는 '(미분석)'으로 표시됩니다.",
   GUIDE_MTR_LANG_L4: "Steam 리뷰는 영어 리뷰가 과대표집되는 경향이 있습니다. AI 언어권 교차 분석은 이를 감안해 실제 주력 권역을 추정합니다.",
   GUIDE_MTR_H_TIMELINE: "타임라인 카드 상태",
   GUIDE_MTR_TL_T1_1: "AI 분석 진행 전",
@@ -443,7 +444,7 @@ const FALLBACK: Record<string, string> = {
   USAGE_H_CCU: "글로벌 트래픽 (CCU) 탭",
   USAGE_CCU_L1: "시간 흐름에 따른 동시 접속자 수 변화를 확인할 수 있습니다.",
   USAGE_CCU_L2: "주황색 배경은 할인 기간, 초록색 배경은 무료 주말입니다. 이 기간에 CCU가 급등한다면 프로모션 효과로 해석됩니다.",
-  USAGE_CCU_ADMIN: "게임 등록 전 기간의 CCU 공백이 있다면, 김무길에게 SteamDB CSV 업로드를 요청하세요. 차트 우측 상단 업로드 버튼을 통해 보정 데이터를 추가할 수 있습니다.",
+  USAGE_CCU_ADMIN: "게임 등록 전 기간의 CCU 공백이 있다면, 글로벌 트래픽 탭 하단 업로드 버튼을 통해 SteamDB CSV 보정 데이터를 추가할 수 있습니다 (관리자 비밀번호 필요).",
 
   USAGE_H_SENTIMENT: "평가 추이 탭",
   USAGE_SENTIMENT_L1: "이벤트(업데이트, 패치 등)를 기준으로 나눈 각 구간의 긍정률 변화를 꺾은선 그래프로 보여줍니다.",
@@ -452,7 +453,7 @@ const FALLBACK: Record<string, string> = {
 
   USAGE_H_LANGUAGE: "언어권별 분포 탭",
   USAGE_LANGUAGE_L1: "파이 차트: 수집된 전체 리뷰에서 언어권 분포를 보여줍니다. 상위 5개 언어 + 기타로 표시됩니다.",
-  USAGE_LANGUAGE_L2: "리스트: 각 언어별 감성률, 핵심 키워드를 확인할 수 있습니다. 상위 3개 언어만 AI 분석이 수행되며, 나머지는 '미분석'으로 표시됩니다.",
+  USAGE_LANGUAGE_L2: "리스트: 각 언어별 감성률, 핵심 키워드를 확인할 수 있습니다. 상위 5개 언어에 대해 AI 분석이 수행되며, 나머지는 '미분석'으로 표시됩니다.",
   USAGE_LANGUAGE_L3: "하단의 AI 언어권 교차 분석은 실제 주력 플레이 권역과 언어권 간 반응 온도차를 진단합니다.",
   USAGE_LANGUAGE_TIP: "영어 리뷰 비율이 높아도 영미권 유저가 그만큼 많다는 뜻이 아닙니다. 영어로 리뷰를 남기는 비영미권 유저가 많기 때문입니다. AI 언어권 교차 분석이 이 점을 감안해 실제 권역을 추정해줍니다.",
 
@@ -462,7 +463,7 @@ const FALLBACK: Record<string, string> = {
   USAGE_TIMELINE_L3: "'AI 분석 진행 전': 분석이 아직 실행되지 않았습니다. 매일 새벽 6시경 자동 갱신됩니다.",
   USAGE_TIMELINE_L4: "'리뷰 부족': 해당 기간에 수집된 리뷰 수가 너무 적어 분석 대상에서 제외됩니다. 정상적인 상태입니다.",
   USAGE_TIMELINE_TIP: "패치노트 카드에 보이는 AI 반응 요약은 해당 구간 리뷰 기반입니다. 상단의 'AI 평가 추이 종합 진단'은 여러 구간을 가로지르는 장기 흐름을 별도로 분석한 것입니다.",
-  USAGE_TIMELINE_ADMIN: "Steam에서 잡히지 않는 서버 장애, 공지, 커뮤니티 이슈가 있다면 김무길에게 수동 이벤트 등록을 요청하거나, 이벤트 폼에서 직접 등록할 수 있습니다 (관리자 비밀번호 필요).",
+  USAGE_TIMELINE_ADMIN: "Steam에서 잡히지 않는 서버 장애, 공지, 커뮤니티 이슈가 있다면 각 게임 페이지 하단 이벤트 폼에서 직접 등록할 수 있습니다 (관리자 비밀번호 필요).",
 
   USAGE_H_SCHEDULE: "⏱️ 데이터 갱신 주기",
   USAGE_SCH_T1_1: "현재 CCU (동접자)",
@@ -480,15 +481,15 @@ const FALLBACK: Record<string, string> = {
   USAGE_SCH_TIP: "대시보드가 아직 어제 데이터를 보여준다면, 새벽 6시 이후에 페이지를 새로고침 해보세요. 캐시 갱신까지 최대 5분이 소요될 수 있습니다.",
 
   USAGE_H_ADMIN: "🔐 관리자 기능이 필요한 경우",
-  USAGE_ADMIN_DESC: "아래 기능은 모두 관리자 비밀번호가 필요합니다. 김무길에게 문의하세요. AI 분석 승인은 관리자 패널(/admin)에서 처리됩니다.",
-  USAGE_ADMIN_T1_1: "AI 분석 새로고침",
-  USAGE_ADMIN_T1_2: "대시보드 하단",
-  USAGE_ADMIN_T1_3: "최신 패치·뉴스 재수집 후 AI 분석 재실행. 분석 결과가 오래됐거나 누락됐을 때",
+  USAGE_ADMIN_DESC: "아래 기능은 모두 관리자 비밀번호가 필요합니다. 김무길에게 문의하세요. AI 분석 승인·재분석·게임 관리는 관리자 패널(/admin)에서 처리됩니다.",
+  USAGE_ADMIN_T1_1: "AI 분석 승인·재분석",
+  USAGE_ADMIN_T1_2: "관리자 패널 (/admin)",
+  USAGE_ADMIN_T1_3: "신규 게임 AI 분석 승인, 기존 게임 AI 재분석 실행. 관리자 패널 게임 목록에서 게임별로 처리",
   USAGE_ADMIN_T2_1: "SteamDB CSV 업로드",
-  USAGE_ADMIN_T2_2: "CCU 탭 오른쪽",
+  USAGE_ADMIN_T2_2: "CCU 탭 하단",
   USAGE_ADMIN_T2_3: "등록 전 기간 CCU 공백 보정. SteamDB에서 CSV 다운로드 후 업로드",
   USAGE_ADMIN_T3_1: "수동 이벤트 등록",
-  USAGE_ADMIN_T3_2: "업데이트 히스토리 폼",
+  USAGE_ADMIN_T3_2: "게임 페이지 하단 이벤트 폼",
   USAGE_ADMIN_T3_3: "Steam에 없는 이슈·이벤트를 타임라인에 추가",
   USAGE_ADMIN_T4_1: "이벤트 수정",
   USAGE_ADMIN_T4_2: "타임라인 카드 ✏️ 버튼",

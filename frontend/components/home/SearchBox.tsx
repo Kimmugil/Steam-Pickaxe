@@ -30,6 +30,7 @@ export default function SearchBox() {
   const [registering, setRegistering] = useState(false);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [registeredName, setRegisteredName] = useState<string | null>(null);
   const { toast, show, clear } = useToast();
   const router = useRouter();
 
@@ -82,9 +83,9 @@ export default function SearchBox() {
 
     if (data.ok) {
       show(t("REGISTER_SUCCESS", { name: result.name }), "success");
+      setRegisteredName(result.name);
       setResult(null);
       setQuery("");
-      // 즉시 서버 데이터 갱신 → 대기열에 바로 표시
       router.refresh();
     } else if (data.quota_exceeded) {
       show(t("REGISTER_QUOTA_EXCEEDED"), "error");
@@ -117,6 +118,18 @@ export default function SearchBox() {
       <p className="mt-2 text-xs text-text-muted">
         {t("SEARCH_HINT")}
       </p>
+
+      {/* 등록 완료 안내 */}
+      {registeredName && (
+        <div className="mt-3 bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-4 py-3">
+          <p className="text-sm font-medium text-accent-blue mb-0.5">
+            {registeredName} 등록이 완료되었습니다.
+          </p>
+          <p className="text-xs text-text-secondary">
+            {t("REGISTER_APPROVAL_NOTICE")}
+          </p>
+        </div>
+      )}
 
       {notFound && (
         <p className="mt-3 text-text-muted text-sm">
