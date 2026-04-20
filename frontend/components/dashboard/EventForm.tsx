@@ -8,9 +8,10 @@ import { useUiText } from "@/contexts/UiTextContext";
 interface EventFormProps {
   appid: string;
   onEventAdded: () => void;
+  prefillPassword?: string; // admin already unlocked → skip modal
 }
 
-export default function EventForm({ appid, onEventAdded }: EventFormProps) {
+export default function EventForm({ appid, onEventAdded, prefillPassword }: EventFormProps) {
   const { t } = useUiText();
   const { toast, show, clear } = useToast();
   const [open, setOpen] = useState(false);
@@ -55,8 +56,8 @@ export default function EventForm({ appid, onEventAdded }: EventFormProps) {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary border border-dashed border-border-default hover:border-border-hover rounded-lg px-3 py-2 transition-colors"
       >
-        <Lock className="w-3 h-3" />
-        {t("EVENT_FORM_TOGGLE")}
+        {!prefillPassword && <Lock className="w-3 h-3" />}
+        수동 이슈/이벤트 등록
         <span className="ml-auto">{open ? "▲" : "▼"}</span>
       </button>
 
@@ -90,7 +91,11 @@ export default function EventForm({ appid, onEventAdded }: EventFormProps) {
             className="w-full bg-bg-card border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue resize-y"
           />
           <button
-            onClick={() => { if (!eventTitle || !eventDate) return; setShowModal(true); }}
+            onClick={() => {
+              if (!eventTitle || !eventDate) return;
+              if (prefillPassword) handleAdd(prefillPassword);
+              else setShowModal(true);
+            }}
             disabled={!eventTitle || !eventDate || adding}
             className="w-full py-2 bg-accent-yellow/20 border border-accent-yellow/40 text-accent-yellow rounded-lg text-sm font-medium hover:bg-accent-yellow/30 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
           >

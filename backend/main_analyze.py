@@ -27,7 +27,7 @@ from analyzers.gemini_analyzer import (
 from datetime import datetime, timezone
 
 GDRIVE_FOLDER_ID    = os.environ.get("GDRIVE_FOLDER_ID", "")
-TOP_LANGUAGES_COUNT = 3
+TOP_LANGUAGES_COUNT = 5
 
 # ── 타겟 필터 ──────────────────────────────────────────────────────────────────
 # TARGET_APPID:       설정 시 해당 게임만 처리

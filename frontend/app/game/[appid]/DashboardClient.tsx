@@ -179,7 +179,6 @@ export default function DashboardClient({
         {/* ── 업데이트 히스토리 ────────────────────────────────────── */}
         <div className="bg-bg-card border border-border-default rounded-xl p-6">
           <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
-          <EventForm appid={String(game.appid)} onEventAdded={() => router.refresh()} />
           <Timeline timelineRows={timelineRows} appid={String(game.appid)} />
         </div>
 
@@ -210,7 +209,18 @@ export default function DashboardClient({
             </div>
           </div>
         ) : (
-          <div className="flex gap-4 items-stretch">
+          <div className="space-y-4">
+
+            {/* 수동 이벤트 등록 */}
+            <div className="bg-bg-card border border-border-default rounded-xl p-5">
+              <EventForm
+                appid={String(game.appid)}
+                onEventAdded={() => router.refresh()}
+                prefillPassword={adminPw}
+              />
+            </div>
+
+            <div className="flex gap-4 items-stretch">
 
             {/* AI 분석 새로고침 */}
             <div className="flex-1 bg-bg-card border border-accent-blue/20 rounded-xl p-5 flex flex-col">
@@ -258,6 +268,7 @@ export default function DashboardClient({
               )}
             </div>
 
+            </div>
           </div>
         )}
       </div>
