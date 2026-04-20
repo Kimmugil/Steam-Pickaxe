@@ -61,6 +61,8 @@ GAMES_HEADERS = [
     "genres", "developer", "publisher", "price",
     # 내부 참조
     "game_sheet_id",
+    # AI 분석 관리자 승인 여부 ("true" 일 때만 main_analyze.py가 처리)
+    "ai_approved",
     # 언어 분포 (RAW 리뷰 기반 JSON — 프론트엔드 파이 차트용)
     "language_distribution",
     # AI 분석 결과 (추가)

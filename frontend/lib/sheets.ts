@@ -127,6 +127,18 @@ export async function appendGame(game: Partial<Game>) {
   });
 }
 
+/** 0-based 열 인덱스 → A1 표기법 열 문자 (A, B, ..., Z, AA, AB, ...) */
+function colLetter(idx: number): string {
+  let col = "";
+  let n = idx + 1;
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    col = String.fromCharCode(65 + rem) + col;
+    n = Math.floor((n - 1) / 26);
+  }
+  return col;
+}
+
 export async function updateGame(appid: string, updates: Partial<Game>) {
   const sheets = await getSheetsClient();
   const rows = await readSheet("games");
@@ -138,7 +150,7 @@ export async function updateGame(appid: string, updates: Partial<Game>) {
     .map(([key, val]) => {
       const colIdx = headers.indexOf(key);
       if (colIdx < 0) return null;
-      const col = String.fromCharCode(65 + colIdx);
+      const col = colLetter(colIdx);
       return {
         range: `games!${col}${rowIndex + 1}`,
         values: [[String(val ?? "")]],
@@ -294,9 +306,9 @@ export async function updateTimelineEventField(
       const colIdx = headers.indexOf(key);
       if (colIdx < 0) continue;
 
-      const colLetter = String.fromCharCode(65 + colIdx);
+      const col = colLetter(colIdx);
       batchData.push({
-        range: `${tabName}!${colLetter}${rowIdx + 1}`,
+        range: `${tabName}!${col}${rowIdx + 1}`,
         values: [[String(val ?? "")]],
       });
     }

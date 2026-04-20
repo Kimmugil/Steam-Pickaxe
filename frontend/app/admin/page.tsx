@@ -13,5 +13,13 @@ export default async function AdminPage() {
     (g) => g.status === "collecting" || g.status === "error_pool_empty"
   );
 
-  return <AdminPanel collectingGames={collectingGames} />;
+  // AI 분석 승인 대기: active 상태이면서 ai_briefing 없고 ai_approved 미설정인 게임
+  const pendingAiGames = games.filter(
+    (g) =>
+      g.status === "active" &&
+      !String(g.ai_briefing ?? "").trim() &&
+      String(g.ai_approved ?? "").toLowerCase() !== "true"
+  );
+
+  return <AdminPanel collectingGames={collectingGames} pendingAiGames={pendingAiGames} />;
 }

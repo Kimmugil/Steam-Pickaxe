@@ -94,7 +94,7 @@ export default function SearchBox() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full">
       {/* 검색창 */}
       <form onSubmit={handleSearch} className="flex gap-2">
         <input
@@ -114,12 +114,12 @@ export default function SearchBox() {
       </form>
 
       {/* 한글 검색 안내 */}
-      <p className="mt-2 text-xs text-text-muted text-center">
+      <p className="mt-2 text-xs text-text-muted">
         {t("SEARCH_HINT")}
       </p>
 
       {notFound && (
-        <p className="mt-3 text-text-muted text-sm text-center">
+        <p className="mt-3 text-text-muted text-sm">
           {t("SEARCH_NOT_FOUND")}
         </p>
       )}

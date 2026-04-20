@@ -7,7 +7,13 @@ import type { Game } from "@/types";
 
 const SESSION_KEY = "steam_admin_pw";
 
-export default function AdminPanel({ collectingGames }: { collectingGames: Game[] }) {
+export default function AdminPanel({
+  collectingGames,
+  pendingAiGames,
+}: {
+  collectingGames: Game[];
+  pendingAiGames: Game[];
+}) {
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
@@ -21,6 +27,9 @@ export default function AdminPanel({ collectingGames }: { collectingGames: Game[
   const [analyzingPending, setAnalyzingPending] = useState(false);
   const [showRetriggerConfirm, setShowRetriggerConfirm] = useState(false);
   const [retriggering, setRetriggering] = useState(false);
+
+  // AI 분석 승인 로딩 상태 (appid별)
+  const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY);
@@ -100,6 +109,31 @@ export default function AdminPanel({ collectingGames }: { collectingGames: Game[
       show("서버 연결 오류", "error");
     } finally {
       setAnalyzingPending(false);
+    }
+  }
+
+  // ── AI 분석 승인 ─────────────────────────────────────────────────────────
+  async function handleApproveGame(appid: string) {
+    const savedPw = sessionStorage.getItem(SESSION_KEY);
+    if (!savedPw) return;
+    setApprovingIds((prev) => new Set(prev).add(appid));
+    try {
+      const res = await fetch("/api/admin/approve-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show(`AI 분석 승인 완료. 곧 분석이 시작됩니다.`, "success");
+        router.refresh();
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setApprovingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
   }
 
@@ -193,6 +227,57 @@ export default function AdminPanel({ collectingGames }: { collectingGames: Game[
           </div>
         )}
       </section>
+
+      {/* AI 분석 승인 대기 */}
+      {pendingAiGames.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-accent-orange rounded-full" />
+            AI 분석 승인 대기
+            <span className="text-xs font-normal text-text-muted">({pendingAiGames.length}개)</span>
+          </h2>
+          <p className="text-xs text-text-muted mb-4">
+            데이터 수집이 완료되어 페이지가 발행됐지만, 아직 AI 분석이 실행되지 않은 게임입니다.
+            승인 시 즉시 AI 분석이 시작됩니다 (비용 발생).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pendingAiGames.map((game) => {
+              const eventCount = Number(game.event_count ?? 0);
+              const reviewCount = Number(game.collected_reviews_count ?? 0);
+              const isApproving = approvingIds.has(String(game.appid));
+              return (
+                <div
+                  key={String(game.appid)}
+                  className="bg-bg-card border border-accent-orange/20 rounded-xl p-4 flex flex-col gap-3"
+                >
+                  <div>
+                    <p className="font-semibold text-text-primary text-sm truncate">
+                      {game.name_kr || game.name}
+                    </p>
+                    {game.name_kr && game.name_kr !== game.name && (
+                      <p className="text-xs text-text-muted truncate">{game.name}</p>
+                    )}
+                  </div>
+                  <div className="text-xs text-text-muted space-y-0.5">
+                    <p>리뷰 {reviewCount.toLocaleString()}건 수집 완료</p>
+                    {eventCount > 0 && <p>이벤트 {eventCount}건</p>}
+                    <p className="text-accent-orange">
+                      예상 비용: ~${((eventCount || 1) * 0.07).toFixed(2)} (이벤트 수 기준)
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleApproveGame(String(game.appid))}
+                    disabled={isApproving}
+                    className="w-full py-2 text-sm bg-accent-orange/10 border border-accent-orange/40 text-accent-orange rounded-lg hover:bg-accent-orange/20 transition-colors disabled:opacity-40"
+                  >
+                    {isApproving ? "승인 중..." : "✅ AI 분석 승인"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 시스템 도구 */}
       <section>

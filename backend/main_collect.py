@@ -26,32 +26,6 @@ TARGET_APPID = os.environ.get("TARGET_APPID", "").strip()
 NEWS_ONLY    = os.environ.get("NEWS_ONLY",    "").strip().lower() in ("1", "true", "yes")
 
 
-def _dispatch_analyze():
-    """
-    collect 완료 후 analyze.yml을 자동 트리거합니다.
-    repository_dispatch(analyze-game) 방식 사용 — register-game과 동일한 API 경로.
-    workflow_dispatch는 Actions 권한 범위가 달라 실패할 수 있어 사용하지 않음.
-    """
-    import requests as _req
-    token = os.environ.get("GH_PAT", "")
-    repo  = os.environ.get("GITHUB_REPO", "Kimmugil/Steam-Pickaxe")
-    if not token:
-        print("[WARN] GH_PAT 미설정 — analyze.yml 자동 트리거 생략")
-        return
-    r = _req.post(
-        f"https://api.github.com/repos/{repo}/dispatches",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "Content-Type": "application/json",
-        },
-        json={"event_type": "analyze-game"},
-        timeout=15,
-    )
-    if r.status_code in (204, 200):
-        print("[AUTO] analyze-game 디스패치 완료 → analyze.yml 트리거")
-    else:
-        print(f"[WARN] analyze-game 디스패치 실패: {r.status_code} {r.text[:100]}")
 
 
 def run():
@@ -87,10 +61,8 @@ def run():
 
     print("\n전체 수집 완료")
 
-    # 신규 활성화 게임이 있으면 AI 분석 자동 트리거
     if newly_activated:
-        print(f"\n[AUTO] 신규 활성화 게임 {len(newly_activated)}개 — analyze.yml 트리거")
-        _dispatch_analyze()
+        print(f"\n[INFO] 신규 활성화 게임 {len(newly_activated)}개 — 관리자 승인 후 AI 분석 가능: {newly_activated}")
 
 
 def _process_game(ss, game: dict, appid: str, status: str) -> bool:

@@ -65,6 +65,14 @@ def run():
             print(f"[SKIP] game_sheet_id 없음: {name} ({appid})")
             continue
 
+        # ai_briefing이 없고 ai_approved=true가 아니면 분석 스킵
+        # (기존에 이미 분석된 게임은 ai_briefing이 있으므로 그대로 통과)
+        ai_briefing_exists = bool(str(game.get("ai_briefing", "")).strip())
+        ai_approved = str(game.get("ai_approved", "")).strip().lower() == "true"
+        if not ai_briefing_exists and not ai_approved:
+            print(f"[SKIP] AI 분석 미승인 게임 (페이지 발행됨): {name} ({appid})")
+            continue
+
         print(f"\n{'='*50}\n분석 시작: {name} ({appid})")
 
         # ── top_languages 재계산 (language_distribution 기반) ──────────────

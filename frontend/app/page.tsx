@@ -27,44 +27,59 @@ export default async function HomePage() {
         <p className="text-text-secondary text-base">{t("HOME_SUBTITLE")}</p>
       </div>
 
-      {/* 검색창 */}
-      <SearchBox />
+      {/* 모바일: 검색창 먼저 */}
+      <div className="lg:hidden mb-8">
+        <SearchBox />
+      </div>
 
-      {/* 분석 완료된 게임 */}
-      <section className="mt-12">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">
-          {t("GAMES_SECTION_TITLE")}
-          <span className="ml-2 text-sm text-text-muted font-normal">{activeGames.length}개</span>
-        </h2>
-        {activeGames.length === 0 ? (
-          <div className="text-center py-20 text-text-muted">
-            <p className="text-4xl mb-4">{t("GAMES_EMPTY_ICON")}</p>
-            <p>{t("GAMES_EMPTY_TITLE")}</p>
-            <p className="text-sm mt-1">{t("GAMES_EMPTY_SUBTITLE")}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {activeGames.map((game) => (
-              <GameCard key={game.appid} game={game} />
-            ))}
-          </div>
-        )}
-      </section>
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        {/* 왼쪽: 게임 목록 */}
+        <div className="flex-1 min-w-0">
+          {/* 분석 완료된 게임 */}
+          <section>
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              {t("GAMES_SECTION_TITLE")}
+              <span className="ml-2 text-sm text-text-muted font-normal">{activeGames.length}개</span>
+            </h2>
+            {activeGames.length === 0 ? (
+              <div className="text-center py-20 text-text-muted">
+                <p className="text-4xl mb-4">{t("GAMES_EMPTY_ICON")}</p>
+                <p>{t("GAMES_EMPTY_TITLE")}</p>
+                <p className="text-sm mt-1">{t("GAMES_EMPTY_SUBTITLE")}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {activeGames.map((game) => (
+                  <GameCard key={game.appid} game={game} />
+                ))}
+              </div>
+            )}
+          </section>
 
-      {/* 분석 진행 중인 게임 */}
-      {pendingGames.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">
-            분석 진행 중인 게임
-            <span className="ml-2 text-sm text-text-muted font-normal">{pendingGames.length}개</span>
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {pendingGames.map((game) => (
-              <PendingGameCard key={String(game.appid)} game={game} />
-            ))}
+          {/* 분석 진행 중인 게임 */}
+          {pendingGames.length > 0 && (
+            <section className="mt-12">
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                분석 진행 중인 게임
+                <span className="ml-2 text-sm text-text-muted font-normal">{pendingGames.length}개</span>
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {pendingGames.map((game) => (
+                  <PendingGameCard key={String(game.appid)} game={game} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* 오른쪽: 검색창 (데스크톱, sticky) */}
+        <div className="hidden lg:block w-80 xl:w-96 shrink-0">
+          <div className="sticky top-6">
+            <p className="text-sm font-medium text-text-primary mb-3">{t("SEARCH_SECTION_TITLE")}</p>
+            <SearchBox />
           </div>
-        </section>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -30,6 +30,7 @@ const FALLBACK: Record<string, string> = {
   HOME_SUBTITLE: "업데이트 민심 · 트래픽 · 언어권 반응을 한눈에 꿰뚫는 스팀 분석 대시보드",
 
   // ── 검색창 ──────────────────────────────────────────────────────────
+  SEARCH_SECTION_TITLE: "게임 등록",
   SEARCH_PLACEHOLDER: "게임명, AppID, 또는 스팀 상점 URL 입력",
   SEARCH_HINT: "스팀 특성상 한글 검색 시 결과가 부정확할 수 있습니다. 영문 검색을 권장합니다.",
   SEARCH_BTN: "검색",
@@ -242,7 +243,7 @@ const FALLBACK: Record<string, string> = {
   GUIDE_OV_T4_3: "Next.js 15 / React",
 
   // ── 자동화 스케줄 ────────────────────────────────────────────────────
-  GUIDE_SCH_INFO1: "새 게임 등록 후 리뷰 수집이 완료(collecting → active)되면 analyze.yml이 즉시 자동 트리거됩니다. 정규 21:00 스케줄을 기다리지 않습니다.",
+  GUIDE_SCH_INFO1: "AI 분석(analyze.yml)은 관리자가 개별 게임을 승인한 경우에만 실행됩니다. 승인 시 즉시 트리거되며, 이후 정규 21:00 스케줄에서도 반복 실행됩니다.",
   GUIDE_SCH_INFO2: "CCU AI 피크타임 분석과 언어권 교차 분석은 매주 월요일에만 갱신됩니다. 매일 동일한 패턴 데이터에서 동일한 분석 결과가 반복 생성되는 비용 낭비를 방지하기 위한 조건부 실행입니다.",
   GUIDE_SCH_T1_1: "collect.yml",
   GUIDE_SCH_T1_2: "매일 20:00 UTC",
@@ -427,7 +428,7 @@ const FALLBACK: Record<string, string> = {
   USAGE_H_REGISTER: "📋 분석할 게임 등록하기",
   USAGE_REGISTER_L1: "홈 화면 검색창에 게임명, AppID, 또는 스팀 상점 URL을 입력합니다.",
   USAGE_REGISTER_L2: "검색 결과에서 [이 게임 분석 등록하기] 버튼을 클릭합니다.",
-  USAGE_REGISTER_L3: "수집 대기열에 올라가며, 리뷰 수에 따라 보통 1~3일 후 분석이 완료됩니다.",
+  USAGE_REGISTER_L3: "수집이 완료되면 즉시 게임 페이지가 발행됩니다. AI 분석은 관리자(김무길) 승인 후 별도로 진행됩니다.",
   USAGE_REGISTER_TIP1: "한글 게임명 검색은 결과가 부정확할 수 있습니다. 영문명이나 AppID 검색을 권장합니다.",
   USAGE_REGISTER_TIP2: "리뷰 수가 매우 많은 게임(10만 건 이상)은 수집에 더 오래 걸릴 수 있습니다. 대기열 화면에서 수집 진행 상황을 확인할 수 있습니다.",
 
@@ -471,14 +472,14 @@ const FALLBACK: Record<string, string> = {
   USAGE_SCH_T2_3: "신규·미수집 게임 우선",
   USAGE_SCH_T3_1: "AI 분석 결과",
   USAGE_SCH_T3_2: "매일 새벽 6시경",
-  USAGE_SCH_T3_3: "수집 완료 즉시 자동 트리거",
+  USAGE_SCH_T3_3: "관리자 승인 게임만 실행",
   USAGE_SCH_T4_1: "CCU 피크타임 분석",
   USAGE_SCH_T4_2: "매주 월요일",
   USAGE_SCH_T4_3: "비용 절감을 위해 주 1회",
   USAGE_SCH_TIP: "대시보드가 아직 어제 데이터를 보여준다면, 새벽 6시 이후에 페이지를 새로고침 해보세요. 캐시 갱신까지 최대 5분이 소요될 수 있습니다.",
 
   USAGE_H_ADMIN: "🔐 관리자 기능이 필요한 경우",
-  USAGE_ADMIN_DESC: "아래 기능은 모두 관리자 비밀번호가 필요합니다. 김무길에게 문의하세요.",
+  USAGE_ADMIN_DESC: "아래 기능은 모두 관리자 비밀번호가 필요합니다. 김무길에게 문의하세요. AI 분석 승인은 관리자 패널(/admin)에서 처리됩니다.",
   USAGE_ADMIN_T1_1: "AI 분석 새로고침",
   USAGE_ADMIN_T1_2: "대시보드 하단",
   USAGE_ADMIN_T1_3: "최신 패치·뉴스 재수집 후 AI 분석 재실행. 분석 결과가 오래됐거나 누락됐을 때",

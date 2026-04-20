@@ -29,6 +29,7 @@ export interface Game {
   latest_sentiment_rate?: number | string;
   event_count?: number | string;
   game_sheet_id?: string;
+  ai_approved?: string;           // "true" 일 때만 AI 분석 실행 (관리자 승인)
   language_distribution?: string; // JSON: { language: reviewCount, ... } — RAW 리뷰 전체 기준
   ccu_peaktime_comment?: string;      // CCU 시간대별 주력 권역 AI 분석
   language_cross_comment?: string;    // 언어권 교차 AI 분석
