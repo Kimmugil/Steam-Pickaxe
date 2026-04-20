@@ -35,6 +35,31 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [showRetriggerConfirm, setShowRetriggerConfirm] = useState(false);
   const [retriggering, setRetriggering] = useState(false);
 
+  // 순서 편집 상태
+  const [sortOrderMap, setSortOrderMap] = useState<Record<string, string>>({});
+
+  // ── 표시 순서 저장 ────────────────────────────────────────────────────────
+  async function handleSortOrder(appid: string, value: string) {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    try {
+      const res = await fetch("/api/admin/sort-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid, sort_order: value }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("표시 순서가 저장되었습니다.", "success");
+        router.refresh();
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    }
+  }
+
   // 게임별 액션 로딩 상태 (appid별)
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
   const [unapprovingIds, setUnapprovingIds] = useState<Set<string>>(new Set());
@@ -376,6 +401,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">상태</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">AI 승인</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">수집 대상 / Steam 총계</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">순서</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">마지막 분석</th>
                   <th className="text-right px-4 py-3 text-xs font-medium text-text-muted">액션</th>
                 </tr>
@@ -454,6 +480,20 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                           {Number(game.total_reviews_count ?? 0).toLocaleString()}
                           <span className="text-text-muted"> / {Number(game.totalReviews ?? 0).toLocaleString()}건</span>
                         </span>
+                      </td>
+
+                      {/* 표시 순서 */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder="—"
+                          value={sortOrderMap[appid] ?? (game.sort_order !== undefined && game.sort_order !== "" ? String(game.sort_order) : "")}
+                          onChange={(e) => setSortOrderMap((prev) => ({ ...prev, [appid]: e.target.value }))}
+                          onBlur={(e) => handleSortOrder(appid, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          className="w-16 bg-bg-secondary border border-border-default rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent-blue"
+                        />
                       </td>
 
                       {/* 마지막 분석 */}

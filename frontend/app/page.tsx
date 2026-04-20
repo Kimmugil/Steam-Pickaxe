@@ -12,7 +12,13 @@ async function getGames() {
 export default async function HomePage() {
   const [games, uiText] = await Promise.all([getGames(), getUiText()]);
 
-  const activeGames = games.filter((g) => g.status === "active");
+  const activeGames = games
+    .filter((g) => g.status === "active")
+    .sort((a, b) => {
+      const ao = Number(a.sort_order) || 9999;
+      const bo = Number(b.sort_order) || 9999;
+      return ao - bo;
+    });
   const pendingGames = games.filter(
     (g) => g.status === "collecting" || g.status === "error_pool_empty"
   );
