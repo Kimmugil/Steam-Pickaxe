@@ -5,7 +5,6 @@ master_sheet.py 의 timeline_{appid}, ccu_{appid} 탭 대신 이 모듈을 사�
 마스터 시트는 config / games / ui_text 탭만 유지한다.
 """
 import gspread
-from gspread.http_client import BackoffHTTPClient
 from google.oauth2.service_account import Credentials
 import sys, os, time, functools
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -46,9 +45,8 @@ TIMELINE_HEADERS = [
 
 
 def _get_client() -> gspread.Client:
-    """BackoffHTTPClient: 429 쿼터 초과 시 지수 백오프로 자동 재시도"""
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
-    return gspread.Client(auth=creds, http_client=BackoffHTTPClient)
+    return gspread.authorize(creds)
 
 
 def open_game_sheet(game_sheet_id: str) -> gspread.Spreadsheet:
@@ -224,6 +222,7 @@ def cleanup_stale_launch_buckets(ss: gspread.Spreadsheet):
             ws.delete_rows(row_idx)
 
 
+@_retry_on_quota
 def deduplicate_timeline(ss: gspread.Spreadsheet) -> int:
     """
     타임라인에서 동일한 이벤트가 여러 번 수집된 중복 행을 제거합니다.

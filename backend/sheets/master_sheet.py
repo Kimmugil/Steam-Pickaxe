@@ -3,11 +3,10 @@ MASTER_SPREADSHEET 읽기/쓰기 전담 모듈
 프론트엔드가 실제로 읽는 파일이므로 스키마 변경에 주의
 """
 import gspread
-from gspread.http_client import BackoffHTTPClient
 from google.oauth2.service_account import Credentials
 from datetime import datetime, date
 from typing import Optional
-import sys, os
+import sys, os, time, functools
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import get_google_creds, MASTER_SPREADSHEET_ID
 
@@ -16,10 +15,26 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+def _retry_on_quota(fn):
+    """Google Sheets 429 쿼터 초과 시 지수 백오프 재시도 데코레이터."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        waits = [10, 20, 40, 60, 120]
+        for attempt, wait in enumerate(waits):
+            try:
+                return fn(*args, **kwargs)
+            except gspread.exceptions.APIError as e:
+                if "429" in str(e):
+                    print(f"[sheets_limit] 429 — {wait}초 대기 후 재시도 ({attempt+1}/5)")
+                    time.sleep(wait)
+                else:
+                    raise
+        return fn(*args, **kwargs)
+    return wrapper
+
 def get_client() -> gspread.Client:
-    """BackoffHTTPClient: 429 쿼터 초과 시 지수 백오프로 자동 재시도"""
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
-    return gspread.Client(auth=creds, http_client=BackoffHTTPClient)
+    return gspread.authorize(creds)
 
 def get_spreadsheet() -> gspread.Spreadsheet:
     return get_client().open_by_key(MASTER_SPREADSHEET_ID)
@@ -163,6 +178,7 @@ def ensure_games_headers(spreadsheet: gspread.Spreadsheet):
         deleted_names = [current[i] for i in cols_to_delete]
         print(f"[migrate] 구형 컬럼 삭제 완료: {deleted_names}")
 
+@_retry_on_quota
 def get_all_games(spreadsheet: gspread.Spreadsheet) -> list[dict]:
     ws = spreadsheet.worksheet("games")
     rows = ws.get_all_records()
@@ -182,6 +198,7 @@ def add_game(spreadsheet: gspread.Spreadsheet, game: dict):
     row = [game.get(h, "") for h in actual_headers]
     ws.append_row(row)
 
+@_retry_on_quota
 def update_game(spreadsheet: gspread.Spreadsheet, appid: str, updates: dict):
     ws = spreadsheet.worksheet("games")
     records = ws.get_all_records()

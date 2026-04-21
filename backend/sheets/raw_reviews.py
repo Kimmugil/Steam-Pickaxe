@@ -44,10 +44,8 @@ def _get_service_account_email() -> str:
 
 
 def _get_client() -> gspread.Client:
-    """BackoffHTTPClient: 429 쿼터 초과 시 지수 백오프로 자동 재시도"""
-    from gspread.http_client import BackoffHTTPClient
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
-    return gspread.Client(auth=creds, http_client=BackoffHTTPClient)
+    return gspread.authorize(creds)
 
 
 def get_or_create_raw_spreadsheet(
