@@ -110,14 +110,21 @@ def run():
 
         timeline_rows = gs_get_timeline(game_ss)
 
-        # ── 언어 분포 저장 ──────────────────────────────────────────────────
+        # ── 언어 분포 저장 + 수집 리뷰 수 보정 ────────────────────────────
         if cached_lang_counts:
             try:
                 lang_dist_str = json.dumps(
                     {l: c for l, c in sorted(cached_lang_counts.items(), key=lambda x: x[1], reverse=True)},
                     ensure_ascii=False,
                 )
-                update_game(ss, appid, {"language_distribution": lang_dist_str})
+                # RAW 시트 실제 행 수로 collected_reviews_count 보정
+                actual_count  = sum(cached_lang_counts.values())
+                stored_count  = int(game.get("collected_reviews_count", 0) or 0)
+                count_updates = {"language_distribution": lang_dist_str}
+                if actual_count != stored_count:
+                    count_updates["collected_reviews_count"] = actual_count
+                    print(f"  [review_count] 보정: {stored_count} → {actual_count}")
+                update_game(ss, appid, count_updates)
             except Exception as e:
                 print(f"  [lang_dist] 실패: {e}")
 

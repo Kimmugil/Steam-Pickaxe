@@ -169,6 +169,28 @@ export async function updateGame(appid: string, updates: Partial<Game>) {
   }
 }
 
+export async function batchUpdateSortOrders(orders: { appid: string; sort_order: number }[]) {
+  const sheets = await getSheetsClient();
+  const rows = await readSheet("games");
+  const headers = rows[0];
+  const colIdx = headers.indexOf("sort_order");
+  if (colIdx < 0) return;
+  const col = colLetter(colIdx);
+  const data = orders
+    .map(({ appid, sort_order }) => {
+      const rowIndex = rows.findIndex((r, i) => i > 0 && r[0] === String(appid));
+      if (rowIndex < 0) return null;
+      return { range: `games!${col}${rowIndex + 1}`, values: [[String(sort_order)]] };
+    })
+    .filter(Boolean);
+  if (data.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { valueInputOption: "RAW", data: data as never },
+    });
+  }
+}
+
 // ── timeline (개별 게임 시트 우선, 마스터 시트 폴백) ──
 
 const TIMELINE_HEADERS = [

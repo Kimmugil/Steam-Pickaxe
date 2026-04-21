@@ -119,8 +119,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [showRetriggerConfirm, setShowRetriggerConfirm] = useState(false);
   const [retriggering, setRetriggering] = useState(false);
 
-  // 순서 편집 상태
-  const [sortOrderMap, setSortOrderMap] = useState<Record<string, string>>({});
+  // 드래그 순서 상태
+  const [orderedGames, setOrderedGames] = useState<Game[]>(() =>
+    [...allGames].sort((a, b) => (Number(a.sort_order) || 9999) - (Number(b.sort_order) || 9999))
+  );
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   // 게임별 액션 로딩 상태
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
@@ -310,20 +314,49 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
     }
   }
 
-  // ── 표시 순서 저장 ────────────────────────────────────────────────────────
-  async function handleSortOrder(appid: string, value: string) {
+  // ── 드래그 순서 변경 ─────────────────────────────────────────────────────
+  function handleDragStart(idx: number) {
+    setDragIdx(idx);
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    if (dragIdx !== null && dragOverIdx !== idx) setDragOverIdx(idx);
+  }
+
+  function handleDrop(targetIdx: number) {
+    if (dragIdx === null || dragIdx === targetIdx) {
+      setDragIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+    const next = [...orderedGames];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(targetIdx, 0, moved);
+    setOrderedGames(next);
+    setDragIdx(null);
+    setDragOverIdx(null);
+    saveSortOrders(next);
+  }
+
+  function handleDragEnd() {
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }
+
+  async function saveSortOrders(games: Game[]) {
     const savedPw = getSavedPw();
     if (!savedPw) return;
+    const orders = games.map((g, i) => ({ appid: String(g.appid), sort_order: i + 1 }));
     try {
-      const res = await fetch("/api/admin/sort-order", {
+      const res = await fetch("/api/admin/sort-order-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: savedPw, appid, sort_order: value }),
+        body: JSON.stringify({ password: savedPw, orders }),
       });
       const data = await res.json();
       if (data.ok) {
-        show("표시 순서가 저장되었습니다.", "success");
-        router.refresh();
+        show("순서가 저장되었습니다.", "success");
       } else {
         show(data.error ?? "오류가 발생했습니다.", "error");
       }
@@ -470,10 +503,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
           <span className="w-2 h-2 bg-accent-blue rounded-full" />
           전체 게임 현황
-          <span className="text-xs font-normal text-text-muted">({allGames.length}개)</span>
+          <span className="text-xs font-normal text-text-muted">({orderedGames.length}개)</span>
         </h2>
 
-        {allGames.length === 0 ? (
+        {orderedGames.length === 0 ? (
           <div className="text-center py-16 text-text-muted border border-dashed border-border-default rounded-xl">
             <p className="text-3xl mb-3">🎮</p>
             <p>등록된 게임이 없습니다.</p>
@@ -526,27 +559,34 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                   </th>
 
                   {/* 순서 */}
-                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">순서</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap w-10">순서</th>
 
                   {/* 액션 */}
                   <th className="text-right px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">액션</th>
                 </tr>
               </thead>
               <tbody>
-                {allGames.map((game, i) => {
+                {orderedGames.map((game, i) => {
                   const appid = String(game.appid);
                   const isActive = game.status === "active";
                   const isArchived = game.status === "archived";
                   const canToggle = isActive || isArchived;
                   const isApproved = String(game.ai_approved ?? "").toLowerCase() === "true";
                   const needsApproval = isActive && !String(game.ai_briefing ?? "").trim() && !isApproved;
+                  const isDragging = dragIdx === i;
+                  const isDragOver = dragOverIdx === i && dragIdx !== null && dragIdx !== i;
 
                   return (
                     <tr
                       key={appid}
+                      draggable
+                      onDragStart={() => handleDragStart(i)}
+                      onDragOver={(e) => handleDragOver(e, i)}
+                      onDrop={() => handleDrop(i)}
+                      onDragEnd={handleDragEnd}
                       className={`border-b border-border-default last:border-b-0 transition-colors ${
                         isArchived ? "opacity-60" : "hover:bg-bg-secondary/50"
-                      } ${i % 2 === 0 ? "" : "bg-bg-secondary/20"}`}
+                      } ${isDragging ? "opacity-40" : ""} ${isDragOver ? "border-t-2 border-accent-blue bg-accent-blue/5" : ""}`}
                     >
                       {/* 게임명 */}
                       <td className="px-4 py-3">
@@ -651,18 +691,16 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                         </div>
                       </td>
 
-                      {/* 표시 순서 */}
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          min={0}
-                          placeholder="—"
-                          value={sortOrderMap[appid] ?? (game.sort_order !== undefined && game.sort_order !== "" ? String(game.sort_order) : "")}
-                          onChange={(e) => setSortOrderMap((prev) => ({ ...prev, [appid]: e.target.value }))}
-                          onBlur={(e) => handleSortOrder(appid, e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                          className="w-14 bg-bg-secondary border border-border-default rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent-blue"
-                        />
+                      {/* 드래그 핸들 */}
+                      <td className="px-2 py-3 text-center">
+                        <span
+                          className="inline-flex flex-col gap-[3px] cursor-grab active:cursor-grabbing px-1 py-1 rounded hover:bg-bg-hover"
+                          title="드래그해서 순서 변경"
+                        >
+                          <span className="block w-4 h-[2px] bg-text-muted/50 rounded" />
+                          <span className="block w-4 h-[2px] bg-text-muted/50 rounded" />
+                          <span className="block w-4 h-[2px] bg-text-muted/50 rounded" />
+                        </span>
                       </td>
 
                       {/* 액션 버튼 */}
