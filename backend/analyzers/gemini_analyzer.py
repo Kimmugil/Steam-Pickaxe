@@ -57,16 +57,38 @@ ANALYSIS_SYSTEM_PROMPT = """당신은 Steam 게임 리뷰 분석 전문가입니
 5. 응답은 반드시 유효한 JSON으로만 출력하세요. 마크다운 코드블록 없이 순수 JSON."""
 
 
-def analyze_bucket(game_name: str, event_title: str, reviews: list[dict], language_scope: str) -> dict:
+def analyze_bucket(
+    game_name: str,
+    event_title: str,
+    reviews: list[dict],
+    language_scope: str,
+    include_top_reviews: bool = True,
+) -> dict:
     """
     단일 구간+언어 조합 분석
     반환: {sentiment_rate, top_keywords, ai_reaction_summary, top_reviews}
+    include_top_reviews=False 시 top_reviews 필드 생략 (언어 스코프 호출 시 출력 토큰 절약)
     """
     if not reviews:
         return _empty_analysis()
 
     lang_name = LANGUAGE_NAMES.get(language_scope, language_scope)
     reviews_text = _format_reviews(reviews)
+
+    if include_top_reviews:
+        top_reviews_field = """,
+  "top_reviews": [
+    {{
+      "text": "<원문 그대로>",
+      "text_kr": "<한국어 번역. 한국어 원문이면 동일>",
+      "voted_up": true/false,
+      "language": "<언어코드>"
+    }}
+  ]
+규칙: top_reviews는 긍정 1~2건 + 부정 1건을 기준으로 최대 3건만 선별.
+      추천수(votes_up)가 높거나 해당 구간 유저 반응을 가장 잘 대표하는 리뷰 우선."""
+    else:
+        top_reviews_field = ',\n  "top_reviews": []'
 
     prompt = f"""게임: {game_name}
 이벤트/구간: {event_title}
@@ -78,15 +100,7 @@ def analyze_bucket(game_name: str, event_title: str, reviews: list[dict], langua
 {{
   "sentiment_rate": <긍정 리뷰 비율 0~100 숫자>,
   "top_keywords": [<핵심 키워드 최대 5개. 외국어는 "원문 (한국어 번역)" 형식으로>],
-  "ai_reaction_summary": "<유저 반응 요약 및 주요 변동 원인 진단. 2~4문장. 지시적 어조 금지>",
-  "top_reviews": [
-    {{
-      "text": "<원문>",
-      "text_kr": "<한국어 번역 (한국어 원문이면 동일)>",
-      "voted_up": true/false,
-      "language": "<언어코드>"
-    }}
-  ]
+  "ai_reaction_summary": "<유저 반응 요약 및 주요 변동 원인 진단. 2~4문장. 지시적 어조 금지>"{top_reviews_field}
 }}
 
 리뷰 데이터:

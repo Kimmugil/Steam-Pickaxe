@@ -191,22 +191,28 @@ def run():
             print(f"    → 리뷰 {len(month_reviews)}건")
 
             # ── 월간 패치 요약 (official 이벤트 묶음) ────────────────────
+            # content가 있는 이벤트가 1건 이상인 경우에만 호출 (없으면 제목만으로 추정 → 저품질)
             monthly_patch_summary = ""
             if bucket["official_events"]:
                 parts = []
+                has_content = False
                 for ev in bucket["official_events"]:
                     content = str(ev.get("content", "")).strip()
                     if content:
                         parts.append(f"[{ev.get('date')}] {ev.get('title', '')}\n{content[:1000]}")
+                        has_content = True
                     else:
                         parts.append(f"[{ev.get('date')}] {ev.get('title', '')}")
-                combined_content = "\n\n---\n\n".join(parts)
-                combined_title = f"{bucket['title']} 업데이트 종합 ({len(bucket['official_events'])}건)"
-                monthly_patch_summary = analyze_patch_summary(
-                    name, combined_title, "", combined_content
-                )
-                print(f"    [patch_summary] 생성 완료 ({len(bucket['official_events'])}건 이벤트 묶음)")
-                time.sleep(1)
+                if has_content:
+                    combined_content = "\n\n---\n\n".join(parts)
+                    combined_title = f"{bucket['title']} 업데이트 종합 ({len(bucket['official_events'])}건)"
+                    monthly_patch_summary = analyze_patch_summary(
+                        name, combined_title, "", combined_content
+                    )
+                    print(f"    [patch_summary] 생성 완료 ({len(bucket['official_events'])}건 이벤트 묶음)")
+                    time.sleep(1)
+                else:
+                    print(f"    [patch_summary] 본문 없음 — 호출 생략")
 
             # ── Sparse 처리 ──────────────────────────────────────────────
             if len(month_reviews) <= MONTHLY_SPARSE:
@@ -240,19 +246,26 @@ def run():
                 continue
 
             # ── 언어별 AI 분석 ───────────────────────────────────────────
+            LANG_SCOPE_MIN = 10  # 언어 스코프 최소 리뷰 수 (미달 시 Gemini 호출 생략)
             scopes = ["all"] + top_languages
             for scope in scopes:
                 if scope == "all":
                     scope_reviews = month_reviews
                     sampled = sample_reviews(scope_reviews)
+                    is_all_scope = True
                 else:
                     scope_reviews = [r for r in month_reviews if r.get("language") == scope]
+                    if len(scope_reviews) < LANG_SCOPE_MIN:
+                        continue  # 소수 언어 Gemini 호출 생략
                     sampled = sample_reviews(scope_reviews, max_total=500)
+                    is_all_scope = False
 
                 if not sampled:
                     continue
 
-                analysis = analyze_bucket(name, bucket["title"], sampled, scope)
+                # top_reviews는 "all" 스코프에서만 생성 (프론트엔드 표시 대상)
+                analysis = analyze_bucket(name, bucket["title"], sampled, scope,
+                                          include_top_reviews=is_all_scope)
 
                 # sentiment_rate 검증: 0~100 범위로 클램핑 (Gemini가 범위 벗어난 값을 반환할 경우 대비)
                 _raw_rate = analysis.get("sentiment_rate", 0)
@@ -296,19 +309,22 @@ def run():
         if wrote_new_bucket:
             time.sleep(5)
 
-        # ── 최신 타임라인 재조회 ─────────────────────────────────────────
-        final_timeline = gs_get_timeline(game_ss)
+        # ── 최신 타임라인 재조회 (새 버킷이 쓰인 경우에만) ──────────────
+        final_timeline = gs_get_timeline(game_ss) if wrote_new_bucket else timeline_rows
 
-        # ── 전체 AI 브리핑 ──────────────────────────────────────────────
-        briefing = _generate_briefing(name, final_timeline)
-        try:
-            update_game(ss, appid, {
-                "ai_briefing":      briefing,
-                "ai_briefing_date": today,
-            })
-            print(f"  [저장] ai_briefing 완료")
-        except Exception as e:
-            print(f"  [저장] ai_briefing 실패: {e}")
+        # ── 전체 AI 브리핑 (새 버킷 또는 CORE_ONLY 시에만 갱신) ─────────
+        if wrote_new_bucket or CORE_ONLY:
+            briefing = _generate_briefing(name, final_timeline)
+            try:
+                update_game(ss, appid, {
+                    "ai_briefing":      briefing,
+                    "ai_briefing_date": today,
+                })
+                print(f"  [저장] ai_briefing 완료")
+            except Exception as e:
+                print(f"  [저장] ai_briefing 실패: {e}")
+        else:
+            print(f"  [skip] ai_briefing — 새 버킷 없음, 기존 유지")
 
         # latest_sentiment_rate: 가장 최근 monthly_summary(scope=all)의 긍정률
         # event_count: 고유 이벤트 수 (monthly_summary 제외)

@@ -30,21 +30,14 @@ def now_utc_iso() -> str:
 
 
 def fetch_peak_ccu(appid: str) -> int:
-    """appdetails에서 역대 최고 CCU 수집"""
+    """SteamSpy에서 역대 최고 CCU 수집"""
     try:
         r = requests.get(
-            "https://store.steampowered.com/api/appdetails",
-            params={"appids": appid, "filters": "achievements"},
-            timeout=15,
-        )
-        # Steam은 peak_ccu를 appdetails에 직접 내려주지 않으므로
-        # SteamSpy peak_ccu 필드를 사용
-        r2 = requests.get(
             "https://steamspy.com/api.php",
             params={"request": "appdetails", "appid": appid},
             timeout=20,
         )
-        r2.raise_for_status()
-        return int(r2.json().get("peak_ccu", 0))
+        r.raise_for_status()
+        return int(r.json().get("peak_ccu", 0))
     except Exception:
         return 0
