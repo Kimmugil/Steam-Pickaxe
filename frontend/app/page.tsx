@@ -38,7 +38,7 @@ export default async function HomePage() {
     <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-12">
       {/* ── 히어로 + 게임 등록 ───────────────────────────────────── */}
       <section className="text-center space-y-6">
-        <p className="text-2xl font-semibold text-text-primary">{t("HOME_SUBTITLE")}</p>
+        <p className="text-2xl font-semibold text-text-primary">{t("HOME_TITLE")}</p>
         <div className="max-w-2xl mx-auto">
           <SearchBox />
         </div>
