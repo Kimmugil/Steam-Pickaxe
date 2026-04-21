@@ -247,7 +247,7 @@ def run():
                     print(f"    [patch_summary] 본문 없음 — 호출 생략")
 
             # ── 언어별 AI 분석 ───────────────────────────────────────────
-            LANG_SCOPE_MIN = 10  # 언어 스코프 최소 리뷰 수 (미달 시 Gemini 호출 생략)
+            LANG_SCOPE_MIN = 30  # 언어 스코프 최소 리뷰 수 (미달 시 Gemini 호출 생략)
             scopes = ["all"] + top_languages
             for scope in scopes:
                 if scope == "all":

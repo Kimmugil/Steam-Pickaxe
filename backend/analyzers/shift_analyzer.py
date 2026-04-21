@@ -6,24 +6,23 @@
  - 근방 공식 이벤트를 타임라인에서 찾아 linked_event_ids 연결
  - 공식 긍정율 이력(rate_history)과 교차검증해 is_official_confirmed 판단
 
-[프롬프트 원칙]
- - 현상 진단 + 인과관계만, 지시적 어조 금지 (gemini_analyzer.py와 동일 원칙)
+[SDK] google-genai (신규 공식 SDK)
+[비용 최적화] thinking_budget=0 적용
 """
 
 import json
 import re
 import time
 from datetime import datetime, timedelta
-
-import google.generativeai as genai
+from google import genai as _genai
+from google.genai import types as _types
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import GEMINI_API_KEY
 
-genai.configure(api_key=GEMINI_API_KEY)
+_client = _genai.Client(api_key=GEMINI_API_KEY)
 MODEL = "gemini-2.5-flash"
-
-_GEN_CONFIG = genai.types.GenerationConfig(response_mime_type="application/json")
+_NO_THINKING = _types.ThinkingConfig(thinking_budget=0)
 
 SYSTEM_PROMPT = """당신은 Steam 게임 리뷰 분석 전문가입니다.
 규칙:
@@ -104,7 +103,7 @@ def _find_linked_events(shift: dict, timeline_rows: list[dict]) -> list[str]:
         return []
 
     window_start = shift_start - timedelta(days=14)
-    window_end   = shift_end   + timedelta(days=7)  # 급변 이후 패치 대응 포함
+    window_end   = shift_end   + timedelta(days=7)
 
     linked = []
     for r in timeline_rows:
@@ -221,15 +220,15 @@ top_reviews 선별 규칙:
 - votes_up이 높고 이슈를 가장 잘 드러내는 리뷰 선택
 - 한국어 원문이면 text_kr = text, 외국어면 반드시 한국어로 번역"""
 
-    model = genai.GenerativeModel(
-        MODEL,
+    config = _types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
-        generation_config=_GEN_CONFIG,
+        response_mime_type="application/json",
+        thinking_config=_NO_THINKING,
     )
 
     for attempt in range(retries):
         try:
-            resp = model.generate_content(prompt)
+            resp = _client.models.generate_content(model=MODEL, contents=prompt, config=config)
             raw  = resp.text.strip()
             try:
                 return json.loads(raw)

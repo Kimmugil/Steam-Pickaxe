@@ -114,8 +114,8 @@ def filter_reviews_for_bucket(reviews: list[dict], start_ts: int, end_ts: int) -
     return [r for r in reviews if start_ts <= int(r.get("timestamp_created", 0)) <= end_ts]
 
 
-def sample_reviews(reviews: list[dict], max_total: int = 500,
-                   top_votes: int = 300, latest: int = 300) -> list[dict]:
+def sample_reviews(reviews: list[dict], max_total: int = 200,
+                   top_votes: int = 150, latest: int = 150) -> list[dict]:
     """
     계층 샘플링 (Stratified Sampling) — 긍정/부정 비율 보존
 

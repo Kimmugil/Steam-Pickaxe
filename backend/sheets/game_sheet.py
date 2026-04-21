@@ -71,11 +71,16 @@ def open_game_sheet(game_sheet_id: str) -> gspread.Spreadsheet:
 def get_or_create_timeline_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
     try:
         ws = ss.worksheet("timeline")
-        # 신규 컬럼 마이그레이션: 헤더 행에 없는 컬럼을 오른쪽에 추가
         current_headers = ws.row_values(1)
         if len(current_headers) < len(TIMELINE_HEADERS):
-            for i in range(len(current_headers), len(TIMELINE_HEADERS)):
-                ws.update_cell(1, i + 1, TIMELINE_HEADERS[i])
+            # 그리드 컬럼이 부족하면 먼저 확장 (확장 전 셀 쓰기 → 400 에러)
+            if ws.col_count < len(TIMELINE_HEADERS):
+                ws.resize(rows=ws.row_count, cols=len(TIMELINE_HEADERS))
+            # 누락 헤더를 단일 batch 호출로 기록
+            import gspread.utils as _gu
+            start_a1 = _gu.rowcol_to_a1(1, len(current_headers) + 1)
+            end_a1   = _gu.rowcol_to_a1(1, len(TIMELINE_HEADERS))
+            ws.update(f"{start_a1}:{end_a1}", [TIMELINE_HEADERS[len(current_headers):]])
         return ws
     except gspread.WorksheetNotFound:
         ws = ss.add_worksheet(title="timeline", rows=1000, cols=len(TIMELINE_HEADERS))

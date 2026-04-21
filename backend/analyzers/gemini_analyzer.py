@@ -1,38 +1,24 @@
 """
 Gemini 2.5 Flash API — 리뷰 분석, 키워드 추출, AI 브리핑 생성
 기획서 4장 AI 분석 원칙: 현상 진단 + 인과관계만, 지시적 어조 금지
+
+[SDK] google-genai (신규 공식 SDK)
+[비용 최적화] thinking_budget=0 — 감성 분류/요약 작업에 thinking 토큰 불필요
 """
 import json
 import re
 import time
-import google.generativeai as genai
+from google import genai as _genai
+from google.genai import types as _types
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import GEMINI_API_KEY
 
-genai.configure(api_key=GEMINI_API_KEY)
+_client = _genai.Client(api_key=GEMINI_API_KEY)
 MODEL = "gemini-2.5-flash"
 
-# analyze_bucket: JSON structured output 강제 (파싱 안정성)
-# 텍스트 전용 함수: 기본 config (JSON mime 불필요)
-_ANALYSIS_GEN_CONFIG = genai.types.GenerationConfig(
-    response_mime_type="application/json",
-)
-
-
-def _make_analysis_model(system_instruction: str = None) -> genai.GenerativeModel:
-    """analyze_bucket 전용: JSON structured output."""
-    return genai.GenerativeModel(
-        MODEL,
-        system_instruction=system_instruction,
-        generation_config=_ANALYSIS_GEN_CONFIG,
-    )
-
-
-def _make_text_model(system_instruction: str = None) -> genai.GenerativeModel:
-    """텍스트 응답 전용: 기본 config."""
-    return genai.GenerativeModel(MODEL, system_instruction=system_instruction)
-
+# Thinking 비활성화 — 감성 분류/요약에 thinking 토큰은 비용·속도 낭비
+_NO_THINKING = _types.ThinkingConfig(thinking_budget=0)
 
 LANGUAGE_NAMES = {
     "all": "전체",
@@ -56,6 +42,50 @@ ANALYSIS_SYSTEM_PROMPT = """당신은 Steam 게임 리뷰 분석 전문가입니
 4. SteamSpy 추정 지표를 언급할 때는 반드시 '추정치'임을 명시하세요.
 5. 응답은 반드시 유효한 JSON으로만 출력하세요. 마크다운 코드블록 없이 순수 JSON."""
 
+
+# ── 공통 Gemini 호출 헬퍼 ──────────────────────────────────────────────────────
+
+def _gen_json(prompt: str, system_instruction: str = ANALYSIS_SYSTEM_PROMPT, retries: int = 3) -> dict | None:
+    """JSON 응답 전용 호출 (thinking=0, response_mime_type=application/json)."""
+    config = _types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        response_mime_type="application/json",
+        thinking_config=_NO_THINKING,
+    )
+    for attempt in range(retries):
+        try:
+            resp = _client.models.generate_content(model=MODEL, contents=prompt, config=config)
+            text = resp.text.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+            parsed = json.loads(text)
+            if not isinstance(parsed, dict):
+                print(f"[gemini] 예상치 못한 응답 타입 ({type(parsed).__name__}) 시도 {attempt + 1}")
+                continue
+            return parsed
+        except json.JSONDecodeError as e:
+            print(f"[gemini] JSON 파싱 오류 시도 {attempt + 1}: {e}")
+        except Exception as e:
+            print(f"[gemini] API 오류 시도 {attempt + 1}: {e}")
+            time.sleep(5 * (attempt + 1))
+    return None
+
+
+def _gen_text(prompt: str, retries: int = 2) -> str:
+    """텍스트 응답 전용 호출 (thinking=0)."""
+    config = _types.GenerateContentConfig(thinking_config=_NO_THINKING)
+    for attempt in range(retries):
+        try:
+            resp = _client.models.generate_content(model=MODEL, contents=prompt, config=config)
+            return resp.text.strip()
+        except Exception as e:
+            print(f"[gemini] API 오류 시도 {attempt + 1}: {e}")
+            if attempt < retries - 1:
+                time.sleep(5 * (attempt + 1))
+    return ""
+
+
+# ── 공개 API ───────────────────────────────────────────────────────────────────
 
 def analyze_bucket(
     game_name: str,
@@ -106,10 +136,8 @@ def analyze_bucket(
 리뷰 데이터:
 {reviews_text}"""
 
-    result = _call_gemini(prompt)
+    result = _gen_json(prompt)
     return result if result else _empty_analysis()
-
-
 
 
 def analyze_patch_summary(game_name: str, event_title: str, patch_url: str, content: str = "") -> str:
@@ -117,13 +145,6 @@ def analyze_patch_summary(game_name: str, event_title: str, patch_url: str, cont
     패치 내용 AI 요약.
     content(이벤트 본문)가 있으면 본문 기반으로 요약하고,
     없으면 제목과 URL만으로 추정 요약한다.
-
-    공지 유형을 먼저 식별하여 정확한 요약을 생성한다:
-    - 실제 업데이트/패치: 변경 내용 요약
-    - 지연/연기 공지: "업데이트 지연 공지" + 지연 이유 요약
-    - 서버 점검: 점검 내용 요약
-    - 이벤트/세일: 이벤트 내용 요약
-    - 롤백: 롤백 사유 요약
     """
     if content.strip():
         content_section = f"\n\n공지 본문:\n{content.strip()[:5000]}"
@@ -154,18 +175,11 @@ URL: {patch_url}{content_section}
 {source_note}
 지시적 어조 없이 사실만 서술하세요. JSON 없이 텍스트만 반환하세요."""
 
-    model = _make_text_model()
-    try:
-        resp = model.generate_content(prompt)
-        text = resp.text.strip()
-        # 프롬프트 단계 레이블이 응답에 포함된 경우 제거 (예: "[1단계] ...\n[2단계] 실제요약")
+    text = _gen_text(prompt)
+    if text:
         text = re.sub(r"^\s*\[\d?단계\][^\n]*\n?", "", text, flags=re.MULTILINE).strip()
-        # "UPDATE:" / "EVENT:" 등 유형 레이블이 맨 앞에 붙은 경우 제거
         text = re.sub(r"^\s*(UPDATE|DELAY|MAINTENANCE|EVENT|ANNOUNCEMENT|OTHER)\s*[:：]\s*", "", text).strip()
-        return text
-    except Exception as e:
-        print(f"[gemini] patch_summary 오류: {e}")
-        return ""
+    return text
 
 
 def generate_ai_briefing(game_name: str, timeline_summary: str, trend_direction: str = "") -> str:
@@ -186,20 +200,11 @@ def generate_ai_briefing(game_name: str, timeline_summary: str, trend_direction:
 데이터:
 {timeline_summary}"""
 
-    model = _make_text_model()
-    try:
-        resp = model.generate_content(prompt)
-        return resp.text.strip()
-    except Exception as e:
-        print(f"[gemini] briefing 오류: {e}")
-        return ""
+    return _gen_text(prompt)
 
 
 def generate_sentiment_trend_comment(game_name: str, trend_buckets: list[dict]) -> str:
-    """
-    감성 추이 종합 분석 — 여러 구간에 걸친 긍정률 변화 패턴 진단.
-    trend_buckets: [{"date", "title", "sentiment_rate", "review_count"}, ...]
-    """
+    """감성 추이 종합 분석 — 여러 구간에 걸친 긍정률 변화 패턴 진단."""
     if len(trend_buckets) < 2:
         return ""
 
@@ -226,13 +231,7 @@ def generate_sentiment_trend_comment(game_name: str, trend_buckets: list[dict]) 
 - 수치(%)는 반드시 데이터에 있는 값만 사용
 - JSON 없이 텍스트만 반환"""
 
-    model = _make_text_model()
-    try:
-        resp = model.generate_content(prompt)
-        return resp.text.strip()
-    except Exception as e:
-        print(f"[gemini] sentiment_trend 오류: {e}")
-        return ""
+    return _gen_text(prompt)
 
 
 def generate_ccu_peaktime_comment(game_name: str, ccu_data: list[dict]) -> str:
@@ -249,13 +248,7 @@ def generate_ccu_peaktime_comment(game_name: str, ccu_data: list[dict]) -> str:
 
 {summary}"""
 
-    model = _make_text_model()
-    try:
-        resp = model.generate_content(prompt)
-        return resp.text.strip()
-    except Exception as e:
-        print(f"[gemini] ccu_peaktime 오류: {e}")
-        return ""
+    return _gen_text(prompt)
 
 
 def generate_language_cross_analysis(game_name: str, language_stats: list[dict], ccu_peak_comment: str) -> str:
@@ -271,55 +264,7 @@ CCU 피크타임 분석:
 스팀 영어 과대표집 문제를 감안하여 실제 주력 권역과 권역 간 평가 온도차를 진단하세요.
 3~4문장, 지시적 어조 금지, JSON 없이 텍스트만 반환."""
 
-    model = _make_text_model()
-    try:
-        resp = model.generate_content(prompt)
-        return resp.text.strip()
-    except Exception as e:
-        print(f"[gemini] lang_cross 오류: {e}")
-        return ""
-
-
-def _call_gemini(prompt: str, retries: int = 3) -> dict | None:
-    """
-    analyze_bucket 전용 Gemini 호출.
-    _make_analysis_model (thinking=2048 + JSON mime) 사용으로
-    - 불필요한 thinking 토큰 상한 제어
-    - response_mime_type=application/json으로 파싱 오류 최소화
-    """
-    model = _make_analysis_model(system_instruction=ANALYSIS_SYSTEM_PROMPT)
-    for attempt in range(retries):
-        try:
-            resp = model.generate_content(prompt)
-            text = resp.text.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
-            parsed = json.loads(text)
-            if not isinstance(parsed, dict):
-                print(f"[gemini] 예상치 못한 응답 타입 ({type(parsed).__name__}) 시도 {attempt+1}: {str(parsed)[:100]}")
-                continue
-            return parsed
-        except json.JSONDecodeError as e:
-            print(f"[gemini] JSON 파싱 오류 시도 {attempt+1}: {e}")
-        except Exception as e:
-            print(f"[gemini] API 오류 시도 {attempt+1}: {e}")
-            time.sleep(5 * (attempt + 1))
-    return None
-
-
-def _format_reviews(reviews: list[dict]) -> str:
-    lines = []
-    for r in reviews:
-        # voted_up can be Python bool (True/False) OR a string ("True"/"False")
-        # gspread sometimes returns strings depending on cell format.
-        # "False" is truthy in Python, so we must compare explicitly.
-        voted_raw = r.get("voted_up", False)
-        is_positive = voted_raw is True or str(voted_raw).upper() == "TRUE"
-        voted = "긍정" if is_positive else "부정"
-        lang = r.get("language", "")
-        text = str(r.get("review", ""))[:500]
-        lines.append(f"[{voted}][{lang}] {text}")
-    return "\n".join(lines)
+    return _gen_text(prompt)
 
 
 def translate_reviews(reviews: list[dict]) -> list[dict]:
@@ -348,11 +293,10 @@ def translate_reviews(reviews: list[dict]) -> list[dict]:
 리뷰:
 {items_text}"""
 
-    model = _make_text_model()
+    config = _types.GenerateContentConfig(thinking_config=_NO_THINKING)
     try:
-        resp = model.generate_content(prompt)
+        resp = _client.models.generate_content(model=MODEL, contents=prompt, config=config)
         raw = resp.text.strip()
-        # JSON 배열 추출
         if "[" in raw:
             raw = raw[raw.index("["):raw.rindex("]") + 1]
         translations: list[str] = json.loads(raw)
@@ -363,8 +307,10 @@ def translate_reviews(reviews: list[dict]) -> list[dict]:
         return result
     except Exception as e:
         print(f"[gemini] translate_reviews 오류: {e}")
-        return reviews  # 번역 실패 시 원문 유지
+        return reviews
 
+
+# ── 내부 헬퍼 ─────────────────────────────────────────────────────────────────
 
 def _empty_analysis() -> dict:
     return {
@@ -373,6 +319,18 @@ def _empty_analysis() -> dict:
         "ai_reaction_summary": "",
         "top_reviews": [],
     }
+
+
+def _format_reviews(reviews: list[dict]) -> str:
+    lines = []
+    for r in reviews:
+        voted_raw = r.get("voted_up", False)
+        is_positive = voted_raw is True or str(voted_raw).upper() == "TRUE"
+        voted = "긍정" if is_positive else "부정"
+        lang = r.get("language", "")
+        text = str(r.get("review", ""))[:500]
+        lines.append(f"[{voted}][{lang}] {text}")
+    return "\n".join(lines)
 
 
 def _summarize_ccu_by_hour(ccu_data: list[dict]) -> str:
