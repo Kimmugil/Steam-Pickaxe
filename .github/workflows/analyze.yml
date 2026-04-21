@@ -5,11 +5,12 @@ on:
     - cron: "0 0 1 * *"   # 매월 1일 00:00 UTC — 전월 최종 분석 확정
   workflow_dispatch:
     inputs:
+      appid:
+        description: '특정 게임 AppID (미입력 시 전체)'
+        required: false
       year_month:
         description: '분석할 월 (YYYY-MM, 미입력 시 현재 월)'
         required: false
-  repository_dispatch:
-    types: [analyze-game]
 
 jobs:
   analyze:
@@ -33,8 +34,8 @@ jobs:
           MASTER_SPREADSHEET_ID: ${{ secrets.MASTER_SPREADSHEET_ID }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          TARGET_APPID: ${{ github.event.client_payload.appid || github.event.inputs.appid }}
-          TARGET_YEAR_MONTH: ${{ github.event.client_payload.year_month || github.event.inputs.year_month }}
+          TARGET_APPID: ${{ github.event.inputs.appid }}
+          TARGET_YEAR_MONTH: ${{ github.event.inputs.year_month }}
         run: |
           cd backend
           python main_analyze.py

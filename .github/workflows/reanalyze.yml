@@ -10,7 +10,7 @@ on:
 jobs:
   reanalyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 

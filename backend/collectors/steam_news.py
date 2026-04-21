@@ -36,10 +36,11 @@ _STORE_NEWS_TYPES     = {10, 12}                  # "news" (이벤트·일반)
 _STORE_ALL_TYPES      = _STORE_OFFICIAL_TYPES | _STORE_NEWS_TYPES
 
 
-def fetch_news(appid: str, count: int = 500) -> list[dict]:
+def fetch_news(appid: str, count: int = 500, known_gids: set | None = None) -> list[dict]:
     """
     Steam GetNewsForApp API로 뉴스 수집.
     enddate 파라미터를 활용해 페이지네이션 — 최대 20페이지(최대 10,000건).
+    known_gids: 이미 저장된 GID 집합 — 해당 GID 발견 시 즉시 중단 (조기 종료).
     """
     all_items: list[dict] = []
     seen_gids: set = set()
@@ -71,20 +72,24 @@ def fetch_news(appid: str, count: int = 500) -> list[dict]:
 
         min_date: int | None = None
         new_this_page = 0
+        hit_known_boundary = False
         for item in items:
-            gid = item.get("gid")
+            gid = str(item.get("gid", ""))
             if gid and gid in seen_gids:
                 continue
             if gid:
                 seen_gids.add(gid)
+            if known_gids is not None and gid and gid in known_gids:
+                # 이미 저장된 GID 도달 = 이후 항목도 모두 기존 데이터 → 조기 종료
+                hit_known_boundary = True
+                break
             all_items.append(item)
             new_this_page += 1
             d = item.get("date", 0)
             if min_date is None or d < min_date:
                 min_date = d
 
-        # 수집된 아이템이 count보다 적거나 중복만 있으면 종료
-        if len(items) < count or new_this_page == 0:
+        if hit_known_boundary or len(items) < count or new_this_page == 0:
             break
 
         # 다음 페이지: oldest item 날짜 - 1초 이전으로 재조회
@@ -96,12 +101,13 @@ def fetch_news(appid: str, count: int = 500) -> list[dict]:
     return all_items
 
 
-def fetch_store_events(appid: str) -> list[dict]:
+def fetch_store_events(appid: str, known_gids: set | None = None) -> list[dict]:
     """
     Steam Store 이벤트 API로 패치노트/공지 등 추가 이벤트 수집.
     GetNewsForApp이 누락하는 오래된 이벤트를 보완하는 역할.
     cursor 기반 페이지네이션 — 최대 20페이지.
     announcement_body.gid 기반으로 페이지 간 중복 제거.
+    known_gids: 이미 저장된 GID 집합 — 해당 GID 발견 시 즉시 중단 (조기 종료).
     """
     all_events: list[dict] = []
     seen_gids: set = set()   # announcement_body.gid 기반 중복 방지
@@ -131,17 +137,20 @@ def fetch_store_events(appid: str) -> list[dict]:
             break
 
         new_this_page = 0
+        hit_known_boundary = False
         for ev in events:
-            body_gid = (ev.get("announcement_body") or {}).get("gid", "")
+            body_gid = str((ev.get("announcement_body") or {}).get("gid", ""))
             if body_gid:
                 if body_gid in seen_gids:
                     continue
+                if known_gids is not None and body_gid in known_gids:
+                    hit_known_boundary = True
+                    break
                 seen_gids.add(body_gid)
             all_events.append(ev)
             new_this_page += 1
 
-        # 이번 페이지가 전부 중복이면 더 이상 새 데이터 없음 → 종료
-        if new_this_page == 0:
+        if hit_known_boundary or new_this_page == 0:
             break
 
         next_cursor = data.get("next_cursor")

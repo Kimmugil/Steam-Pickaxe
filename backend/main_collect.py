@@ -30,8 +30,9 @@ NEWS_ONLY    = os.environ.get("NEWS_ONLY",    "").strip().lower() in ("1", "true
 
 def run():
     ss = get_spreadsheet()
-    # 누락 컬럼 자동 마이그레이션 (genres/developer/publisher/price 등)
-    ensure_games_headers(ss)
+    # 누락 컬럼 자동 마이그레이션 — SKIP_SCHEMA_CHECK=true 시 생략 (일일 운영 중 불필요)
+    if not os.environ.get("SKIP_SCHEMA_CHECK", "").strip().lower() in ("1", "true", "yes"):
+        ensure_games_headers(ss)
     games = get_all_games(ss)
     newly_activated = []
 
@@ -215,7 +216,8 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
     }
 
     # ── 1. GetNewsForApp (enddate 페이지네이션, 최대 10,000건) ──────────────
-    news_items = fetch_news(appid)
+    # existing_gids를 전달해 이미 저장된 GID 도달 시 조기 종료
+    news_items = fetch_news(appid, known_gids=existing_gids)
     official, external = classify_news(news_items, app_author=game_name)
 
     # GetNewsForApp 결과 파싱 — GID/URL/제목 집합으로 인덱싱 (O(1) 교차 중복 체크용)
@@ -241,7 +243,7 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
     # ── 2. Steam Store Events API (cursor 페이지네이션) ────────────────────
     # GetNewsForApp이 누락하는 오래된 이벤트를 보완
     # GID / URL / 제목 기준으로 O(1) 교차 중복 체크
-    store_events = fetch_store_events(appid)
+    store_events = fetch_store_events(appid, known_gids=existing_gids)
     for ev in store_events:
         parsed = parse_store_event(ev, appid)
         if parsed is None:
@@ -260,6 +262,7 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
     # ── 3. 시트에 저장 (GID/URL/제목 중복 제거) + content 백필 ─────────────
     added = 0
     backfilled = 0
+    added_rows: list[dict] = []
     for parsed in candidate_rows:
         url     = parsed.get("url", "")
         title   = parsed.get("title", "")
@@ -283,6 +286,7 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
             continue
 
         gs_append(game_ss, {**parsed, "language_scope": "all"})
+        added_rows.append(parsed)
         if gid:   existing_gids.add(gid)
         if url:   existing_urls.add(url)
         if title: existing_titles.add(title)
@@ -293,13 +297,18 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
 
     if added:
         print(f"뉴스/패치 {added}건 추가 (GetNewsForApp + StoreEvents 합산)")
-        all_official = [
-            r for r in gs_get_timeline(game_ss)
+        # 두 번째 gs_get_timeline 호출 없이 기존 + 신규 행으로 last_event_date 계산
+        new_official_dates = [
+            r["date"] for r in added_rows
             if r.get("event_type") in ("official", "manual") and r.get("date")
         ]
-        if all_official:
-            last_date = max(r["date"] for r in all_official)
-            update_game(ss, appid, {"last_event_date": last_date})
+        old_official_dates = [
+            r["date"] for r in existing
+            if r.get("event_type") in ("official", "manual") and r.get("date")
+        ]
+        all_dates = new_official_dates + old_official_dates
+        if all_dates:
+            update_game(ss, appid, {"last_event_date": max(all_dates)})
 
 
 if __name__ == "__main__":
