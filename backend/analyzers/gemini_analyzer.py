@@ -13,38 +13,25 @@ from config import GEMINI_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 MODEL = "gemini-2.5-flash"
 
-# ── Generation Config 분리 ─────────────────────────────────────────────────────
-# analyze_bucket: thinking 활성(budget=512) + JSON structured output
-# 텍스트 전용 함수: thinking 비활성(budget=0)으로 은닉 토큰 낭비 방지
-_ANALYSIS_GEN_CONFIG = None
-_TEXT_GEN_CONFIG = None
-try:
-    _ANALYSIS_GEN_CONFIG = genai.types.GenerationConfig(
-        thinking_config=genai.types.ThinkingConfig(thinking_budget=512),
-        response_mime_type="application/json",
-    )
-    _TEXT_GEN_CONFIG = genai.types.GenerationConfig(
-        thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
-    )
-    print("[gemini] Thinking 분리: analyze_bucket=512 (JSON mime), text=thinking 비활성")
-except (AttributeError, TypeError, ValueError) as e:
-    print(f"[gemini] GenerationConfig 분리 불가 ({e}) — 기본값으로 실행")
+# analyze_bucket: JSON structured output 강제 (파싱 안정성)
+# 텍스트 전용 함수: 기본 config (JSON mime 불필요)
+_ANALYSIS_GEN_CONFIG = genai.types.GenerationConfig(
+    response_mime_type="application/json",
+)
 
 
 def _make_analysis_model(system_instruction: str = None) -> genai.GenerativeModel:
-    """analyze_bucket 전용: thinking 512 + JSON structured output."""
-    kwargs = {}
-    if _ANALYSIS_GEN_CONFIG is not None:
-        kwargs["generation_config"] = _ANALYSIS_GEN_CONFIG
-    return genai.GenerativeModel(MODEL, system_instruction=system_instruction, **kwargs)
+    """analyze_bucket 전용: JSON structured output."""
+    return genai.GenerativeModel(
+        MODEL,
+        system_instruction=system_instruction,
+        generation_config=_ANALYSIS_GEN_CONFIG,
+    )
 
 
 def _make_text_model(system_instruction: str = None) -> genai.GenerativeModel:
-    """텍스트 응답 전용: thinking 비활성으로 은닉 토큰 비용 절감."""
-    kwargs = {}
-    if _TEXT_GEN_CONFIG is not None:
-        kwargs["generation_config"] = _TEXT_GEN_CONFIG
-    return genai.GenerativeModel(MODEL, system_instruction=system_instruction, **kwargs)
+    """텍스트 응답 전용: 기본 config."""
+    return genai.GenerativeModel(MODEL, system_instruction=system_instruction)
 
 
 LANGUAGE_NAMES = {
