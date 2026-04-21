@@ -2,18 +2,18 @@
 import Link from "next/link";
 import { useUiText } from "@/contexts/UiTextContext";
 
-function TipBox({ children }: { children: React.ReactNode }) {
+function TipBox({ children, label = "💡 Tip" }: { children: React.ReactNode; label?: string }) {
   return (
     <div className="bg-accent-green/5 border border-accent-green/20 rounded-lg px-4 py-3 text-xs text-accent-green leading-relaxed">
-      <span className="font-semibold">💡 Tip  </span>{children}
+      <span className="font-semibold">{label}  </span>{children}
     </div>
   );
 }
 
-function AdminBox({ children }: { children: React.ReactNode }) {
+function AdminBox({ children, label = "🔐 관리자 기능" }: { children: React.ReactNode; label?: string }) {
   return (
     <div className="bg-accent-yellow/5 border border-accent-yellow/20 rounded-lg px-4 py-3 text-xs text-accent-yellow leading-relaxed">
-      <span className="font-semibold">🔐 관리자 기능  </span>{children}
+      <span className="font-semibold">{label}  </span>{children}
     </div>
   );
 }
@@ -55,8 +55,8 @@ export default function UsagePage() {
           <p className="text-text-secondary text-sm">{t("USAGE_PAGE_DESC")}</p>
         </div>
         <div className="flex items-center gap-4 text-xs">
-          <Link href="/" className="text-accent-blue hover:underline">← 홈으로</Link>
-          <Link href="/guide" className="text-accent-blue hover:underline">← 분석 방법 가이드</Link>
+          <Link href="/" className="text-accent-blue hover:underline">{t("NAV_HOME")}</Link>
+          <Link href="/guide" className="text-accent-blue hover:underline">{t("NAV_GUIDE_BACK")}</Link>
         </div>
       </div>
 
@@ -80,8 +80,8 @@ export default function UsagePage() {
             <li>{t("USAGE_REGISTER_L3")}</li>
           </ol>
           <div className="mt-3 space-y-2">
-            <TipBox>{t("USAGE_REGISTER_TIP1")}</TipBox>
-            <TipBox>{t("USAGE_REGISTER_TIP2")}</TipBox>
+            <TipBox label={t("LABEL_TIP")}>{t("USAGE_REGISTER_TIP1")}</TipBox>
+            <TipBox label={t("LABEL_TIP")}>{t("USAGE_REGISTER_TIP2")}</TipBox>
           </div>
         </div>
 
@@ -107,7 +107,7 @@ export default function UsagePage() {
                 <li>• {t("USAGE_CCU_L2")}</li>
               </ul>
               <div className="mt-2">
-                <AdminBox>{t("USAGE_CCU_ADMIN")}</AdminBox>
+                <AdminBox label={t("LABEL_ADMIN_FUNC")}>{t("USAGE_CCU_ADMIN")}</AdminBox>
               </div>
             </div>
 
@@ -118,7 +118,7 @@ export default function UsagePage() {
                 <li>• {t("USAGE_SENTIMENT_L2")}</li>
               </ul>
               <div className="mt-2">
-                <TipBox>{t("USAGE_SENTIMENT_TIP")}</TipBox>
+                <TipBox label={t("LABEL_TIP")}>{t("USAGE_SENTIMENT_TIP")}</TipBox>
               </div>
             </div>
 
@@ -130,7 +130,7 @@ export default function UsagePage() {
                 <li>• {t("USAGE_LANGUAGE_L3")}</li>
               </ul>
               <div className="mt-2">
-                <TipBox>{t("USAGE_LANGUAGE_TIP")}</TipBox>
+                <TipBox label={t("LABEL_TIP")}>{t("USAGE_LANGUAGE_TIP")}</TipBox>
               </div>
             </div>
 
@@ -147,8 +147,8 @@ export default function UsagePage() {
             <li>• {t("USAGE_TIMELINE_L4")}</li>
           </ul>
           <div className="mt-3 space-y-2">
-            <TipBox>{t("USAGE_TIMELINE_TIP")}</TipBox>
-            <AdminBox>{t("USAGE_TIMELINE_ADMIN")}</AdminBox>
+            <TipBox label={t("LABEL_TIP")}>{t("USAGE_TIMELINE_TIP")}</TipBox>
+            <AdminBox label={t("LABEL_ADMIN_FUNC")}>{t("USAGE_TIMELINE_ADMIN")}</AdminBox>
           </div>
         </div>
 
@@ -156,7 +156,7 @@ export default function UsagePage() {
         <div>
           <h3 className="text-sm font-semibold text-text-primary mb-3">{t("USAGE_H_SCHEDULE")}</h3>
           <Table
-            headers={["데이터 종류", "갱신 시간 (KST)", "비고"]}
+            headers={[t("TH_DATA_KIND"), t("TH_KST_TIME"), t("TH_NOTE")]}
             rows={[
               [t("USAGE_SCH_T1_1"), t("USAGE_SCH_T1_2"), t("USAGE_SCH_T1_3")],
               [t("USAGE_SCH_T2_1"), t("USAGE_SCH_T2_2"), t("USAGE_SCH_T2_3")],
@@ -165,7 +165,7 @@ export default function UsagePage() {
             ]}
           />
           <div className="mt-3">
-            <TipBox>{t("USAGE_SCH_TIP")}</TipBox>
+            <TipBox label={t("LABEL_TIP")}>{t("USAGE_SCH_TIP")}</TipBox>
           </div>
         </div>
 
@@ -174,7 +174,7 @@ export default function UsagePage() {
           <h3 className="text-sm font-semibold text-text-primary mb-3">{t("USAGE_H_ADMIN")}</h3>
           <p className="text-xs text-text-muted mb-3">{t("USAGE_ADMIN_DESC")}</p>
           <Table
-            headers={["기능", "위치", "설명"]}
+            headers={[t("TH_FEATURE"), t("TH_LOCATION"), t("TH_FUNC_DESC")]}
             rows={[
               [t("USAGE_ADMIN_T1_1"), t("USAGE_ADMIN_T1_2"), t("USAGE_ADMIN_T1_3")],
               [t("USAGE_ADMIN_T2_1"), t("USAGE_ADMIN_T2_2"), t("USAGE_ADMIN_T2_3")],

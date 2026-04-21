@@ -47,7 +47,7 @@ export default function Navbar() {
                 : "text-text-muted hover:text-text-secondary"
             }`}
           >
-            🔒 관계자외 출입금지
+            {t("NAV_ADMIN")}
           </Link>
         </div>
       </div>

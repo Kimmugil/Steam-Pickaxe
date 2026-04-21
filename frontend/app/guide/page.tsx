@@ -67,7 +67,7 @@ export default function GuidePage() {
             {t("GUIDE_OV_DESC")}
           </p>
           <Table
-            headers={["구성 요소", "역할", "기술"]}
+            headers={[t("TH_COMPONENT"), t("TH_ROLE"), t("TH_TECH")]}
             rows={[
               [t("GUIDE_OV_T1_1"), t("GUIDE_OV_T1_2"), t("GUIDE_OV_T1_3")],
               [t("GUIDE_OV_T2_1"), t("GUIDE_OV_T2_2"), t("GUIDE_OV_T2_3")],
@@ -87,7 +87,7 @@ export default function GuidePage() {
       content: (
         <div className="space-y-4">
           <Table
-            headers={["워크플로우", "실행 주기", "KST 기준", "주요 작업"]}
+            headers={[t("TH_WORKFLOW"), t("TH_CYCLE"), t("TH_KST"), t("TH_MAIN_TASK")]}
             rows={[
               [t("GUIDE_SCH_T1_1"), t("GUIDE_SCH_T1_2"), t("GUIDE_SCH_T1_3"), t("GUIDE_SCH_T1_4")],
               [t("GUIDE_SCH_T2_1"), t("GUIDE_SCH_T2_2"), t("GUIDE_SCH_T2_3"), t("GUIDE_SCH_T2_4")],
@@ -110,7 +110,7 @@ export default function GuidePage() {
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-text-primary">{t("GUIDE_REV_H_API")}</h3>
           <Table
-            headers={["파라미터", "값", "이유"]}
+            headers={[t("TH_PARAM"), t("TH_VALUE"), t("TH_REASON")]}
             rows={[
               [<Mono key="n">{t("GUIDE_REV_API_T1_1")}</Mono>, t("GUIDE_REV_API_T1_2"), t("GUIDE_REV_API_T1_3")],
               [<Mono key="f">{t("GUIDE_REV_API_T2_1")}</Mono>, t("GUIDE_REV_API_T2_2"), t("GUIDE_REV_API_T2_3")],
@@ -144,7 +144,7 @@ export default function GuidePage() {
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-text-primary">{t("GUIDE_NEWS_H_SOURCE")}</h3>
           <Table
-            headers={["소스", "API", "수집 내용"]}
+            headers={[t("TH_SOURCE"), t("TH_API"), t("TH_COLLECT_CONTENT")]}
             rows={[
               [t("GUIDE_NEWS_SRC_T1_1"), t("GUIDE_NEWS_SRC_T1_2"), t("GUIDE_NEWS_SRC_T1_3")],
               [t("GUIDE_NEWS_SRC_T2_1"), t("GUIDE_NEWS_SRC_T2_2"), t("GUIDE_NEWS_SRC_T2_3")],
@@ -152,7 +152,7 @@ export default function GuidePage() {
           />
           <h3 className="text-sm font-semibold text-text-primary mt-4">{t("GUIDE_NEWS_H_CLASS")}</h3>
           <Table
-            headers={["분류", "기준", "표시"]}
+            headers={[t("TH_CLASS"), t("TH_CRITERIA"), t("TH_DISPLAY")]}
             rows={[
               [t("GUIDE_NEWS_CLS_T1_1"), t("GUIDE_NEWS_CLS_T1_2"), t("GUIDE_NEWS_CLS_T1_3")],
               [t("GUIDE_NEWS_CLS_T2_1"), t("GUIDE_NEWS_CLS_T2_2"), t("GUIDE_NEWS_CLS_T2_3")],
@@ -181,7 +181,7 @@ export default function GuidePage() {
             {t("GUIDE_BKT_DESC")}
           </p>
           <Table
-            headers={["조건", "처리"]}
+            headers={[t("TH_CONDITION"), t("TH_PROCESS")]}
             rows={[
               [t("GUIDE_BKT_T1_1"), t("GUIDE_BKT_T1_2")],
               [t("GUIDE_BKT_T2_1"), t("GUIDE_BKT_T2_2")],
@@ -231,7 +231,7 @@ export default function GuidePage() {
           <div>
             <h3 className="text-sm font-semibold text-text-primary mb-2">{t("GUIDE_AI_H2")}</h3>
             <Table
-              headers={["출력 필드", "내용"]}
+              headers={[t("TH_OUT_FIELD"), t("TH_CONTENT")]}
               rows={[
                 [t("GUIDE_AI_S2_T1_1"), t("GUIDE_AI_S2_T1_2")],
                 [t("GUIDE_AI_S2_T2_1"), t("GUIDE_AI_S2_T2_2")],
@@ -250,7 +250,7 @@ export default function GuidePage() {
               {t("GUIDE_AI_S3_DESC")}
             </p>
             <Table
-              headers={["판별 유형", "요약 방식"]}
+              headers={[t("TH_PATCH_TYPE"), t("TH_SUMMARY_WAY")]}
               rows={[
                 [t("GUIDE_AI_S3_T1_1"), t("GUIDE_AI_S3_T1_2")],
                 [t("GUIDE_AI_S3_T2_1"), t("GUIDE_AI_S3_T2_2")],
@@ -308,7 +308,7 @@ export default function GuidePage() {
           <div>
             <h3 className="text-sm font-semibold text-text-primary mb-2">{t("GUIDE_MTR_H_SENTIMENT")}</h3>
             <Table
-              headers={["범위", "해석", "배지 색상"]}
+              headers={[t("TH_RANGE"), t("TH_INTERPRET"), t("TH_BADGE_COLOR")]}
               rows={[
                 [t("GUIDE_MTR_SR_T1_1"), t("GUIDE_MTR_SR_T1_2"), t("GUIDE_MTR_SR_T1_3")],
                 [t("GUIDE_MTR_SR_T2_1"), t("GUIDE_MTR_SR_T2_2"), t("GUIDE_MTR_SR_T2_3")],
@@ -344,7 +344,7 @@ export default function GuidePage() {
           <div>
             <h3 className="text-sm font-semibold text-text-primary mb-2">{t("GUIDE_MTR_H_TIMELINE")}</h3>
             <Table
-              headers={["상태", "의미"]}
+              headers={[t("TH_STATUS"), t("TH_MEANING")]}
               rows={[
                 [t("GUIDE_MTR_TL_T1_1"), t("GUIDE_MTR_TL_T1_2")],
                 [t("GUIDE_MTR_TL_T2_1"), t("GUIDE_MTR_TL_T2_2")],
@@ -399,7 +399,7 @@ export default function GuidePage() {
             {t("GUIDE_PAGE_DESC")}
           </p>
         </div>
-        <Link href="/" className="text-xs text-accent-blue hover:underline">← 홈으로</Link>
+        <Link href="/" className="text-xs text-accent-blue hover:underline">{t("NAV_HOME")}</Link>
       </div>
 
       <div className="flex gap-6">

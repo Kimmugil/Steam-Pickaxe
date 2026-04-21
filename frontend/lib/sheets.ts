@@ -74,6 +74,12 @@ export async function getConfig(): Promise<ConfigMap> {
   return map;
 }
 
+export const getCachedConfig = unstable_cache(
+  async () => getConfig(),
+  ["config"],
+  { revalidate: 300 }
+);
+
 export async function setConfigValue(key: string, value: string) {
   const sheets = await getSheetsClient();
   const rows = await readSheet("config");

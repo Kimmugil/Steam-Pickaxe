@@ -31,6 +31,7 @@ export default async function HomePage() {
     GAMES_EMPTY_TITLE: "아직 등록된 게임이 없습니다.",
     GAMES_EMPTY_SUBTITLE: "위 검색창에서 Steam 게임을 검색하고 등록해 보세요.",
     SEARCH_SECTION_TITLE: "게임 등록",
+    PENDING_GAMES_SECTION_TITLE: "분석 진행 중인 게임",
   };
   const t = (key: string) => (uiText as Record<string, string>)[key] ?? FALLBACK[key] ?? key;
 
@@ -69,7 +70,7 @@ export default async function HomePage() {
       {pendingGames.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-text-primary mb-4">
-            분석 진행 중인 게임
+            {t("PENDING_GAMES_SECTION_TITLE")}
             <span className="ml-2 text-sm text-text-muted font-normal">{pendingGames.length}개</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
