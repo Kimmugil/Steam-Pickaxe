@@ -16,17 +16,15 @@ def _retry_on_quota(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         waits = [5, 10, 20, 40, 60]
-        for attempt, wait in enumerate(waits):
+        for attempt, wait in enumerate(waits + [None]):
             try:
                 return fn(*args, **kwargs)
             except gspread.exceptions.APIError as e:
-                if "429" in str(e):
-                    print(f"[rate_limit] 429 — {wait}초 대기 후 재시도 ({attempt+1}/5)")
+                if "429" in str(e) and wait is not None:
+                    print(f"[rate_limit] 429 — {wait}초 대기 후 재시도 ({attempt+1}/{len(waits)})")
                     time.sleep(wait)
                 else:
                     raise
-        # Final attempt after all waits exhausted
-        return fn(*args, **kwargs)
     return wrapper
 
 SCOPES = [
@@ -53,6 +51,17 @@ TIMELINE_HEADERS = [
 
 RATE_HISTORY_HEADERS = ["date", "positive_rate", "total_reviews"]
 
+# 세션 내 중복 Sheets read 방지용 캐시 (429 quota 절약)
+_timeline_tab_ready: set[str] = set()       # ss.id → 헤더 검증 완료
+_timeline_headers_cache: dict[str, list[str]] = {}  # ss.id → 헤더 리스트
+
+
+def _cached_timeline_headers(ss_id: str, ws: gspread.Worksheet) -> list[str]:
+    """헤더를 세션당 1회만 읽고 캐싱 (반복 row_values 호출로 인한 429 방지)."""
+    if ss_id not in _timeline_headers_cache:
+        _timeline_headers_cache[ss_id] = ws.row_values(1)
+    return _timeline_headers_cache[ss_id]
+
 
 def _get_client() -> gspread.Client:
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
@@ -71,20 +80,28 @@ def open_game_sheet(game_sheet_id: str) -> gspread.Spreadsheet:
 def get_or_create_timeline_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
     try:
         ws = ss.worksheet("timeline")
-        current_headers = ws.row_values(1)
-        if len(current_headers) < len(TIMELINE_HEADERS):
-            # 그리드 컬럼이 부족하면 먼저 확장 (확장 전 셀 쓰기 → 400 에러)
-            if ws.col_count < len(TIMELINE_HEADERS):
-                ws.resize(rows=ws.row_count, cols=len(TIMELINE_HEADERS))
-            # 누락 헤더를 단일 batch 호출로 기록
-            import gspread.utils as _gu
-            start_a1 = _gu.rowcol_to_a1(1, len(current_headers) + 1)
-            end_a1   = _gu.rowcol_to_a1(1, len(TIMELINE_HEADERS))
-            ws.update(f"{start_a1}:{end_a1}", [TIMELINE_HEADERS[len(current_headers):]])
+        # 헤더 검증은 세션당 1회만 수행 (반복 row_values 호출로 인한 Sheets 429 방지)
+        if ss.id not in _timeline_tab_ready:
+            current_headers = ws.row_values(1)
+            if len(current_headers) < len(TIMELINE_HEADERS):
+                # 그리드 컬럼이 부족하면 먼저 확장 (확장 전 셀 쓰기 → 400 에러)
+                if ws.col_count < len(TIMELINE_HEADERS):
+                    ws.resize(rows=ws.row_count, cols=len(TIMELINE_HEADERS))
+                # 누락 헤더를 단일 batch 호출로 기록
+                import gspread.utils as _gu
+                start_a1 = _gu.rowcol_to_a1(1, len(current_headers) + 1)
+                end_a1   = _gu.rowcol_to_a1(1, len(TIMELINE_HEADERS))
+                ws.update(f"{start_a1}:{end_a1}", [TIMELINE_HEADERS[len(current_headers):]])
+                _timeline_headers_cache[ss.id] = TIMELINE_HEADERS[:]
+            else:
+                _timeline_headers_cache[ss.id] = current_headers
+            _timeline_tab_ready.add(ss.id)
         return ws
     except gspread.WorksheetNotFound:
         ws = ss.add_worksheet(title="timeline", rows=1000, cols=len(TIMELINE_HEADERS))
         ws.append_row(TIMELINE_HEADERS)
+        _timeline_tab_ready.add(ss.id)
+        _timeline_headers_cache[ss.id] = TIMELINE_HEADERS[:]
         return ws
 
 
@@ -137,7 +154,7 @@ def update_timeline_row(
     모든 셀 변경을 batch_update 1회로 처리합니다 (API 쿼터 최소화).
     """
     ws = get_or_create_timeline_tab(ss)
-    headers = ws.row_values(1)
+    headers = _cached_timeline_headers(ss.id, ws)
 
     if row_map is not None:
         row_idx = row_map.get((str(event_id), str(language_scope)))
@@ -179,7 +196,7 @@ def update_timeline_event_field(
     event_row_map 제공 시 get_all_records() 재호출을 생략합니다.
     """
     ws = get_or_create_timeline_tab(ss)
-    headers = ws.row_values(1)
+    headers = _cached_timeline_headers(ss.id, ws)
     if key not in headers:
         print(f"[update_field] 헤더에 '{key}' 없음 — 마이그레이션이 필요합니다.")
         return
