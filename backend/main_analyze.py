@@ -20,7 +20,7 @@ from sheets.game_sheet import (
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
 from analyzers.bucketer import build_monthly_buckets, sample_reviews
 from analyzers.gemini_analyzer import (
-    analyze_bucket, analyze_patch_summary, generate_event_title_kr,
+    analyze_bucket, analyze_patch_summary,
     generate_ai_briefing, generate_sentiment_trend_comment,
     generate_ccu_peaktime_comment, generate_language_cross_analysis, LANGUAGE_NAMES,
 )
@@ -120,30 +120,6 @@ def run():
                 update_game(ss, appid, {"language_distribution": lang_dist_str})
             except Exception as e:
                 print(f"  [lang_dist] 실패: {e}")
-
-        # ── title_kr 백필 (개별 이벤트) ─────────────────────────────────────
-        rows_needing_title_kr = [
-            r for r in timeline_rows
-            if r.get("language_scope") == "all"
-            and r.get("event_type") not in ("monthly_summary", "news", "launch")
-            and not r.get("title_kr", "").strip()
-        ]
-        if rows_needing_title_kr:
-            _ev_row_map = build_event_row_map(timeline_rows)
-            print(f"  [title_kr 백필] {len(rows_needing_title_kr)}건")
-            for r in rows_needing_title_kr:
-                try:
-                    tkr = generate_event_title_kr(
-                        name, r.get("title", ""), r.get("event_type", ""),
-                        r.get("ai_patch_summary", ""),
-                    )
-                    gs_update_event_field(game_ss, r["event_id"], "title_kr", tkr,
-                                         event_row_map=_ev_row_map)
-                    print(f"    [{r.get('date')}] {r.get('title')} → {tkr}")
-                    time.sleep(1)
-                except Exception as e:
-                    print(f"    [title_kr 오류] {r.get('title')}: {e}")
-            timeline_rows = gs_get_timeline(game_ss)
 
         # ── ai_patch_summary 오염 정제 (기존 이벤트 행) ─────────────────────
         _bad_pattern = _re.compile(
@@ -278,13 +254,20 @@ def run():
 
                 analysis = analyze_bucket(name, bucket["title"], sampled, scope)
 
+                # sentiment_rate 검증: 0~100 범위로 클램핑 (Gemini가 범위 벗어난 값을 반환할 경우 대비)
+                _raw_rate = analysis.get("sentiment_rate", 0)
+                try:
+                    _clamped = max(0.0, min(100.0, float(_raw_rate)))
+                except (ValueError, TypeError):
+                    _clamped = 0.0
+
                 row = {
                     "event_id":           bucket["event_id"],
                     "event_type":         "monthly_summary",
                     "date":               bucket["date"],
                     "title":              bucket["title"],
                     "language_scope":     scope,
-                    "sentiment_rate":     analysis.get("sentiment_rate", 0),
+                    "sentiment_rate":     _clamped,
                     "review_count":       len(scope_reviews),
                     "ai_patch_summary":   monthly_patch_summary if scope == "all" else "",
                     "ai_reaction_summary": analysis.get("ai_reaction_summary", ""),
@@ -318,6 +301,14 @@ def run():
 
         # ── 전체 AI 브리핑 ──────────────────────────────────────────────
         briefing = _generate_briefing(name, final_timeline)
+        try:
+            update_game(ss, appid, {
+                "ai_briefing":      briefing,
+                "ai_briefing_date": today,
+            })
+            print(f"  [저장] ai_briefing 완료")
+        except Exception as e:
+            print(f"  [저장] ai_briefing 실패: {e}")
 
         # latest_sentiment_rate: 가장 최근 monthly_summary(scope=all)의 긍정률
         # event_count: 고유 이벤트 수 (monthly_summary 제외)
@@ -344,6 +335,17 @@ def run():
         }
         ev_count = len(event_ids)
 
+        # 긍정률 + 이벤트 수 즉시 저장 (CORE_ONLY 시 기존 값 보존)
+        if not CORE_ONLY:
+            try:
+                update_game(ss, appid, {
+                    "latest_sentiment_rate": latest_rate,
+                    "event_count":           ev_count,
+                })
+                print(f"  [저장] latest_sentiment_rate={latest_rate}%, event_count={ev_count}")
+            except Exception as e:
+                print(f"  [저장] sentiment_rate/event_count 실패: {e}")
+
         # ── CCU 피크타임 AI 분석 + 언어권 교차 분석 (주 1회 or CORE_ONLY) ──
         ccu_peaktime_comment = game.get("ccu_peaktime_comment", "")
         language_cross_comment = game.get("language_cross_comment", "")
@@ -357,6 +359,11 @@ def run():
                     ccu_peaktime_comment = generate_ccu_peaktime_comment(name, ccu_rows)
                     if ccu_peaktime_comment:
                         print(f"  [ccu_peaktime] 갱신 완료")
+                        try:
+                            update_game(ss, appid, {"ccu_peaktime_comment": ccu_peaktime_comment})
+                            print(f"  [저장] ccu_peaktime_comment 완료")
+                        except Exception as _e:
+                            print(f"  [저장] ccu_peaktime_comment 실패: {_e}")
                     time.sleep(2)
             except Exception as e:
                 print(f"  [ccu_peaktime] 오류: {e}")
@@ -388,6 +395,12 @@ def run():
                     language_cross_comment = generate_language_cross_analysis(
                         name, language_stats, ccu_peaktime_comment
                     )
+                    if language_cross_comment:
+                        try:
+                            update_game(ss, appid, {"language_cross_comment": language_cross_comment})
+                            print(f"  [저장] language_cross_comment 완료")
+                        except Exception as _e:
+                            print(f"  [저장] language_cross_comment 실패: {_e}")
                     time.sleep(2)
                 except Exception as e:
                     print(f"  [lang_cross] 오류: {e}")
@@ -413,22 +426,16 @@ def run():
                 ]
                 try:
                     sentiment_trend_comment = generate_sentiment_trend_comment(name, trend_buckets)
+                    if sentiment_trend_comment:
+                        try:
+                            update_game(ss, appid, {"sentiment_trend_comment": sentiment_trend_comment})
+                            print(f"  [저장] sentiment_trend_comment 완료")
+                        except Exception as _e:
+                            print(f"  [저장] sentiment_trend_comment 실패: {_e}")
                     time.sleep(2)
                 except Exception as e:
                     print(f"  [sentiment_trend] 오류: {e}")
 
-        core_updates = {
-            "ai_briefing":             briefing,
-            "ai_briefing_date":        today,
-            "ccu_peaktime_comment":    ccu_peaktime_comment,
-            "language_cross_comment":  language_cross_comment,
-            "sentiment_trend_comment": sentiment_trend_comment,
-        }
-        if not CORE_ONLY:
-            # 월간 분석 결과도 함께 저장 (CORE_ONLY 시 기존 값 보존)
-            core_updates["latest_sentiment_rate"] = latest_rate
-            core_updates["event_count"]           = ev_count
-        update_game(ss, appid, core_updates)
         if CORE_ONLY:
             print(f"종합 분석 완료 (브리핑+CCU+언어+추이)")
         else:
