@@ -36,9 +36,12 @@ export default async function HomePage() {
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-12">
-      {/* ── 히어로 타이틀 ────────────────────────────────────────── */}
-      <section className="text-center">
+      {/* ── 히어로 + 게임 등록 ───────────────────────────────────── */}
+      <section className="text-center space-y-6">
         <p className="text-2xl font-semibold text-text-primary">{t("HOME_SUBTITLE")}</p>
+        <div className="max-w-2xl mx-auto">
+          <SearchBox />
+        </div>
       </section>
 
       {/* ── 분석 완료된 게임 ──────────────────────────────────────── */}
@@ -77,13 +80,6 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── 게임 등록 검색 ────────────────────────────────────────── */}
-      <section>
-        <h2 className="text-lg font-semibold text-text-primary mb-4">{t("SEARCH_SECTION_TITLE")}</h2>
-        <div className="max-w-2xl">
-          <SearchBox />
-        </div>
-      </section>
     </div>
   );
 }
