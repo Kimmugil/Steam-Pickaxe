@@ -73,10 +73,13 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
     # 1. 메타데이터 갱신
     app_data = fetch_app_details(appid)
     name = game.get("name", appid)
+    positive_rate = None
     if app_data:
         meta = parse_game_meta(appid, app_data)
         name = meta["name"]
         peak_ccu = fetch_peak_ccu(appid)
+        raw_rate = meta.get("steam_positive_rate", "")
+        positive_rate = float(raw_rate) if raw_rate not in ("", None) else None
         update_game(ss, appid, {
             "name":           meta["name"],
             "is_free":        meta["is_free"],
@@ -88,6 +91,7 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
             "publisher":      meta["publisher"],
             "price":          meta["price"],
             "peak_ccu":       peak_ccu,
+            "steam_positive_rate": meta["steam_positive_rate"],
         })
         print("메타데이터 갱신 완료")
 
@@ -175,7 +179,7 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
 
     # 3. 뉴스/패치노트 수집 (active 상태에서만, game_sheet_id 보장 후)
     if final_status == "active":
-        _collect_news(ss, appid, name, game_sheet_id)
+        _collect_news(ss, appid, name, game_sheet_id, positive_rate=positive_rate)
 
     return newly_activated
 
@@ -189,10 +193,11 @@ def _steam_gid(url: str) -> str | None:
     return m.group(1) if m else None
 
 
-def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
+def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str, positive_rate=None):
     from sheets.game_sheet import (
         open_game_sheet, get_timeline as gs_get_timeline,
         append_timeline_row as gs_append, update_timeline_row as gs_update,
+        append_rate_history,
     )
 
     if not game_sheet_id:
@@ -200,6 +205,14 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str):
         return
 
     game_ss = open_game_sheet(game_sheet_id)
+
+    # 당일 공식 긍정율 rate_history에 기록
+    if positive_rate is not None:
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        try:
+            append_rate_history(game_ss, today, positive_rate)
+        except Exception as e:
+            print(f"[WARN] rate_history 기록 실패: {e}")
     existing = gs_get_timeline(game_ss)
 
     # 기존 시트 인덱스: GID / URL / 제목 세 가지 키로 O(1) 중복 확인

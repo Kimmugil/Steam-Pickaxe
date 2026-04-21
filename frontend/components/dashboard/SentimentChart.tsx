@@ -10,6 +10,7 @@ interface SentimentChartProps {
   timelineRows: TimelineRow[];
   topLanguages: string[];
   sentimentTrendComment?: string; // 여러 구간 통합 추이 진단 (game.sentiment_trend_comment)
+  shiftRows?: TimelineRow[];      // sentiment_shift 이벤트 (급변 마커용)
 }
 
 const LANG_LABELS: Record<string, string> = {
@@ -43,7 +44,7 @@ const LANG_COLORS: Record<string, string> = {
   thai:     "#ce93d8",
 };
 
-export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment }: SentimentChartProps) {
+export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment, shiftRows }: SentimentChartProps) {
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
 
   // 다중 선택 — 초기값: "all"만 활성화
@@ -104,6 +105,21 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
       return entry;
     });
   }, [allMonths, rateMap, langOptions]);
+
+  // 급변 감지가 있는 월 집합 (마커 렌더링에 사용)
+  const shiftMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of shiftRows ?? []) {
+      const ym = r.date?.slice(0, 7);
+      if (ym) set.add(ym);
+      // date_end가 다른 월이면 그 월도 포함
+      if (r.date_end) {
+        const ym2 = r.date_end.slice(0, 7);
+        if (ym2) set.add(ym2);
+      }
+    }
+    return set;
+  }, [shiftRows]);
 
   // 하단 코멘트: sentiment_trend_comment 우선, 없으면 최신 monthly_summary의 ai_reaction_summary 폴백
   const trendComment = useMemo(() => {
@@ -195,7 +211,15 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
                   const { cx, cy, payload } = props;
                   const val = payload[lang];
                   if (val === null || val === undefined) return <g key={`dot-${cx}-${cy}`} />;
-                  return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill={color} stroke="#1e2130" strokeWidth={2} />;
+                  const hasShift = shiftMonths.has(payload.date as string);
+                  return (
+                    <g key={`dot-${cx}-${cy}`}>
+                      {hasShift && lang === "all" && (
+                        <circle cx={cx} cy={cy} r={8} fill="none" stroke="#f5c842" strokeWidth={2} opacity={0.8} />
+                      )}
+                      <circle cx={cx} cy={cy} r={4} fill={color} stroke="#1e2130" strokeWidth={2} />
+                    </g>
+                  );
                 }}
                 activeDot={{ r: 5 }}
                 connectNulls={false}

@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import Badge from "@/components/shared/Badge";
 import Toast, { useToast } from "@/components/shared/Toast";
+import ShiftCard from "@/components/dashboard/ShiftCard";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { TimelineRow, TopReview } from "@/types";
 
@@ -179,7 +180,7 @@ function EventItem({
 
 // ── 월별 카드 ────────────────────────────────────────────────────────────────
 function MonthCard({
-  summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm,
+  summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm, hasShift,
 }: {
   summaryRow: TimelineRow | null;
   eventRows: TimelineRow[];
@@ -187,6 +188,7 @@ function MonthCard({
   appid: string;
   onEdit: (r: TimelineRow) => void;
   releaseYm?: string;
+  hasShift?: boolean;
 }) {
   const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
@@ -248,6 +250,13 @@ function MonthCard({
         {releaseYm && ym === releaseYm && (
           <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-green border-accent-green/40 bg-accent-green/10 shrink-0">
             🚀 출시
+          </span>
+        )}
+
+        {/* 급변 감지 배지 */}
+        {hasShift && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-yellow border-accent-yellow/40 bg-accent-yellow/10 shrink-0">
+            ⚡ 평가 급변 감지
           </span>
         )}
 
@@ -347,6 +356,33 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
   const [editingRow, setEditingRow] = useState<TimelineRow | null>(null);
   const { toast, show, clear }    = useToast();
 
+  // sentiment_shift rows (별도 분리)
+  const shiftRows = useMemo(
+    () => timelineRows.filter(r => r.event_type === "sentiment_shift"),
+    [timelineRows],
+  );
+
+  // 각 shift의 YYYY-MM → ShiftRow[] 맵
+  const shiftsByYm = useMemo(() => {
+    const map: Record<string, TimelineRow[]> = {};
+    for (const r of shiftRows) {
+      const ym = r.date?.slice(0, 7) ?? "";
+      if (!ym) continue;
+      map[ym] = map[ym] ?? [];
+      map[ym].push(r);
+    }
+    return map;
+  }, [shiftRows]);
+
+  // shift에 연결된 공식 이벤트 조회 (linked_event_ids 기준)
+  const eventById = useMemo(() => {
+    const map: Record<string, TimelineRow> = {};
+    for (const r of timelineRows) {
+      if (r.event_id) map[r.event_id] = r;
+    }
+    return map;
+  }, [timelineRows]);
+
   // monthly_summary rows (all scope)
   const summaryByYm = useMemo(() => {
     const map: Record<string, TimelineRow> = {};
@@ -359,12 +395,12 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
     return map;
   }, [timelineRows]);
 
-  // 개별 이벤트 rows (all scope, monthly_summary 제외)
+  // 개별 이벤트 rows (all scope, monthly_summary / sentiment_shift 제외)
   const eventsByYm = useMemo(() => {
     const map: Record<string, TimelineRow[]> = {};
     for (const r of timelineRows) {
       if (r.language_scope !== "all") continue;
-      if (r.event_type === "monthly_summary") continue;
+      if (r.event_type === "monthly_summary" || r.event_type === "sentiment_shift") continue;
       const ym = r.date?.slice(0, 7) ?? "";
       if (!ym) continue;
       map[ym] = map[ym] ?? [];
@@ -408,17 +444,31 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
       </div>
 
       <div className="space-y-2">
-        {allYms.map((ym) => (
-          <MonthCard
-            key={ym}
-            summaryRow={summaryByYm[ym] ?? null}
-            eventRows={eventsByYm[ym] ?? []}
-            sortAsc={sortAsc}
-            appid={appid}
-            onEdit={setEditingRow}
-            releaseYm={releaseYm}
-          />
-        ))}
+        {allYms.map((ym) => {
+          const shiftsForYm = shiftsByYm[ym] ?? [];
+          return (
+            <div key={ym} className="space-y-2">
+              <MonthCard
+                summaryRow={summaryByYm[ym] ?? null}
+                eventRows={eventsByYm[ym] ?? []}
+                sortAsc={sortAsc}
+                appid={appid}
+                onEdit={setEditingRow}
+                releaseYm={releaseYm}
+                hasShift={shiftsForYm.length > 0}
+              />
+              {shiftsForYm.map((shift) => {
+                const ids: string[] = (() => {
+                  try { return JSON.parse(shift.linked_event_ids || "[]"); } catch { return []; }
+                })();
+                const linkedEvents = ids.map(id => eventById[id]).filter(Boolean) as TimelineRow[];
+                return (
+                  <ShiftCard key={shift.event_id} shift={shift} linkedEvents={linkedEvents} />
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
       {editingRow && (

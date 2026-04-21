@@ -41,7 +41,17 @@ TIMELINE_HEADERS = [
     "is_sale_period", "sale_text", "is_free_weekend",
     "title_kr",   # AI 생성 한국어 제목 (신규 — 기존 시트는 자동 마이그레이션)
     "content",    # 이벤트 본문 텍스트 (HTML 제거 후, AI 요약 입력용)
+    # sentiment_shift 전용 필드 (기존 이벤트에서는 빈값)
+    "date_end",              # 급변 구간 종료일 (YYYY-MM-DD)
+    "sentiment_before",      # 기준선 긍정율 (급변 전 30일 평균)
+    "sentiment_delta",       # 변화폭 (부호 포함, 예: -31.2)
+    "direction",             # "decline" | "recovery"
+    "confidence",            # "high" | "medium" | "low"
+    "linked_event_ids",      # 근방 공식 이벤트 ID 목록 (JSON 배열)
+    "is_official_confirmed", # 스팀 공식 긍정율도 변화했는지 여부
 ]
+
+RATE_HISTORY_HEADERS = ["date", "positive_rate", "total_reviews"]
 
 
 def _get_client() -> gspread.Client:
@@ -391,3 +401,41 @@ def bulk_append_ccu(ss: gspread.Spreadsheet, rows: list[list]):
     """rows: [[timestamp, ccu_value, is_sale, is_free_weekend, is_archived_gap], ...]"""
     ws = get_or_create_ccu_tab(ss)
     ws.append_rows(rows)
+
+
+# ──────────────────────────────────────────────
+# rate_history 탭 (스팀 공식 긍정율 일별 이력)
+# ──────────────────────────────────────────────
+
+def get_or_create_rate_history_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet:
+    try:
+        return ss.worksheet("rate_history")
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet(title="rate_history", rows=500, cols=len(RATE_HISTORY_HEADERS))
+        ws.append_row(RATE_HISTORY_HEADERS)
+        return ws
+
+
+@_retry_on_quota
+def append_rate_history(ss: gspread.Spreadsheet, date: str, positive_rate: float) -> None:
+    """rate_history 탭에 당일 긍정율 기록. 당일 중복 시 덮어씀."""
+    ws = get_or_create_rate_history_tab(ss)
+    try:
+        dates = ws.col_values(1)[1:]  # 헤더 제외
+        if date in dates:
+            row_idx = dates.index(date) + 2  # 1-based + 헤더행
+            ws.update_cell(row_idx, 2, positive_rate)
+            return
+    except Exception:
+        pass
+    ws.append_row([date, positive_rate])
+
+
+@_retry_on_quota
+def get_rate_history(ss: gspread.Spreadsheet) -> list[dict]:
+    """rate_history 탭 전체 반환 (없으면 빈 리스트)."""
+    try:
+        ws = ss.worksheet("rate_history")
+        return ws.get_all_records()
+    except gspread.WorksheetNotFound:
+        return []

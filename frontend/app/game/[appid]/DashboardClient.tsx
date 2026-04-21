@@ -89,6 +89,7 @@ export default function DashboardClient({
                 timelineRows={timelineRows}
                 topLanguages={topLanguages}
                 sentimentTrendComment={game.sentiment_trend_comment}
+                shiftRows={timelineRows.filter(r => r.event_type === "sentiment_shift")}
               />
             )}
             {activeTab === "language" && (

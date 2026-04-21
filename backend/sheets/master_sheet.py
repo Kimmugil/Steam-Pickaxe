@@ -90,6 +90,8 @@ GAMES_HEADERS = [
     "sort_order",
     # Steam 스토어 전체 누적 긍정률 (%) — appreviews API 기준
     "steam_positive_rate",
+    # 평가 급변 감지 마지막 실행일 (YYYY-MM-DD)
+    "last_shift_detection_date",
     # ── 제거된 컬럼 (하위호환 기록용, 실제로 사용하지 않음) ──
     # owners_estimate, avg_playtime, median_playtime, active_players_2weeks
     #   → SteamSpy 필드였으나 SteamSpy 수집 중단으로 미사용

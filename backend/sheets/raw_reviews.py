@@ -250,6 +250,22 @@ def get_language_counts(ss: gspread.Spreadsheet) -> dict:
     return counts
 
 
+def get_all_reviews(ss: gspread.Spreadsheet) -> list[dict]:
+    """
+    모든 연도 탭(reviews_YYYY)의 리뷰를 합쳐 반환합니다.
+    감지 알고리즘 전용 — timestamp_created, voted_up, votes_up 필드를 주로 사용.
+    """
+    results = []
+    for ws in ss.worksheets():
+        if not ws.title.startswith("reviews_"):
+            continue
+        try:
+            results.extend(ws.get_all_records())
+        except Exception:
+            continue
+    return results
+
+
 def get_reviews_in_range(
     ss: gspread.Spreadsheet,
     start_ts: int,
