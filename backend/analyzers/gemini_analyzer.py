@@ -322,6 +322,50 @@ def _format_reviews(reviews: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def translate_reviews(reviews: list[dict]) -> list[dict]:
+    """
+    non-Korean 리뷰의 text_kr을 Gemini로 일괄 번역합니다.
+    한 번의 API 호출로 최대 3건을 처리합니다.
+
+    입력/출력 형식: [{"text", "text_kr", "voted_up", "language"}, ...]
+    한국어(koreana)는 그대로 유지, 나머지 언어만 번역.
+    """
+    to_translate = [
+        (i, r) for i, r in enumerate(reviews)
+        if r.get("language") != "koreana" and not r.get("text_kr", "").strip()
+    ]
+    if not to_translate:
+        return reviews
+
+    items_text = "\n".join(
+        f'{idx}. [{r["language"]}] {r["text"][:300]}'
+        for idx, (_, r) in enumerate(to_translate)
+    )
+
+    prompt = f"""아래 Steam 게임 리뷰들을 한국어로 번역하세요.
+번호 순서대로 번역문만 출력하세요. JSON 배열로 반환: ["번역1", "번역2", ...]
+
+리뷰:
+{items_text}"""
+
+    model = _make_text_model()
+    try:
+        resp = model.generate_content(prompt)
+        raw = resp.text.strip()
+        # JSON 배열 추출
+        if "[" in raw:
+            raw = raw[raw.index("["):raw.rindex("]") + 1]
+        translations: list[str] = json.loads(raw)
+        result = list(reviews)
+        for order, (orig_idx, _) in enumerate(to_translate):
+            if order < len(translations):
+                result[orig_idx] = dict(result[orig_idx], text_kr=translations[order].strip())
+        return result
+    except Exception as e:
+        print(f"[gemini] translate_reviews 오류: {e}")
+        return reviews  # 번역 실패 시 원문 유지
+
+
 def _empty_analysis() -> dict:
     return {
         "sentiment_rate": 0,

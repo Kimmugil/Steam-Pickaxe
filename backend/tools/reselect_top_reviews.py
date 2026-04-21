@@ -5,10 +5,11 @@
 - AI 분석이 완료된 월간 버킷 (language_scope="all", sentiment_rate 숫자값)
 - 각 게임의 RAW 리뷰 시트에서 해당 월 리뷰를 직접 읽어 재선별
 
-[선별 기준 (AI 호출 없이 코드로 처리)]
+[선별 기준]
 - votes_up 기준 정렬
 - 긍정 최대 2건 + 부정 최대 1건, 전체 최대 3건
-- 한국어 원문이면 text_kr = text, 그 외 언어는 text_kr = "" (프론트엔드가 원문 표시)
+- 한국어 원문: text_kr = text
+- 외국어: Gemini로 한국어 번역 (버킷당 1회 소량 호출)
 
 [유지되는 기존 값]
 - sentiment_rate, top_keywords, ai_reaction_summary, ai_patch_summary
@@ -33,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from sheets.master_sheet import get_spreadsheet, get_all_games
 from sheets.game_sheet import get_or_create_timeline_tab, build_scope_row_map
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range
+from analyzers.gemini_analyzer import translate_reviews
 import gspread
 
 
@@ -161,6 +163,10 @@ def process_game(game: dict, dry_run: bool) -> int:
             continue
 
         new_top = _select_top_reviews(month_reviews)
+        # 외국어 리뷰 한국어 번역 (버킷당 Gemini 1회, 최대 3건)
+        if not dry_run:
+            new_top = translate_reviews(new_top)
+            time.sleep(1)
         new_top_json = json.dumps(new_top, ensure_ascii=False)
 
         old_top_json = str(row.get("top_reviews", "[]"))
