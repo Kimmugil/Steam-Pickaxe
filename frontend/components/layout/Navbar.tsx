@@ -16,6 +16,9 @@ export default function Navbar() {
           </span>
         </Link>
         <div className="flex items-center gap-6">
+          <span className="text-xs text-text-muted italic hidden md:block">
+            {t("HOME_SUBTITLE")}
+          </span>
           <Link
             href="/guide"
             className={`text-sm transition-colors ${

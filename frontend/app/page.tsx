@@ -38,8 +38,7 @@ export default async function HomePage() {
     <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-12">
       {/* ── 히어로 타이틀 ────────────────────────────────────────── */}
       <section className="text-center">
-        <h1 className="text-3xl font-bold text-text-primary mb-2">{t("HOME_TITLE")}</h1>
-        <p className="text-text-secondary text-base">{t("HOME_SUBTITLE")}</p>
+        <p className="text-2xl font-semibold text-text-primary">{t("HOME_SUBTITLE")}</p>
       </section>
 
       {/* ── 분석 완료된 게임 ──────────────────────────────────────── */}
