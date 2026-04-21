@@ -141,7 +141,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
 
   return (
     <div>
-      {/* 언어 토글 버튼 — 다중 선택 가능 */}
+      {/* 언어 토글 버튼 + 마커 범례 */}
       <div className="flex gap-1 flex-wrap mb-4 items-center">
         <span className="text-xs text-text-muted mr-1">언어 선택:</span>
         {langOptions.map((lang) => {
@@ -162,6 +162,17 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
             </button>
           );
         })}
+
+        {/* 급변 마커 범례 — shift 데이터가 있을 때만 표시 */}
+        {shiftMonths.size > 0 && (
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-text-muted shrink-0">
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <circle cx="8" cy="8" r="6" fill="none" stroke="#f5c842" strokeWidth="2" opacity="0.8" />
+              <circle cx="8" cy="8" r="3" fill="#4f87ff" />
+            </svg>
+            평가 급변 감지 월
+          </span>
+        )}
       </div>
 
       <ResponsiveContainer width="100%" height={320}>
