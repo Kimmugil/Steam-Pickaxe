@@ -117,9 +117,9 @@ function EventItem({
   const typeColor = TYPE_COLORS[row.event_type] ?? "text-text-muted border-border-default bg-bg-secondary";
 
   const TYPE_LABELS: Record<string, string> = {
-    official:     "공식 이벤트",
+    official:     t("TIMELINE_TYPE_OFFICIAL"),
     manual:       t("TIMELINE_TYPE_MANUAL"),
-    news:         "외부 이벤트",
+    news:         t("TIMELINE_TYPE_NEWS"),
     free_weekend: t("TIMELINE_TYPE_FREE_WEEKEND"),
   };
 
@@ -243,22 +243,22 @@ function MonthCard({
         {/* 이벤트 수 뱃지 */}
         <span className="text-xs text-text-muted">
           {[
-            officialCount > 0 && `공식 이벤트 ${officialCount}건`,
-            externalCount > 0 && `외부 이벤트 ${externalCount}건`,
-          ].filter(Boolean).join(" · ") || "이벤트 없음"}
+            officialCount > 0 && t("TIMELINE_OFFICIAL_EVENTS", { count: officialCount }),
+            externalCount > 0 && t("TIMELINE_EXTERNAL_EVENTS", { count: externalCount }),
+          ].filter(Boolean).join(" · ") || t("TIMELINE_NO_EVENTS_LABEL")}
         </span>
 
         {/* 출시 마커 */}
         {releaseYm && ym === releaseYm && (
           <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-green border-accent-green/40 bg-accent-green/10 shrink-0">
-            🚀 출시
+            {t("TIMELINE_RELEASE_MARKER")}
           </span>
         )}
 
         {/* 급변 감지 배지 */}
         {hasShift && (
           <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-yellow border-accent-yellow/40 bg-accent-yellow/10 shrink-0">
-            ⚡ 평가 급변 감지
+            {t("TIMELINE_SHIFT_DETECTED")}
           </span>
         )}
 
@@ -339,7 +339,7 @@ function MonthCard({
           {/* 평가 급변 감지 섹션 — sparse/pending 월 포함 모든 상태에서 표시 */}
           {shiftRows && shiftRows.length > 0 && (
             <div className="px-4 pt-3 pb-2 border-b border-border-default space-y-2">
-              <p className="text-xs font-medium text-accent-yellow">⚡ 평가 급변 감지</p>
+              <p className="text-xs font-medium text-accent-yellow">{t("TIMELINE_SHIFT_DETECTED")}</p>
               {shiftRows.map((shift) => {
                 const ids: string[] = (() => {
                   try { return JSON.parse(shift.linked_event_ids || "[]"); } catch { return []; }
@@ -445,7 +445,7 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
   if (allYms.length === 0) {
     return (
       <div className="text-center py-10 text-text-muted text-sm">
-        수집된 이벤트가 없습니다.
+        {t("TIMELINE_EMPTY")}
       </div>
     );
   }

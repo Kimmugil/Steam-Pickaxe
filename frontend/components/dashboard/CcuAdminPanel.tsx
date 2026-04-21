@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { Upload, ExternalLink } from "lucide-react";
 import AdminPasswordModal from "@/components/shared/AdminPasswordModal";
 import Toast, { useToast } from "@/components/shared/Toast";
+import { useUiText } from "@/contexts/UiTextContext";
 
 interface CcuAdminPanelProps {
   currentAppId: string;
@@ -14,6 +15,7 @@ export default function CcuAdminPanel({
   currentAppId, gameName, onCsvUploaded,
 }: CcuAdminPanelProps) {
   const { toast, show, clear } = useToast();
+  const { t } = useUiText();
 
   // CSV 업로드
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -49,10 +51,10 @@ export default function CcuAdminPanel({
     setShowFileModal(false);
     if (csvRef.current) csvRef.current.value = "";
     if (data.ok) {
-      show(`${data.added}건 병합 완료`, "success");
+      show(t("CSV_SUCCESS", { count: data.added }), "success");
       onCsvUploaded();
     } else {
-      show(data.error ?? "오류가 발생했습니다.", "error");
+      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
     }
   }
 
@@ -76,7 +78,7 @@ export default function CcuAdminPanel({
         className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border border-border-default text-text-muted rounded-lg text-xs hover:bg-bg-hover hover:text-text-secondary transition-colors disabled:opacity-40"
       >
         <Upload className="w-3 h-3" />
-        {uploadingCsv ? "업로드 중..." : "SteamDB CSV 업로드"}
+        {uploadingCsv ? t("CSV_UPLOADING") : t("CSV_UPLOAD_BTN")}
       </button>
 
       {/* 숨겨진 파일 입력 */}
@@ -92,25 +94,25 @@ export default function CcuAdminPanel({
       {showFileModal && csvFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl">
-            <h3 className="text-sm font-semibold text-text-primary mb-2">SteamDB CCU CSV 업로드</h3>
-            <p className="text-xs text-text-muted mb-1">선택된 파일:</p>
+            <h3 className="text-sm font-semibold text-text-primary mb-2">{t("CSV_MODAL_TITLE")}</h3>
+            <p className="text-xs text-text-muted mb-1">{t("CSV_SELECTED_FILE")}</p>
             <p className="text-xs text-text-secondary bg-bg-secondary rounded px-3 py-2 mb-4 truncate">
               {csvFile.name}
             </p>
-            <p className="text-xs text-text-muted mb-4">현재 게임({gameName})에만 적용됩니다.</p>
+            <p className="text-xs text-text-muted mb-4">{t("CSV_GAME_ONLY", { name: gameName })}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowCsvModal(true)}
                 className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm hover:bg-accent-blue/30 transition-colors flex items-center justify-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
-                업로드
+                {t("CSV_UPLOAD_CONFIRM")}
               </button>
               <button
                 onClick={() => { setShowFileModal(false); setCsvFile(null); if (csvRef.current) csvRef.current.value = ""; }}
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover transition-colors"
               >
-                취소
+                {t("CSV_CANCEL")}
               </button>
             </div>
           </div>
@@ -120,8 +122,8 @@ export default function CcuAdminPanel({
       {/* 비밀번호 모달 */}
       <AdminPasswordModal
         isOpen={showCsvModal}
-        title="CSV 업로드 인증"
-        description="SteamDB CCU CSV 업로드는 관리자만 가능합니다."
+        title={t("CSV_AUTH_TITLE")}
+        description={t("CSV_AUTH_DESC")}
         loading={uploadingCsv}
         onConfirm={handleUploadCsv}
         onClose={() => setShowCsvModal(false)}

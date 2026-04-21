@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { TimelineRow, TopReview } from "@/types";
+import { useUiText } from "@/contexts/UiTextContext";
 
 interface ShiftCardProps {
   shift: TimelineRow;
@@ -8,6 +9,7 @@ interface ShiftCardProps {
 }
 
 export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
+  const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
 
   const isDecline   = shift.direction === "decline";
@@ -28,9 +30,9 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
   })();
 
   const CONFIDENCE_LABEL: Record<string, string> = {
-    high:   "신뢰도 높음",
-    medium: "신뢰도 보통",
-    low:    "데이터 부족",
+    high:   t("SHIFT_CONFIDENCE_HIGH"),
+    medium: t("SHIFT_CONFIDENCE_MEDIUM"),
+    low:    t("SHIFT_CONFIDENCE_LOW"),
   };
   const CONFIDENCE_COLOR: Record<string, string> = {
     high:   "text-accent-green border-accent-green/30 bg-accent-green/10",
@@ -58,7 +60,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
             ? "text-accent-red border-accent-red/40 bg-accent-red/10"
             : "text-accent-green border-accent-green/40 bg-accent-green/10"
         }`}>
-          {isDecline ? "평가 급락 감지" : "평가 회복 감지"}
+          {isDecline ? t("SHIFT_TYPE_DECLINE") : t("SHIFT_TYPE_RISE")}
         </span>
 
         {/* 날짜 범위 */}
@@ -77,12 +79,12 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
           </span>
           {isConfirmed && (
             <span className="text-[10px] px-1.5 py-0.5 rounded border text-accent-blue border-accent-blue/30 bg-accent-blue/10">
-              공식확인
+              {t("SHIFT_CONFIRMED")}
             </span>
           )}
           {isRefuted && (
             <span className="text-[10px] px-1.5 py-0.5 rounded border text-text-muted border-border-default bg-bg-secondary">
-              게임외이슈 가능성
+              {t("SHIFT_REFUTED")}
             </span>
           )}
           <span className="text-text-muted text-xs">{expanded ? "▲" : "▼"}</span>
@@ -94,13 +96,13 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
         <div className="border-t border-border-default/30 px-4 py-4 space-y-4 bg-bg-primary/60">
           {/* 리뷰 수 */}
           <p className="text-xs text-text-muted">
-            해당 구간 리뷰 {reviewCount.toLocaleString()}건 분석
+            {t("SHIFT_REVIEW_COUNT", { count: reviewCount.toLocaleString() })}
           </p>
 
           {/* AI 원인 추정 */}
           {shift.ai_reaction_summary && (
             <div>
-              <p className="text-xs font-medium mb-1 text-text-muted">AI 추정 원인</p>
+              <p className="text-xs font-medium mb-1 text-text-muted">{t("SHIFT_AI_CAUSE_LABEL")}</p>
               <p className="text-sm text-text-secondary leading-relaxed">
                 {shift.ai_reaction_summary}
               </p>
@@ -110,7 +112,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
           {/* 연결된 공식 이벤트 */}
           {linkedEvents.length > 0 && (
             <div>
-              <p className="text-xs font-medium mb-1.5 text-text-muted">근방 공식 이벤트</p>
+              <p className="text-xs font-medium mb-1.5 text-text-muted">{t("SHIFT_LINKED_EVENTS_LABEL")}</p>
               <div className="space-y-1">
                 {linkedEvents.map((ev) => (
                   <div key={ev.event_id} className="flex items-center gap-2">
@@ -138,7 +140,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
           {/* 대표 리뷰 */}
           {reviews.length > 0 && (
             <div>
-              <p className="text-xs font-medium mb-2 text-text-muted">이슈 관련 주요 리뷰</p>
+              <p className="text-xs font-medium mb-2 text-text-muted">{t("SHIFT_TOP_REVIEWS_LABEL")}</p>
               <div className="space-y-2">
                 {reviews.slice(0, 3).map((rv, ri) => (
                   <div
@@ -149,7 +151,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
-                        {rv.voted_up ? "👍 긍정" : "👎 부정"}
+                        {rv.voted_up ? t("SHIFT_REVIEW_POSITIVE") : t("SHIFT_REVIEW_NEGATIVE")}
                       </span>
                       <span className="text-xs text-text-muted">[{rv.language}]</span>
                     </div>

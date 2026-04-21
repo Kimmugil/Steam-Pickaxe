@@ -126,7 +126,7 @@ export default function DashboardClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-[520px] max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-text-primary text-sm">수동 이슈/이벤트 등록</h3>
+              <h3 className="font-semibold text-text-primary text-sm">{t("EVENT_FORM_TOGGLE")}</h3>
               <button
                 onClick={() => setShowEventModal(false)}
                 className="text-text-muted hover:text-text-primary text-lg leading-none"

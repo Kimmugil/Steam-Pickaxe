@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { CcuRow } from "@/types";
+import { useUiText } from "@/contexts/UiTextContext";
 
 interface CcuChartProps {
   data: CcuRow[];
@@ -19,12 +20,6 @@ interface SampledPoint {
 
 type ViewRange = "all" | "90d" | "30d";
 
-const VIEW_LABELS: Record<ViewRange, string> = {
-  all: "전체",
-  "90d": "최근 90일",
-  "30d": "최근 30일",
-};
-
 function bucketKey(date: Date, isRecent: boolean): string {
   const d = new Date(date);
   if (isRecent) {
@@ -35,20 +30,20 @@ function bucketKey(date: Date, isRecent: boolean): string {
   return d.toISOString();
 }
 
-function formatLabel(iso: string, isRecent: boolean): string {
+function formatLabel(iso: string, isRecent: boolean, hourSuffix = "시"): string {
   try {
     const d = new Date(iso);
     const m = d.getMonth() + 1;
     const day = d.getDate();
     if (!isRecent) return `${m}/${day}`;
     const h = d.getHours();
-    return h === 0 ? `${m}/${day}` : `${h}시`;
+    return h === 0 ? `${m}/${day}` : `${h}${hourSuffix}`;
   } catch {
     return iso;
   }
 }
 
-function resampleData(rows: CcuRow[], cutoffMs?: number): SampledPoint[] {
+function resampleData(rows: CcuRow[], cutoffMs?: number, hourSuffix = "시"): SampledPoint[] {
   if (!rows.length) return [];
   const now = Date.now();
   const cutoff30d = now - 30 * 24 * 3600 * 1000;
@@ -71,7 +66,7 @@ function resampleData(rows: CcuRow[], cutoffMs?: number): SampledPoint[] {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([ts, b]) => ({
       ts,
-      label: formatLabel(ts, b.isRecent),
+      label: formatLabel(ts, b.isRecent, hourSuffix),
       value: b.values.length ? Math.round(b.values.reduce((s, v) => s + v, 0) / b.values.length) : 0,
     }));
 }
@@ -80,6 +75,13 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [containerW, setContainerW] = useState(800);
   const [viewRange, setViewRange] = useState<ViewRange>("30d");
+  const { t } = useUiText();
+  const VIEW_LABELS: Record<ViewRange, string> = {
+    all: t("CCU_VIEW_ALL"),
+    "90d": t("CCU_VIEW_90D"),
+    "30d": t("CCU_VIEW_30D"),
+  };
+  const hourSuffix = t("CCU_HOUR_SUFFIX");
 
   const cutoffMs = useMemo(() => {
     const now = Date.now();
@@ -88,7 +90,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
     return undefined;
   }, [viewRange]);
 
-  const resampled = useMemo<SampledPoint[]>(() => resampleData(data, cutoffMs), [data, cutoffMs]);
+  const resampled = useMemo<SampledPoint[]>(() => resampleData(data, cutoffMs, hourSuffix), [data, cutoffMs, hourSuffix]);
 
   const yDomain = useMemo(() => {
     if (!resampled.length) return [0, "auto"] as [number, string];
@@ -122,7 +124,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-        CCU 데이터가 없습니다.
+        {t("CCU_NO_DATA")}
       </div>
     );
   }
@@ -147,13 +149,13 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
           ))}
         </div>
         {viewRange === "all" && (
-          <span className="text-xs text-text-muted">← 스크롤로 이전 데이터 확인</span>
+          <span className="text-xs text-text-muted">{t("CCU_SCROLL_HINT")}</span>
         )}
       </div>
 
       {!resampled.length ? (
         <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-          해당 기간 CCU 데이터가 없습니다.
+          {t("CCU_NO_DATA_PERIOD")}
         </div>
       ) : (
         <div
@@ -181,7 +183,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
                 />
                 <Tooltip
                   contentStyle={{ background: "#1e2130", border: "1px solid #2a2f45", borderRadius: 8, color: "#e8eaf0" }}
-                  formatter={(v: number) => [`${v.toLocaleString()}명`, "CCU"]}
+                  formatter={(v: number) => [`${v.toLocaleString()}${t("CCU_TOOLTIP_UNIT")}`, "CCU"]}
                   labelFormatter={(label) => String(label)}
                 />
                 <Line
@@ -201,7 +203,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
 
       {peaktimeComment && (
         <div className="mt-4 bg-bg-card border border-accent-blue/20 rounded-lg px-4 py-3">
-          <p className="text-xs text-accent-blue mb-1">AI 피크타임 분석</p>
+          <p className="text-xs text-accent-blue mb-1">{t("CCU_PEAKTIME_LABEL")}</p>
           <p className="text-sm text-text-secondary leading-relaxed">{peaktimeComment}</p>
         </div>
       )}

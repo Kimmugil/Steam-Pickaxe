@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { useState, useMemo } from "react";
 import type { TimelineRow } from "@/types";
+import { useUiText } from "@/contexts/UiTextContext";
 
 interface SentimentChartProps {
   timelineRows: TimelineRow[];
@@ -45,6 +46,7 @@ const LANG_COLORS: Record<string, string> = {
 };
 
 export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment, shiftRows }: SentimentChartProps) {
+  const { t } = useUiText();
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
 
   // 다중 선택 — 초기값: "all"만 활성화
@@ -134,7 +136,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
   if (chartData.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-        분석 데이터가 없습니다.
+        {t("CHART_NO_DATA")}
       </div>
     );
   }
@@ -143,7 +145,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
     <div>
       {/* 언어 토글 버튼 + 마커 범례 */}
       <div className="flex gap-1 flex-wrap mb-4 items-center">
-        <span className="text-xs text-text-muted mr-1">언어 선택:</span>
+        <span className="text-xs text-text-muted mr-1">{t("CHART_LANG_FILTER")}</span>
         {langOptions.map((lang) => {
           const active = selectedLangs.has(lang);
           const color = LANG_COLORS[lang] ?? "#8b91a8";
@@ -170,7 +172,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
               <circle cx="8" cy="8" r="6" fill="none" stroke="#f5c842" strokeWidth="2" opacity="0.8" />
               <circle cx="8" cy="8" r="3" fill="#4f87ff" />
             </svg>
-            평가 급변 감지 월
+            {t("CHART_SHIFT_LEGEND")}
           </span>
         )}
       </div>
@@ -204,8 +206,8 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
               wrapperStyle={{ fontSize: 11, color: "#8b91a8" }}
             />
           )}
-          <ReferenceLine y={80} stroke="#5db86540" strokeDasharray="4 4" label={{ value: "매우 긍정적", fill: "#5db865", fontSize: 10 }} />
-          <ReferenceLine y={40} stroke="#e05c5c40" strokeDasharray="4 4" label={{ value: "복합적", fill: "#e05c5c", fontSize: 10 }} />
+          <ReferenceLine y={80} stroke="#5db86540" strokeDasharray="4 4" label={{ value: t("CHART_VERY_POSITIVE"), fill: "#5db865", fontSize: 10 }} />
+          <ReferenceLine y={40} stroke="#e05c5c40" strokeDasharray="4 4" label={{ value: t("CHART_MIXED"), fill: "#e05c5c", fontSize: 10 }} />
 
           {langOptions.map((lang) => {
             if (!selectedLangs.has(lang)) return null;

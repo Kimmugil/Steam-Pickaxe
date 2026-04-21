@@ -59,7 +59,7 @@ export default function EventForm({ appid, onEventAdded, prefillPassword, inModa
           className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary border border-dashed border-border-default hover:border-border-hover rounded-lg px-3 py-2 transition-colors"
         >
           {!prefillPassword && <Lock className="w-3 h-3" />}
-          수동 이슈/이벤트 등록
+          {t("EVENT_FORM_TOGGLE")}
           <span className="ml-auto">{open ? "▲" : "▼"}</span>
         </button>
       )}
@@ -111,7 +111,7 @@ export default function EventForm({ appid, onEventAdded, prefillPassword, inModa
       <AdminPasswordModal
         isOpen={showModal}
         title={t("EVENT_AUTH_TITLE")}
-        description={`"${eventTitle}" 이벤트를 등록하고 재분석을 시작합니다.`}
+        description={t("EVENT_AUTH_DESC", { title: eventTitle })}
         loading={adding}
         onConfirm={handleAdd}
         onClose={() => setShowModal(false)}

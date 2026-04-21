@@ -118,7 +118,7 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                     ? Number(game.steam_positive_rate)
                     : undefined;
                 const displayRate = steamRate ?? topSentimentRate;
-                const rateLabel   = steamRate !== undefined ? "Steam 전체 누적 평가 기준" : "최근 이벤트 구간 기준";
+                const rateLabel   = steamRate !== undefined ? t("HEADER_RATE_LABEL_STEAM") : t("HEADER_RATE_LABEL_RECENT");
                 return displayRate !== undefined ? (
                   <div className="flex flex-col gap-0.5">
                     <Badge rate={displayRate} reviewCount={Number(game.totalReviews || 0)} size="lg" labelOnly />

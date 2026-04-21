@@ -173,7 +173,7 @@ const FALLBACK: Record<string, string> = {
   REVIEW_NEGATIVE: "부정",
 
   // ── 이벤트 등록 폼 ──────────────────────────────────────────────────
-  EVENT_FORM_TOGGLE: "수동 이슈/이벤트 등록 (관리자)",
+  EVENT_FORM_TOGGLE: "수동 이슈/이벤트 등록",
   EVENT_TITLE_PLACEHOLDER: "이벤트 제목 (예: 서버 장애, 대규모 업데이트)",
   EVENT_URL_PLACEHOLDER: "이벤트 URL (선택, 패치노트/공지 링크)",
   EVENT_CONTENT_PLACEHOLDER: "패치노트 전문, 공지사항, 커뮤니티 포스트 내용을 직접 붙여넣으세요.\nAI가 이 텍스트를 바탕으로 타임라인 카드를 생성합니다.\n(URL만으로 크롤링이 어려울 때 활용)",
@@ -597,6 +597,111 @@ const FALLBACK: Record<string, string> = {
   ADMIN_TOAST_SYNC: "동기화 완료 — 추가 {added}건 / 기존 유지 {skipped}건",
   ADMIN_TOAST_RESET: "재설정 완료 — 유지 {kept}건 / 추가 {added}건 / 제거 {removed}건",
   ADMIN_TOAST_FORCE: "강제 초기화 완료 — 코드 기본값으로 전체 덮어쓰기 ({added}건)",
+
+  // ── 게임 헤더 추가 ───────────────────────────────────────────────────────
+  HEADER_RATE_LABEL_STEAM: "Steam 전체 누적 평가 기준",
+  HEADER_RATE_LABEL_RECENT: "최근 이벤트 구간 기준",
+
+  // ── CCU 차트 ─────────────────────────────────────────────────────────────
+  CCU_VIEW_ALL: "전체",
+  CCU_VIEW_90D: "최근 90일",
+  CCU_VIEW_30D: "최근 30일",
+  CCU_NO_DATA: "CCU 데이터가 없습니다.",
+  CCU_NO_DATA_PERIOD: "해당 기간 CCU 데이터가 없습니다.",
+  CCU_SCROLL_HINT: "← 스크롤로 이전 데이터 확인",
+  CCU_TOOLTIP_UNIT: "명",
+  CCU_PEAKTIME_LABEL: "AI 피크타임 분석",
+  CCU_HOUR_SUFFIX: "시",
+
+  // ── CCU 관리자 패널 ──────────────────────────────────────────────────────
+  CSV_UPLOAD_BTN: "SteamDB CSV 업로드",
+  CSV_UPLOADING: "업로드 중...",
+  CSV_MODAL_TITLE: "SteamDB CCU CSV 업로드",
+  CSV_SELECTED_FILE: "선택된 파일:",
+  CSV_GAME_ONLY: "현재 게임({name})에만 적용됩니다.",
+  CSV_UPLOAD_CONFIRM: "업로드",
+  CSV_CANCEL: "취소",
+  CSV_AUTH_TITLE: "CSV 업로드 인증",
+  CSV_AUTH_DESC: "SteamDB CCU CSV 업로드는 관리자만 가능합니다.",
+  CSV_SUCCESS: "{count}건 병합 완료",
+
+  // ── 감성 차트 ────────────────────────────────────────────────────────────
+  CHART_LANG_FILTER: "언어 선택:",
+  CHART_SHIFT_LEGEND: "급변 마커",
+  CHART_VERY_POSITIVE: "매우 긍정적",
+  CHART_MIXED: "복합적",
+  CHART_NO_DATA: "차트 데이터가 없습니다.",
+
+  // ── 타임라인 추가 ─────────────────────────────────────────────────────────
+  TIMELINE_OFFICIAL_EVENTS: "공식 이벤트 {count}건",
+  TIMELINE_EXTERNAL_EVENTS: "외부 이벤트 {count}건",
+  TIMELINE_NO_EVENTS_LABEL: "이벤트 없음",
+  TIMELINE_RELEASE_MARKER: "🚀 출시",
+  TIMELINE_SHIFT_DETECTED: "⚡ 평가 급변 감지",
+  TIMELINE_EMPTY: "수집된 이벤트가 없습니다.",
+
+  // ── 평가 급변 카드 ────────────────────────────────────────────────────────
+  SHIFT_CONFIDENCE_HIGH: "신뢰도 높음",
+  SHIFT_CONFIDENCE_MEDIUM: "신뢰도 보통",
+  SHIFT_CONFIDENCE_LOW: "데이터 부족",
+  SHIFT_TYPE_DECLINE: "평가 급락 감지",
+  SHIFT_TYPE_RISE: "평가 회복 감지",
+  SHIFT_CONFIRMED: "공식확인",
+  SHIFT_REFUTED: "게임외이슈 가능성",
+  SHIFT_REVIEW_COUNT: "해당 구간 리뷰 {count}건 분석",
+  SHIFT_AI_CAUSE_LABEL: "AI 추정 원인",
+  SHIFT_LINKED_EVENTS_LABEL: "근방 공식 이벤트",
+  SHIFT_TOP_REVIEWS_LABEL: "이슈 관련 주요 리뷰",
+  SHIFT_REVIEW_POSITIVE: "👍 긍정",
+  SHIFT_REVIEW_NEGATIVE: "👎 부정",
+
+  // ── 이벤트 등록 폼 추가 ──────────────────────────────────────────────────
+  EVENT_AUTH_DESC: '"{title}" 이벤트를 등록하고 재분석을 시작합니다.',
+
+  // ── 관리자 패널 추가 ──────────────────────────────────────────────────────
+  ADMIN_GAMES_EMPTY: "등록된 게임이 없습니다.",
+  ADMIN_COL_EVENTS: "수집 이벤트",
+  ADMIN_REVIEWS_UNIT: " 리뷰",
+  ADMIN_EVENTS_UNIT: " 건",
+  ADMIN_COL_COLLECT_DATE: "수집 ",
+  ADMIN_COL_ANALYZE_DATE: "분석 ",
+  ADMIN_STEAM_REVIEWS: "Steam: {count}건",
+  ADMIN_PROCESSING_BTN: "요청 중...",
+  ADMIN_BTN_CORE_ANALYZE: "🔬 종합 분석",
+  ADMIN_BTN_PW_PLACEHOLDER: "비밀번호",
+  ADMIN_DRAG_HINT: "드래그해서 순서 변경",
+  ADMIN_TOGGLE_ON_TITLE: "ON — 클릭하면 수집 중단(숨김)",
+  ADMIN_TOGGLE_OFF_TITLE: "OFF — 클릭하면 수집 재개(활성)",
+  ADMIN_APPROVE_CANCEL_TITLE: "클릭하면 AI 분석 승인이 취소됩니다.",
+  ADMIN_APPROVE_TITLE: "클릭하면 AI 분석을 승인하고 즉시 분석 워크플로우가 트리거됩니다.",
+  ADMIN_THIS_MONTH_TITLE: "이번 달 뉴스·이벤트를 재수집하고 AI 분석을 즉시 실행합니다.",
+  ADMIN_CORE_ANALYZE_TITLE: "이벤트 수집 없이 AI 브리핑·CCU 피크타임·평가 추이·언어권 교차 분석만 즉시 갱신합니다.",
+  ADMIN_REANALYZE_TITLE: "최신 뉴스·패치를 재수집하고 전체 기간 AI 분석을 다시 실행합니다.",
+  ADMIN_TOAST_CORE_ANALYZE: "종합 분석을 요청했습니다. 수분 내 반영됩니다. (이벤트 수집 없이 브리핑·CCU·언어·추이만 갱신)",
+  AUTH_WRONG_PASSWORD: "비밀번호가 올바르지 않습니다.",
+  SERVER_CONNECT_ERROR: "서버 연결 오류",
+
+  // ── COLUMN_HELP 텍스트 ────────────────────────────────────────────────────
+  HELP_STATUS_TITLE: "수집 활성 ON / OFF",
+  HELP_STATUS_L1: "ON (활성): 봇이 이 게임의 리뷰와 이벤트를 주기적으로 수집하며, 홈 화면에 노출됩니다.",
+  HELP_STATUS_L2: "OFF (숨김): 수집이 중단되고 홈 화면에서 숨겨집니다. 기존 수집 데이터는 모두 보존되며, 언제든 다시 ON으로 복원할 수 있습니다.",
+  HELP_STATUS_L3: "수집 중(파란색) 또는 수집 오류(빨간색) 상태에서는 ON/OFF 전환이 비활성화됩니다.",
+  HELP_AI_TITLE: "AI 승인",
+  HELP_AI_L1: "✅ 승인됨: 매월 1일 자동 AI 분석 대상에 포함됩니다. 관리자 패널의 '이번 달' 버튼 또는 '재분석' 버튼으로 온디맨드 실행도 가능합니다.",
+  HELP_AI_L2: "⏳ 미승인: AI 분석이 실행되지 않습니다. 게임을 처음 등록하면 자동으로 미승인 상태가 됩니다.",
+  HELP_AI_L3: "AI 분석 범위: 게임 브리핑, 이벤트별 패치 요약 및 플레이어 반응 분석, 언어권 교차 분석, CCU 피크타임 분석, 감성 추이 진단.",
+  HELP_REVIEWS_TITLE: "수집 리뷰 / Steam 총 리뷰",
+  HELP_REVIEWS_L1: "좌측 (수집): Google Sheets RAW 시트에 실제 저장된 리뷰 수입니다. collect.yml 워크플로우가 매일 누적합니다.",
+  HELP_REVIEWS_L2: "우측 (Steam): Steam 스토어 기준 총 리뷰 수입니다. 수집 목표치로, 두 값이 같으면 모든 리뷰 수집이 완료된 상태입니다.",
+  HELP_REVIEWS_L3: "수집 도중 커서가 리셋되면 좌측 값이 일시적으로 낮게 표시될 수 있습니다.",
+  HELP_EVENTS_TITLE: "수집 이벤트",
+  HELP_EVENTS_L1: "Google Sheets 타임라인 시트에 수집된 이벤트(공식 패치노트 + 외부 뉴스·미디어) 총 수입니다.",
+  HELP_EVENTS_L2: "공식 이벤트: Steam 공식 발표 및 패치노트. 외부 이벤트: 관련 뉴스·미디어 기사.",
+  HELP_EVENTS_L3: "현재 Steam 전체 공개 이벤트 수는 별도로 추적하지 않습니다.",
+  HELP_DATES_TITLE: "마지막 수집 / AI 분석",
+  HELP_DATES_L1: "마지막 수집: 이벤트가 마지막으로 수집·업데이트된 날짜입니다 (last_event_date 기준).",
+  HELP_DATES_L2: "AI 분석: 게임 브리핑과 이벤트 AI 분석이 마지막으로 실행된 날짜입니다 (ai_briefing_date 기준).",
+  HELP_DATES_L3: "두 날짜 차이가 클수록 수집 이후 AI 분석이 아직 반영되지 않은 구간이 있을 수 있습니다.",
 };
 
 // ── Context 타입 ──────────────────────────────────────────────────────────────
