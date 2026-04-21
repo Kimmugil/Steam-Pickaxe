@@ -180,7 +180,7 @@ function EventItem({
 
 // ── 월별 카드 ────────────────────────────────────────────────────────────────
 function MonthCard({
-  summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm, hasShift,
+  summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm, hasShift, shiftRows, eventById,
 }: {
   summaryRow: TimelineRow | null;
   eventRows: TimelineRow[];
@@ -189,6 +189,8 @@ function MonthCard({
   onEdit: (r: TimelineRow) => void;
   releaseYm?: string;
   hasShift?: boolean;
+  shiftRows?: TimelineRow[];
+  eventById?: Record<string, TimelineRow>;
 }) {
   const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
@@ -330,6 +332,23 @@ function MonthCard({
                   </div>
                 </div>
               )}
+
+            </div>
+          )}
+
+          {/* 평가 급변 감지 섹션 — sparse/pending 월 포함 모든 상태에서 표시 */}
+          {shiftRows && shiftRows.length > 0 && (
+            <div className="px-4 pt-3 pb-2 border-b border-border-default space-y-2">
+              <p className="text-xs font-medium text-accent-yellow">⚡ 평가 급변 감지</p>
+              {shiftRows.map((shift) => {
+                const ids: string[] = (() => {
+                  try { return JSON.parse(shift.linked_event_ids || "[]"); } catch { return []; }
+                })();
+                const linkedEvents = ids.map(id => eventById?.[id]).filter(Boolean) as TimelineRow[];
+                return (
+                  <ShiftCard key={shift.event_id} shift={shift} linkedEvents={linkedEvents} />
+                );
+              })}
             </div>
           )}
 
@@ -447,26 +466,18 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
         {allYms.map((ym) => {
           const shiftsForYm = shiftsByYm[ym] ?? [];
           return (
-            <div key={ym} className="space-y-2">
-              <MonthCard
-                summaryRow={summaryByYm[ym] ?? null}
-                eventRows={eventsByYm[ym] ?? []}
-                sortAsc={sortAsc}
-                appid={appid}
-                onEdit={setEditingRow}
-                releaseYm={releaseYm}
-                hasShift={shiftsForYm.length > 0}
-              />
-              {shiftsForYm.map((shift) => {
-                const ids: string[] = (() => {
-                  try { return JSON.parse(shift.linked_event_ids || "[]"); } catch { return []; }
-                })();
-                const linkedEvents = ids.map(id => eventById[id]).filter(Boolean) as TimelineRow[];
-                return (
-                  <ShiftCard key={shift.event_id} shift={shift} linkedEvents={linkedEvents} />
-                );
-              })}
-            </div>
+            <MonthCard
+              key={ym}
+              summaryRow={summaryByYm[ym] ?? null}
+              eventRows={eventsByYm[ym] ?? []}
+              sortAsc={sortAsc}
+              appid={appid}
+              onEdit={setEditingRow}
+              releaseYm={releaseYm}
+              hasShift={shiftsForYm.length > 0}
+              shiftRows={shiftsForYm}
+              eventById={eventById}
+            />
           );
         })}
       </div>
