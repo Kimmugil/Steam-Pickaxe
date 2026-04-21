@@ -320,7 +320,7 @@ const FALLBACK: Record<string, string> = {
   // ── AI 분석 상세 ─────────────────────────────────────────────────────
   GUIDE_AI_H_MODEL: "모델 및 공통 원칙",
   GUIDE_AI_MODEL_L1: "모델: Google Gemini 2.5 Flash",
-  GUIDE_AI_MODEL_L2: "Thinking 모드 활성 (thinking_budget=512 토큰): 감성 분석·인과관계 판단 전에 내부 추론 과정을 거쳐 분석 품질을 높입니다.",
+  GUIDE_AI_MODEL_L2: "JSON 구조화 출력(response_mime_type: application/json) 강제 적용으로 파싱 안정성을 보장합니다.",
   GUIDE_AI_MODEL_L3: "원칙: 현상 진단 + 인과관계만 서술. 지시적/주관적 어조 배제. 허구 수치 생성 금지.",
   GUIDE_AI_H1: "① 리뷰 샘플링 (Stratified Sampling)",
   GUIDE_AI_S1_DESC: "구간별 최대 2,000건 상한. 긍정/부정 원래 비율을 보존하는 계층 샘플링을 적용합니다.",
