@@ -190,7 +190,39 @@ def run():
             month_reviews = get_reviews_in_range(raw_ss, bucket["start_ts"], bucket["end_ts"], years)
             print(f"    → 리뷰 {len(month_reviews)}건")
 
-            # ── 월간 패치 요약 (official 이벤트 묶음) ────────────────────
+            # ── Sparse 처리 (AI 호출 전에 먼저 체크) ────────────────────
+            # sparse 월은 UI에서 AI 섹션 자체가 숨겨지므로 patch_summary 생성 불필요
+            if len(month_reviews) <= MONTHLY_SPARSE:
+                print(f"    → sparse (리뷰 {len(month_reviews)}건) — AI 호출 생략")
+                sparse_row = {
+                    "event_id":           bucket["event_id"],
+                    "event_type":         "monthly_summary",
+                    "date":               bucket["date"],
+                    "title":              bucket["title"],
+                    "language_scope":     "all",
+                    "sentiment_rate":     "sparse",
+                    "review_count":       len(month_reviews),
+                    "ai_patch_summary":   "",
+                    "ai_reaction_summary": "",
+                    "top_keywords":       "[]",
+                    "top_reviews":        "[]",
+                    "url":                "",
+                    "is_sale_period":     False,
+                    "sale_text":          "",
+                    "is_free_weekend":    False,
+                    "title_kr":           bucket["title"],
+                }
+                if (bucket["event_id"], "all") in existing_scope_ids:
+                    gs_update_timeline(game_ss, bucket["event_id"], "all", sparse_row,
+                                       row_map=scope_row_map)
+                else:
+                    gs_append_timeline(game_ss, sparse_row)
+                    scope_row_map[(bucket["event_id"], "all")] = max(scope_row_map.values(), default=1) + 1
+                    existing_scope_ids.add((bucket["event_id"], "all"))
+                time.sleep(1)
+                continue
+
+            # ── 월간 패치 요약 (official 이벤트 묶음, 비-sparse 월에만) ─────
             # content가 있는 이벤트가 1건 이상인 경우에만 호출 (없으면 제목만으로 추정 → 저품질)
             monthly_patch_summary = ""
             if bucket["official_events"]:
@@ -213,37 +245,6 @@ def run():
                     time.sleep(1)
                 else:
                     print(f"    [patch_summary] 본문 없음 — 호출 생략")
-
-            # ── Sparse 처리 ──────────────────────────────────────────────
-            if len(month_reviews) <= MONTHLY_SPARSE:
-                print(f"    → sparse (리뷰 {len(month_reviews)}건)")
-                sparse_row = {
-                    "event_id":           bucket["event_id"],
-                    "event_type":         "monthly_summary",
-                    "date":               bucket["date"],
-                    "title":              bucket["title"],
-                    "language_scope":     "all",
-                    "sentiment_rate":     "sparse",
-                    "review_count":       len(month_reviews),
-                    "ai_patch_summary":   monthly_patch_summary,
-                    "ai_reaction_summary": "",
-                    "top_keywords":       "[]",
-                    "top_reviews":        "[]",
-                    "url":                "",
-                    "is_sale_period":     False,
-                    "sale_text":          "",
-                    "is_free_weekend":    False,
-                    "title_kr":           bucket["title"],
-                }
-                if (bucket["event_id"], "all") in existing_scope_ids:
-                    gs_update_timeline(game_ss, bucket["event_id"], "all", sparse_row,
-                                       row_map=scope_row_map)
-                else:
-                    gs_append_timeline(game_ss, sparse_row)
-                    scope_row_map[(bucket["event_id"], "all")] = max(scope_row_map.values(), default=1) + 1
-                    existing_scope_ids.add((bucket["event_id"], "all"))
-                time.sleep(1)
-                continue
 
             # ── 언어별 AI 분석 ───────────────────────────────────────────
             LANG_SCOPE_MIN = 10  # 언어 스코프 최소 리뷰 수 (미달 시 Gemini 호출 생략)
@@ -508,6 +509,8 @@ def _generate_briefing(name: str, timeline_rows: list[dict]) -> str:
         except (ValueError, TypeError):
             pass
 
+    if not summary_parts:
+        return ""
     return generate_ai_briefing(name, "\n".join(summary_parts), trend_direction)
 
 

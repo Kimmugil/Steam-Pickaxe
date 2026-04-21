@@ -182,7 +182,7 @@ def _format_reviews(reviews: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-def _call_gemini(game_name: str, shift: dict, reviews: list[dict]) -> dict:
+def _call_gemini(game_name: str, shift: dict, reviews: list[dict], retries: int = 3) -> dict:
     direction_label = "평가 급락" if shift.get("direction") == "decline" else "평가 회복"
     before = shift.get("sentiment_before", "?")
     after  = shift.get("sentiment_rate",   "?")
@@ -226,14 +226,20 @@ top_reviews 선별 규칙:
         system_instruction=SYSTEM_PROMPT,
         generation_config=_GEN_CONFIG,
     )
-    resp = model.generate_content(prompt)
-    raw  = resp.text.strip()
 
-    # JSON 파싱
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            return json.loads(m.group())
-        return {}
+    for attempt in range(retries):
+        try:
+            resp = model.generate_content(prompt)
+            raw  = resp.text.strip()
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                m = re.search(r"\{.*\}", raw, re.DOTALL)
+                if m:
+                    return json.loads(m.group())
+                print(f"[shift_analyzer] JSON 파싱 오류 시도 {attempt + 1}")
+        except Exception as e:
+            print(f"[shift_analyzer] API 오류 시도 {attempt + 1}: {e}")
+            if attempt < retries - 1:
+                time.sleep(5 * (attempt + 1))
+    return {}
