@@ -1,0 +1,40 @@
+name: 게임별 이벤트/뉴스 수집 (온디맨드)
+# 관리자 패널 버튼으로 특정 게임의 메타데이터·이벤트·뉴스를 즉시 최신화합니다.
+# 리뷰 수집은 제외합니다 (일일 수집 봇이 자동 처리).
+
+on:
+  workflow_dispatch:
+    inputs:
+      appid:
+        description: '처리할 게임 AppID'
+        required: true
+
+jobs:
+  collect-game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 의존성 설치
+        run: pip install -r backend/requirements.txt
+
+      - name: 메타데이터 + 이벤트/뉴스 수집 (리뷰 수집 제외)
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          MASTER_SPREADSHEET_ID: ${{ secrets.MASTER_SPREADSHEET_ID }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
+          TARGET_APPID: ${{ github.event.inputs.appid }}
+          NEWS_ONLY: "true"
+          SKIP_SCHEMA_CHECK: "true"
+        run: |
+          cd backend
+          python main_collect.py
