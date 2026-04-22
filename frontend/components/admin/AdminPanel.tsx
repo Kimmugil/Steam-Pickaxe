@@ -120,8 +120,14 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [collectNewsIds,       setCollectNewsIds]       = useState<Set<string>>(new Set());
 
   // ── 시스템 도구 로딩 상태 ────────────────────────────────────────────────
-  const [analyzingPending, setAnalyzingPending] = useState(false);
-  const [detectingShifts,  setDetectingShifts]  = useState(false);
+  const [analyzingPending,   setAnalyzingPending]   = useState(false);
+  const [detectingShifts,    setDetectingShifts]    = useState(false);
+  const [retriggering,       setRetriggering]       = useState(false);
+  const [recalcingLangDist,  setRecalcingLangDist]  = useState(false);
+  const [dedupingTimelines,  setDedupingTimelines]  = useState(false);
+
+  // 수집 재시작 확인 모달
+  const [showRetriggerConfirm, setShowRetriggerConfirm] = useState(false);
 
   useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY);
@@ -366,6 +372,79 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setCollectNewsIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
+  }
+
+  // ── 수집 재시작 ──────────────────────────────────────────────────────────
+  async function handleRetriggerCollect() {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setRetriggering(true);
+    setShowRetriggerConfirm(false);
+    try {
+      const res = await fetch("/api/admin/retrigger-collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("수집 재시작을 요청했습니다. 전체 게임 리뷰·뉴스 수집이 시작됩니다.", "success");
+      } else {
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      }
+    } catch {
+      show(t("SERVER_CONNECT_ERROR"), "error");
+    } finally {
+      setRetriggering(false);
+    }
+  }
+
+  // ── 언어 분포 재집계 ──────────────────────────────────────────────────────
+  async function handleRecalcLangDist() {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setRecalcingLangDist(true);
+    try {
+      const res = await fetch("/api/admin/recalc-lang-dist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("언어 분포 재집계를 시작했습니다. 수 분 내 완료됩니다.", "success");
+      } else {
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      }
+    } catch {
+      show(t("SERVER_CONNECT_ERROR"), "error");
+    } finally {
+      setRecalcingLangDist(false);
+    }
+  }
+
+  // ── 타임라인 중복 정리 ────────────────────────────────────────────────────
+  async function handleDedupTimelines() {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setDedupingTimelines(true);
+    try {
+      const res = await fetch("/api/admin/dedup-timelines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("타임라인 중복 정리를 시작했습니다. 수 분 내 완료됩니다.", "success");
+      } else {
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      }
+    } catch {
+      show(t("SERVER_CONNECT_ERROR"), "error");
+    } finally {
+      setDedupingTimelines(false);
     }
   }
 
@@ -832,38 +911,70 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
         </div>
 
-        {/* 추가 도구 제안 */}
-        <div className="bg-bg-secondary/60 border border-border-default rounded-xl p-4">
-          <p className="text-xs font-semibold text-text-secondary mb-3 flex items-center gap-1.5">
-            <span>💡</span> 추가 구현 고려 도구 제안
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              {
-                icon: "🔄",
-                title: "수집 재시작",
-                desc: "일일 봇 스케줄과 무관하게 전체 게임 리뷰+뉴스 수집을 즉시 수동 트리거합니다.",
-              },
-              {
-                icon: "📊",
-                title: "언어 분포 재집계",
-                desc: "전체 게임 RAW 리뷰 기반 언어 분포 JSON을 강제 재계산하여 파이 차트 데이터를 갱신합니다.",
-              },
-              {
-                icon: "🧹",
-                title: "타임라인 중복 정리",
-                desc: "전체 게임 타임라인의 중복 이벤트를 일괄 검사하고 제거합니다.",
-              },
-            ].map((item) => (
-              <div key={item.title} className="flex gap-2.5 text-xs">
-                <span className="text-base mt-0.5 flex-shrink-0">{item.icon}</span>
-                <div>
-                  <p className="font-medium text-text-secondary mb-0.5">{item.title}</p>
-                  <p className="text-text-muted leading-relaxed">{item.desc}</p>
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+          {/* 수집 재시작 */}
+          <div className="bg-bg-card border border-border-default rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <span className="text-xl mt-0.5">🔄</span>
+              <div>
+                <p className="font-semibold text-text-primary text-sm mb-1">수집 재시작</p>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  일일 봇 스케줄과 무관하게 전체 게임 리뷰·이벤트·뉴스 수집을 즉시 트리거합니다.
+                </p>
               </div>
-            ))}
+            </div>
+            <button
+              onClick={() => setShowRetriggerConfirm(true)}
+              disabled={retriggering}
+              className="w-full py-2 text-sm border border-border-default rounded-lg text-text-secondary hover:border-accent-blue/50 hover:text-accent-blue transition-colors disabled:opacity-40 mt-auto"
+            >
+              {retriggering ? "처리 중..." : "🔄 수집 재시작"}
+            </button>
           </div>
+
+          {/* 언어 분포 재집계 */}
+          <div className="bg-bg-card border border-border-default rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <span className="text-xl mt-0.5">📊</span>
+              <div>
+                <p className="font-semibold text-text-primary text-sm mb-1">언어 분포 재집계</p>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  전체 게임 RAW 리뷰 기반 언어 분포 JSON을 강제 재계산합니다.
+                  파이 차트 데이터·상위 언어 목록·수집 건수 보정이 함께 갱신됩니다.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRecalcLangDist}
+              disabled={recalcingLangDist}
+              className="w-full py-2 text-sm border border-accent-blue/40 rounded-lg text-accent-blue hover:bg-accent-blue/10 transition-colors disabled:opacity-40 mt-auto"
+            >
+              {recalcingLangDist ? "처리 중..." : "📊 재집계 실행"}
+            </button>
+          </div>
+
+          {/* 타임라인 중복 정리 */}
+          <div className="bg-bg-card border border-border-default rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <span className="text-xl mt-0.5">🧹</span>
+              <div>
+                <p className="font-semibold text-text-primary text-sm mb-1">타임라인 중복 정리</p>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  전체 게임 타임라인에서 중복 이벤트를 일괄 검사하고 제거합니다.
+                  뒤에서부터 역순으로 삭제해 인덱스 오염을 방지합니다.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleDedupTimelines}
+              disabled={dedupingTimelines}
+              className="w-full py-2 text-sm border border-border-default rounded-lg text-text-secondary hover:border-accent-orange/50 hover:text-accent-orange transition-colors disabled:opacity-40 mt-auto"
+            >
+              {dedupingTimelines ? "처리 중..." : "🧹 중복 정리 실행"}
+            </button>
+          </div>
+
         </div>
       </section>
 
@@ -893,6 +1004,9 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 { name: "구간 재분석",        schedule: "수동 (게임별)",     desc: "YYYY-MM 입력으로 특정 월의 타임라인 구간만 선택 재분석합니다. 해당 게임에 없는 년월 입력 시 분석을 건너뜁니다. 게임별 [구간재분석] 버튼으로 트리거." },
                 { name: "이벤트/뉴스 수집",   schedule: "수동 (게임별)",     desc: "메타데이터·이벤트·뉴스를 최신화합니다. 이미 수집된 항목은 제외하고 신규 항목만 추가합니다. 리뷰 수집은 제외됩니다. 게임별 [뉴스수집] 버튼으로 트리거." },
                 { name: "미분석 AI 분석",     schedule: "수동 (시스템)",     desc: "AI 분석이 진행되지 않은 구간을 전 게임 대상으로 선별해 일괄 분석합니다. 시스템 도구 [미분석 분석 실행] 버튼으로 트리거." },
+                { name: "수집 재시작",        schedule: "수동 (시스템)",     desc: "일일 봇 스케줄과 무관하게 전체 게임 리뷰·이벤트·뉴스 수집을 즉시 트리거합니다. 시스템 도구 [수집 재시작] 버튼으로 트리거." },
+                { name: "언어 분포 재집계",   schedule: "수동 (시스템)",     desc: "전체 게임 RAW 리뷰 언어 분포를 재계산해 language_distribution·top_languages·수집 건수를 갱신합니다. 시스템 도구 [재집계 실행] 버튼으로 트리거." },
+                { name: "타임라인 중복 정리", schedule: "수동 (시스템)",     desc: "전체 게임 타임라인 탭에서 중복 이벤트를 일괄 검사·제거합니다. 시스템 도구 [중복 정리 실행] 버튼으로 트리거." },
               ] as const).map((row, i) => (
                 <tr
                   key={row.name}
@@ -975,6 +1089,34 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
               <button
                 onClick={() => setMonthInputGame(null)}
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover transition-colors"
+              >
+                {t("ADMIN_BTN_CANCEL")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 수집 재시작 확인 모달 ────────────────────────────────────────── */}
+      {showRetriggerConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-bg-card border border-border-default rounded-xl p-6 w-80">
+            <p className="font-semibold text-text-primary mb-1">🔄 수집 재시작</p>
+            <p className="text-xs text-text-muted mb-5 leading-relaxed">
+              전체 active 게임의 리뷰·이벤트·뉴스 수집을 즉시 시작합니다.<br />
+              일일 자동 수집과 병렬 실행될 수 있습니다. 계속하시겠습니까?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRetriggerCollect}
+                disabled={retriggering}
+                className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40"
+              >
+                {retriggering ? "처리 중..." : "확인"}
+              </button>
+              <button
+                onClick={() => setShowRetriggerConfirm(false)}
+                className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover"
               >
                 {t("ADMIN_BTN_CANCEL")}
               </button>
