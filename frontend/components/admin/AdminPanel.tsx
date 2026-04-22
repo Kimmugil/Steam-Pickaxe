@@ -718,6 +718,32 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                         <span className="text-text-muted text-[10px]">
                           {t("ADMIN_STEAM_REVIEWS", { count: Number(game.totalReviews ?? 0).toLocaleString() })}
                         </span>
+                        {/* 자동 재분석 여부 표시 */}
+                        {(() => {
+                          const lastCount = Number(game.last_analyzed_review_count || 0);
+                          const curCount  = Number(game.collected_reviews_count || 0);
+                          if (lastCount > 0 && curCount > lastCount * 1.10) {
+                            return (
+                              <span
+                                className="block mt-1 text-[10px] text-accent-green font-medium"
+                                title={`직전 분석 시 ${lastCount.toLocaleString()}건 → 현재 ${curCount.toLocaleString()}건 (${Math.round((curCount / lastCount - 1) * 100)}% 증가) — 다음 월간 분석 실행 시 완료된 월도 자동 재분석됩니다`}
+                              >
+                                ↑ 자동 재분석 예정
+                              </span>
+                            );
+                          }
+                          if (lastCount > 0) {
+                            return (
+                              <span
+                                className="block mt-1 text-[10px] text-text-muted"
+                                title={`직전 분석 시 ${lastCount.toLocaleString()}건 수집 완료`}
+                              >
+                                직전 분석: {lastCount.toLocaleString()}건
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
 
                       {/* 수집 이벤트 */}
@@ -941,7 +967,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 {
                   name: "AI 월간 분석",
                   schedule: "매월 1일 09:00 KST",
-                  desc: "AI 승인된 게임의 월별 리뷰 감성 분석·패치 요약·AI 브리핑·CCU 피크타임·언어권 교차 분석을 실행합니다. 관리자 패널 게임별 버튼으로 온디맨드 실행 가능.",
+                  desc: "AI 승인된 게임의 월별 리뷰 감성 분석·패치 요약·AI 브리핑·CCU 피크타임·언어권 교차 분석을 실행합니다. 직전 분석 이후 리뷰가 10% 이상 증가한 경우 완료된 월도 자동 재분석합니다. 관리자 패널 게임별 버튼으로 온디맨드 실행 가능.",
                 },
                 {
                   name: "평가 급변 감지",
@@ -980,6 +1006,51 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* 자동 재분석 메커니즘 안내 */}
+      <section className="mt-8">
+        <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-accent-green rounded-full" />
+          자동 재분석 메커니즘
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-bg-card border border-border-default rounded-xl p-5 space-y-3">
+            <p className="text-sm font-semibold text-text-primary flex items-center gap-2">
+              <span className="text-accent-green text-base">♻️</span>
+              리뷰 증가 감지 — 자동 재분석
+            </p>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              AI 월간 분석이 실행될 때마다 현재 수집 리뷰 수를 <span className="font-medium text-text-primary">직전 분석 시점 수</span>와 비교합니다.
+              <br className="mb-1" />
+              <span className="text-accent-green font-medium">10% 이상 증가</span>한 경우, 이미 완료 처리된 과거 월도 자동으로 재분석합니다.
+            </p>
+            <div className="bg-bg-secondary rounded-lg px-3 py-2 text-[11px] text-text-muted space-y-1">
+              <p><span className="text-text-secondary font-medium">직전 분석:</span> 50,000건 → <span className="text-text-secondary font-medium">현재:</span> 55,001건 → <span className="text-accent-green font-medium">자동 재분석 ✓</span></p>
+              <p><span className="text-text-secondary font-medium">직전 분석:</span> 50,000건 → <span className="text-text-secondary font-medium">현재:</span> 54,999건 → <span className="text-text-muted">스킵 (10% 미만)</span></p>
+            </div>
+            <p className="text-[11px] text-text-muted leading-relaxed">
+              게임 목록 "수집 리뷰" 열에서 <span className="text-accent-green font-medium">↑ 자동 재분석 예정</span> 뱃지로 확인할 수 있습니다.
+            </p>
+          </div>
+          <div className="bg-bg-card border border-border-default rounded-xl p-5 space-y-3">
+            <p className="text-sm font-semibold text-text-primary flex items-center gap-2">
+              <span className="text-accent-yellow text-base">⚡</span>
+              평가 급변 감지 — 탐지 원리
+            </p>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              전체 기간의 월별 긍정률 시계열을 분석해 급락·회복 구간을 탐지합니다.
+              탐지된 구간에 대해 AI가 원인을 분석하고 타임라인에 <span className="font-medium text-text-primary">sentiment_shift</span> 행으로 기록합니다.
+            </p>
+            <ul className="text-[11px] text-text-muted space-y-1.5">
+              <li className="flex gap-1.5"><span className="text-accent-red mt-0.5">▼</span><span><span className="font-medium text-text-secondary">급락:</span> 이전 대비 긍정률이 급격히 하락한 구간 (예: 대규모 패치 반발, 서버 불안정)</span></li>
+              <li className="flex gap-1.5"><span className="text-accent-green mt-0.5">▲</span><span><span className="font-medium text-text-secondary">회복:</span> 하락 이후 긍정률이 반등한 구간 (예: 긴급 패치, 이벤트 효과)</span></li>
+            </ul>
+            <p className="text-[11px] text-text-muted">
+              매주 월요일 자동 실행. 위 시스템 도구 <span className="font-medium text-text-secondary">⚡ 급변 감지 실행</span> 버튼으로 즉시 실행 가능합니다.
+            </p>
+          </div>
         </div>
       </section>
 

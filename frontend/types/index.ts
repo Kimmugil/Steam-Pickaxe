@@ -36,6 +36,8 @@ export interface Game {
   sentiment_trend_comment?: string;   // 평가 추이 종합 진단 (여러 구간 통합)
   sort_order?: number | string;       // 홈 화면 표시 순서 (오름차순, 0/빈값=맨 뒤)
   steam_positive_rate?: number | string; // Steam 스토어 전체 누적 긍정률 (%)
+  last_shift_detection_date?: string;       // 평가 급변 감지 마지막 실행일 (YYYY-MM-DD)
+  last_analyzed_review_count?: number | string; // 마지막 AI 분석 시점의 수집 리뷰 수 (재분석 필요 여부 판단용)
 }
 
 export interface TimelineRow {

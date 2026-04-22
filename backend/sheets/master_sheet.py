@@ -92,6 +92,8 @@ GAMES_HEADERS = [
     "steam_positive_rate",
     # 평가 급변 감지 마지막 실행일 (YYYY-MM-DD)
     "last_shift_detection_date",
+    # 마지막 AI 분석 시점의 수집 리뷰 수 (재분석 필요 여부 판단용)
+    "last_analyzed_review_count",
     # ── 제거된 컬럼 (하위호환 기록용, 실제로 사용하지 않음) ──
     # owners_estimate, avg_playtime, median_playtime, active_players_2weeks
     #   → SteamSpy 필드였으나 SteamSpy 수집 중단으로 미사용

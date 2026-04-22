@@ -111,6 +111,7 @@ def run():
         timeline_rows = gs_get_timeline(game_ss)
 
         # ── 언어 분포 저장 + 수집 리뷰 수 보정 ────────────────────────────
+        actual_collected = int(game.get("collected_reviews_count", 0) or 0)
         if cached_lang_counts:
             try:
                 lang_dist_str = json.dumps(
@@ -125,8 +126,24 @@ def run():
                     count_updates["collected_reviews_count"] = actual_count
                     print(f"  [review_count] 보정: {stored_count} → {actual_count}")
                 update_game(ss, appid, count_updates)
+                actual_collected = actual_count
             except Exception as e:
                 print(f"  [lang_dist] 실패: {e}")
+
+        # ── 완료된 월 재분석 필요 여부 판단 ────────────────────────────────
+        # 마지막 분석 이후 리뷰가 10% 이상 증가했으면 완료된 월도 재분석
+        last_analyzed_count = int(game.get("last_analyzed_review_count", 0) or 0)
+        force_full_reanalyze = (
+            not CORE_ONLY
+            and not TARGET_YEAR_MONTH
+            and last_analyzed_count > 0
+            and actual_collected > last_analyzed_count * 1.10
+        )
+        if force_full_reanalyze:
+            print(
+                f"  [force_reanalyze] 수집 리뷰 10% 이상 증가 "
+                f"({last_analyzed_count:,} → {actual_collected:,}) — 완료된 월도 재분석"
+            )
 
         # ── ai_patch_summary 오염 정제 (기존 이벤트 행) ─────────────────────
         _bad_pattern = _re.compile(
@@ -183,7 +200,8 @@ def run():
             if TARGET_YEAR_MONTH and ym != TARGET_YEAR_MONTH:
                 continue
             # 현재 월은 항상 재분석, 나머지는 완료된 것 skip
-            if ym != now_ym and ym in completed_months:
+            # force_full_reanalyze=True 이면 완료된 월도 재분석 (리뷰 10% 이상 증가 시)
+            if ym != now_ym and ym in completed_months and not force_full_reanalyze:
                 continue
 
             print(f"  월간 분석: {bucket['title']} ({ym})")
@@ -459,6 +477,14 @@ def run():
                     time.sleep(2)
                 except Exception as e:
                     print(f"  [sentiment_trend] 오류: {e}")
+
+        # ── 마지막 분석 시점의 리뷰 수 저장 (다음 실행 시 재분석 필요 여부 판단용) ──
+        if not CORE_ONLY and not TARGET_YEAR_MONTH:
+            try:
+                update_game(ss, appid, {"last_analyzed_review_count": actual_collected})
+                print(f"  [저장] last_analyzed_review_count={actual_collected:,}")
+            except Exception as e:
+                print(f"  [저장] last_analyzed_review_count 실패: {e}")
 
         if CORE_ONLY:
             print(f"종합 분석 완료 (브리핑+CCU+언어+추이)")
