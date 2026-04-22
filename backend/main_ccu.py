@@ -14,6 +14,7 @@ from collectors.steam_ccu import fetch_current_ccu, now_utc_iso
 def run():
     ss = get_spreadsheet()
     games = get_all_games(ss)
+    errors = 0
 
     for game in games:
         if game.get("status") != "active":
@@ -27,17 +28,23 @@ def run():
             print(f"[CCU] {name} ({appid}): game_sheet_id 없음, 건너뜀")
             continue
 
-        ccu = fetch_current_ccu(appid)
-        if ccu is None:
-            print(f"[CCU] {name} ({appid}): 수집 실패")
-            continue
+        try:
+            ccu = fetch_current_ccu(appid)
+            if ccu is None:
+                print(f"[CCU] {name} ({appid}): 수집 실패")
+                continue
 
-        timestamp = now_utc_iso()
-        game_ss = open_game_sheet(game_sheet_id)
-        gs_append_ccu(game_ss, timestamp, ccu)
-        print(f"[CCU] {name} ({appid}): {ccu:,}명")
+            timestamp = now_utc_iso()
+            game_ss = open_game_sheet(game_sheet_id)
+            gs_append_ccu(game_ss, timestamp, ccu)
+            print(f"[CCU] {name} ({appid}): {ccu:,}명")
+        except Exception as e:
+            print(f"[CCU] {name} ({appid}): 오류 — {e}")
+            errors += 1
 
-    print("CCU 수집 완료")
+    print(f"CCU 수집 완료{f' (오류 {errors}건)' if errors else ''}")
+    if errors:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

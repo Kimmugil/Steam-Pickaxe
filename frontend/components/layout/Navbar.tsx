@@ -20,16 +20,6 @@ export default function Navbar() {
             {t("HOME_SUBTITLE")}
           </span>
           <Link
-            href="/guide"
-            className={`text-sm transition-colors ${
-              pathname === "/guide"
-                ? "text-accent-blue"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            {t("NAV_GUIDE")}
-          </Link>
-          <Link
             href="/guide/usage"
             className={`text-sm transition-colors ${
               pathname === "/guide/usage"

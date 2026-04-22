@@ -69,8 +69,19 @@ def _get_client() -> gspread.Client:
 
 
 def open_game_sheet(game_sheet_id: str) -> gspread.Spreadsheet:
-    """game_sheet_id(개별 스프레드시트 ID)로 시트 열기"""
-    return _get_client().open_by_key(game_sheet_id)
+    """game_sheet_id(개별 스프레드시트 ID)로 시트 열기 (503/502 일시 오류 재시도)"""
+    waits = [5, 10, 20]
+    for attempt, wait in enumerate(waits + [None]):
+        try:
+            return _get_client().open_by_key(game_sheet_id)
+        except gspread.exceptions.APIError as e:
+            err = str(e)
+            is_transient = any(code in err for code in ("503", "502", "500"))
+            if is_transient and wait is not None:
+                print(f"[open_sheet] {err.strip()} — {wait}초 대기 후 재시도 ({attempt+1}/{len(waits)})")
+                time.sleep(wait)
+            else:
+                raise
 
 
 # ──────────────────────────────────────────────

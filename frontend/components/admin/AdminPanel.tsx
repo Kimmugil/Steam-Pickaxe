@@ -108,6 +108,9 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
+  // 평가 급변 감지
+  const [detectingShifts, setDetectingShifts] = useState(false);
+
   // 게임별 액션 로딩 상태
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
   const [unapprovingIds, setUnapprovingIds] = useState<Set<string>>(new Set());
@@ -293,6 +296,30 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setReanalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
+  }
+
+  // ── 평가 급변 감지 실행 ──────────────────────────────────────────────────
+  async function handleDetectShifts() {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setDetectingShifts(true);
+    try {
+      const res = await fetch("/api/admin/detect-shifts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("평가 급변 감지를 시작했습니다. 수 분 내 완료됩니다.", "success");
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setDetectingShifts(false);
     }
   }
 
@@ -818,6 +845,97 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
             </button>
           </div>
 
+          {/* 평가 급변 감지 */}
+          <div className="bg-bg-card border border-border-default rounded-xl p-6 flex flex-col items-center text-center gap-4">
+            <p className="text-3xl">⚡</p>
+            <div>
+              <p className="font-semibold text-text-primary text-sm mb-0.5">평가 급변 감지</p>
+              <p className="text-xs text-text-muted leading-relaxed">
+                전체 active 게임의 긍정률 급변 구간을 탐지하고 AI 원인 분석을 실행합니다.<br />
+                <span className="text-text-secondary mt-1 block">매주 월요일 자동 실행. 즉시 실행이 필요할 때 사용하세요.</span>
+              </p>
+            </div>
+            <button
+              onClick={handleDetectShifts}
+              disabled={detectingShifts}
+              className="w-full py-2 text-sm border border-accent-yellow/40 rounded-lg text-accent-yellow hover:bg-accent-yellow/10 transition-colors disabled:opacity-40"
+            >
+              {detectingShifts ? "처리 중..." : "⚡ 급변 감지 실행"}
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      {/* GitHub Actions 워크플로우 현황 */}
+      <section className="mt-8">
+        <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-accent-green rounded-full" />
+          GitHub Actions 워크플로우 현황
+        </h2>
+        <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead>
+              <tr className="border-b border-border-default bg-bg-secondary">
+                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">워크플로우</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">자동 주기</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">설명</th>
+              </tr>
+            </thead>
+            <tbody>
+              {([
+                {
+                  name: "CCU 수집",
+                  schedule: "매 시간 정각",
+                  desc: "active 게임의 동접자를 Steam API로 수집해 개별 시트에 적재합니다.",
+                },
+                {
+                  name: "리뷰·뉴스 수집",
+                  schedule: "매일 05:00 KST",
+                  desc: "신규 리뷰·이벤트를 수집합니다. 신규 게임 등록 시 자동 트리거됩니다. 관리자 패널 '수집 재시작'으로 즉시 실행 가능.",
+                },
+                {
+                  name: "AI 월간 분석",
+                  schedule: "매월 1일 09:00 KST",
+                  desc: "AI 승인된 게임의 월별 리뷰 감성 분석·패치 요약·AI 브리핑·CCU 피크타임·언어권 교차 분석을 실행합니다. 관리자 패널 게임별 버튼으로 온디맨드 실행 가능.",
+                },
+                {
+                  name: "평가 급변 감지",
+                  schedule: "매주 월요일 11:00 KST",
+                  desc: "전체 기간 긍정률 변화를 분석해 급락·회복 구간을 탐지하고 AI 원인 분석을 수행합니다. 관리자 패널 '급변 감지 실행'으로 즉시 실행 가능.",
+                },
+                {
+                  name: "이번 달 수집+분석",
+                  schedule: "수동 전용",
+                  desc: "특정 게임의 이번 달 뉴스·이벤트를 재수집하고 AI 분석을 즉시 실행합니다. 게임별 '이번 달' 버튼으로 트리거.",
+                },
+                {
+                  name: "종합 분석",
+                  schedule: "수동 전용",
+                  desc: "이벤트 수집 없이 AI 브리핑·CCU 피크타임·평가 추이·언어권 교차 분석 4가지만 즉시 갱신합니다. 게임별 '종합 분석' 버튼으로 트리거.",
+                },
+                {
+                  name: "AI 재분석",
+                  schedule: "수동 전용",
+                  desc: "최신 뉴스·패치를 재수집하고 전체 기간 AI 분석을 다시 실행합니다. 게임별 '재분석' 버튼으로 트리거.",
+                },
+                {
+                  name: "UI 텍스트 초기 설정",
+                  schedule: "수동 전용 (1회성)",
+                  desc: "Google Sheets ui_text 탭에 기본 UI 문구를 초기화합니다. 관리자 패널 'UI 텍스트 동기화'로 이후 업데이트 관리.",
+                },
+              ] as const).map((row, i) => (
+                <tr
+                  key={row.name}
+                  className={`border-b border-border-default last:border-b-0 ${i % 2 === 0 ? "" : "bg-bg-secondary/20"}`}
+                >
+                  <td className="px-4 py-3 text-xs font-medium text-text-primary whitespace-nowrap">{row.name}</td>
+                  <td className="px-4 py-3 text-xs text-accent-blue whitespace-nowrap">{row.schedule}</td>
+                  <td className="px-4 py-3 text-xs text-text-muted leading-relaxed">{row.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
