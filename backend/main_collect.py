@@ -11,7 +11,7 @@ from sheets.master_sheet import get_spreadsheet, get_all_games, update_game, ens
 from sheets.raw_reviews import get_or_create_raw_spreadsheet, append_reviews
 from collectors.steam_reviews import collect_reviews_batch, get_total_review_count
 from collectors.steam_news import fetch_news, fetch_store_events, classify_news, parse_news_item, parse_store_event
-from collectors.steam_meta import fetch_app_details, parse_game_meta
+from collectors.steam_meta import fetch_app_details, parse_game_meta, fetch_steam_positive_rate
 from collectors.steam_ccu import fetch_peak_ccu
 from datetime import datetime, timezone
 from config import MASTER_SPREADSHEET_ID
@@ -71,29 +71,42 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
     final_status = status
 
     # 1. 메타데이터 갱신
-    app_data = fetch_app_details(appid)
+    # 주간(월요일) 또는 필수 필드 누락 시 → 전체 갱신 (appdetails + 스크래핑 + positive_rate + peak_ccu)
+    # 평일(화~일)                         → 긍정률만 갱신 (HTTP 1회)
+    today_utc = datetime.now(tz=timezone.utc)
+    is_full_meta_day = today_utc.weekday() == 0 or not str(game.get("genres", "")).strip()
+
     name = game.get("name", appid)
     positive_rate = None
-    if app_data:
-        meta = parse_game_meta(appid, app_data)
-        name = meta["name"]
-        peak_ccu = fetch_peak_ccu(appid)
-        raw_rate = meta.get("steam_positive_rate", "")
-        positive_rate = float(raw_rate) if raw_rate not in ("", None) else None
-        update_game(ss, appid, {
-            "name":           meta["name"],
-            "is_free":        meta["is_free"],
-            "is_early_access": meta["is_early_access"],
-            "metacritic_score": meta["metacritic_score"],
-            "release_date":   meta["release_date"],
-            "genres":         meta["genres"],
-            "developer":      meta["developer"],
-            "publisher":      meta["publisher"],
-            "price":          meta["price"],
-            "peak_ccu":       peak_ccu,
-            "steam_positive_rate": meta["steam_positive_rate"],
-        })
-        print("메타데이터 갱신 완료")
+
+    if is_full_meta_day:
+        app_data = fetch_app_details(appid)
+        if app_data:
+            meta = parse_game_meta(appid, app_data)
+            name = meta["name"]
+            peak_ccu = fetch_peak_ccu(appid)
+            raw_rate = meta.get("steam_positive_rate", "")
+            positive_rate = float(raw_rate) if raw_rate not in ("", None) else None
+            update_game(ss, appid, {
+                "name":                meta["name"],
+                "is_free":             meta["is_free"],
+                "is_early_access":     meta["is_early_access"],
+                "metacritic_score":    meta["metacritic_score"],
+                "release_date":        meta["release_date"],
+                "genres":              meta["genres"],
+                "developer":           meta["developer"],
+                "publisher":           meta["publisher"],
+                "price":               meta["price"],
+                "peak_ccu":            peak_ccu,
+                "steam_positive_rate": meta["steam_positive_rate"],
+            })
+            print("메타데이터 전체 갱신 완료 (주간)")
+    else:
+        # 평일: 긍정률만 갱신 (HTTP 1회, 스크래핑 생략)
+        positive_rate = fetch_steam_positive_rate(appid)
+        if positive_rate is not None:
+            update_game(ss, appid, {"steam_positive_rate": positive_rate})
+        print(f"긍정률 갱신 완료: {positive_rate}%")
 
     # 2. 리뷰 수집 (NEWS_ONLY 모드 시 건너뜀)
     game_sheet_id = game.get("game_sheet_id", "")

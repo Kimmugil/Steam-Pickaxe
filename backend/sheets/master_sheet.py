@@ -182,11 +182,33 @@ def ensure_games_headers(spreadsheet: gspread.Spreadsheet):
         deleted_names = [current[i] for i in cols_to_delete]
         print(f"[migrate] 구형 컬럼 삭제 완료: {deleted_names}")
 
+# ──────────────────────────────────────────────
+# games 탭 세션 캐시
+# get_all_games() 호출 시 ws / headers / appid→행번호 맵을 저장.
+# 이후 update_game() 호출에서 get_all_records() / row_values(1) 재조회 생략.
+# ──────────────────────────────────────────────
+_games_sheet_cache: dict[str, dict] = {}
+# 구조: { spreadsheet_id: { "ws": ws, "headers": [...], "appid_rows": {appid: row_idx} } }
+
+
+def _invalidate_games_cache(spreadsheet: gspread.Spreadsheet) -> None:
+    """games 캐시 무효화 (행 추가/삭제 후 호출)."""
+    _games_sheet_cache.pop(spreadsheet.id, None)
+
+
 @_retry_on_quota
 def get_all_games(spreadsheet: gspread.Spreadsheet) -> list[dict]:
     ws = spreadsheet.worksheet("games")
     rows = ws.get_all_records()
+    headers = ws.row_values(1)
+    # 캐시 구성 — 이후 update_game() 이 재조회 없이 사용
+    _games_sheet_cache[spreadsheet.id] = {
+        "ws":         ws,
+        "headers":    headers,
+        "appid_rows": {str(rec.get("appid")): i + 2 for i, rec in enumerate(rows)},
+    }
     return rows
+
 
 def get_game(spreadsheet: gspread.Spreadsheet, appid: str) -> Optional[dict]:
     games = get_all_games(spreadsheet)
@@ -195,28 +217,40 @@ def get_game(spreadsheet: gspread.Spreadsheet, appid: str) -> Optional[dict]:
             return g
     return None
 
+
 def add_game(spreadsheet: gspread.Spreadsheet, game: dict):
     ws = spreadsheet.worksheet("games")
     # 실제 시트 헤더 순서 기준으로 행 생성 (GAMES_HEADERS 순서와 다를 수 있음)
     actual_headers = ws.row_values(1)
     row = [game.get(h, "") for h in actual_headers]
     ws.append_row(row)
+    _invalidate_games_cache(spreadsheet)  # 새 행 추가로 캐시 무효화
+
 
 @_retry_on_quota
 def update_game(spreadsheet: gspread.Spreadsheet, appid: str, updates: dict):
-    ws = spreadsheet.worksheet("games")
-    records = ws.get_all_records()
-    headers = ws.row_values(1)
-    for i, rec in enumerate(records):
-        if str(rec.get("appid")) == str(appid):
-            row_idx = i + 2
-            cells = []
-            for key, val in updates.items():
-                if key in headers:
-                    col_idx = headers.index(key) + 1
-                    cells.append(gspread.Cell(row_idx, col_idx, val))
-            if cells:
-                ws.update_cells(cells)
-            return
-    raise ValueError(f"appid {appid} not found in games tab")
+    cache = _games_sheet_cache.get(spreadsheet.id)
+    if cache:
+        ws         = cache["ws"]
+        headers    = cache["headers"]
+        appid_rows = cache["appid_rows"]
+    else:
+        # 캐시 미스 (get_all_games() 없이 직접 호출된 경우) — 1회 조회 후 캐싱
+        ws = spreadsheet.worksheet("games")
+        records = ws.get_all_records()
+        headers = ws.row_values(1)
+        appid_rows = {str(rec.get("appid")): i + 2 for i, rec in enumerate(records)}
+        _games_sheet_cache[spreadsheet.id] = {"ws": ws, "headers": headers, "appid_rows": appid_rows}
+
+    row_idx = appid_rows.get(str(appid))
+    if row_idx is None:
+        raise ValueError(f"appid {appid} not found in games tab")
+
+    cells = []
+    for key, val in updates.items():
+        if key in headers:
+            col_idx = headers.index(key) + 1
+            cells.append(gspread.Cell(row_idx, col_idx, val))
+    if cells:
+        ws.update_cells(cells)
 

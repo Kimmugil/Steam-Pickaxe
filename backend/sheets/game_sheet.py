@@ -451,12 +451,18 @@ def get_or_create_rate_history_tab(ss: gspread.Spreadsheet) -> gspread.Worksheet
 
 @_retry_on_quota
 def append_rate_history(ss: gspread.Spreadsheet, date: str, positive_rate: float) -> None:
-    """rate_history 탭에 당일 긍정율 기록. 당일 중복 시 덮어씀."""
+    """rate_history 탭에 당일 긍정율 기록. 당일 중복 시 마지막 행 덮어씀.
+
+    최적화: 전체 컬럼 읽기 → get_all_values()로 마지막 행만 확인 (O(1)).
+    일별 1회 실행 기준으로, 오늘 기록은 항상 마지막 행에 위치.
+    """
     ws = get_or_create_rate_history_tab(ss)
     try:
-        dates = ws.col_values(1)[1:]  # 헤더 제외
-        if date in dates:
-            row_idx = dates.index(date) + 2  # 1-based + 헤더행
+        all_vals = ws.get_all_values()
+        data_rows = all_vals[1:]  # 헤더 제외
+        if data_rows and data_rows[-1] and data_rows[-1][0] == date:
+            # 오늘 기록이 마지막 행 — 덮어쓰기
+            row_idx = len(all_vals)  # 1-based
             ws.update_cell(row_idx, 2, positive_rate)
             return
     except Exception:
