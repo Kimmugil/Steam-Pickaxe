@@ -124,8 +124,25 @@ def open_raw_spreadsheet(sheet_id: str) -> gspread.Spreadsheet:
     """
     알려진 sheet_id로 RAW 스프레드시트를 직접 엽니다.
     (GAS를 거치지 않고 이미 할당된 시트를 열 때 사용)
+    429 쿼터 초과 / 502·503 일시 오류 시 지수 백오프 재시도.
     """
-    return _get_client().open_by_key(sheet_id)
+    import time as _time
+    waits = [10, 20, 40, 60]
+    for attempt, wait in enumerate(waits + [None]):
+        try:
+            return _get_client().open_by_key(sheet_id)
+        except requests.exceptions.RequestException:
+            raise
+        except Exception as e:
+            err = str(e)
+            is_quota     = "429" in err
+            is_transient = any(code in err for code in ("503", "502", "500"))
+            if (is_quota or is_transient) and wait is not None:
+                label = "429 쿼터 초과" if is_quota else "일시 오류"
+                print(f"[open_raw] {label} — {wait}초 대기 후 재시도 ({attempt+1}/{len(waits)})")
+                _time.sleep(wait)
+            else:
+                raise
 
 
 def get_or_create_year_tab(ss: gspread.Spreadsheet, year: int) -> gspread.Worksheet:
