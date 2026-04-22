@@ -3,10 +3,6 @@ import Image from "next/image";
 import type { Game } from "@/types";
 
 export default function PendingGameCard({ game }: { game: Game }) {
-  const total = Number(game.total_reviews_count) || 0;
-  const collected = Number(game.collected_reviews_count) || 0;
-  const pct = total > 0 ? Math.min(100, Math.round((collected / total) * 100)) : 0;
-
   return (
     <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
       {game.thumbnail && (
@@ -29,23 +25,7 @@ export default function PendingGameCard({ game }: { game: Game }) {
         {game.name_kr && game.name_kr !== game.name && (
           <p className="text-xs text-text-muted truncate mt-0.5">{game.name}</p>
         )}
-        {total > 0 && (
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-text-muted mb-1">
-              <span>리뷰 수집</span>
-              <span>{collected.toLocaleString()} / {total.toLocaleString()}건</span>
-            </div>
-            <div className="h-1 bg-bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full bg-accent-blue/50 rounded-full transition-all"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        )}
-        {total === 0 && (
-          <p className="text-xs text-text-muted mt-3">데이터 수집 중...</p>
-        )}
+        <p className="text-xs text-text-muted mt-3">데이터 수집 중...</p>
       </div>
     </div>
   );

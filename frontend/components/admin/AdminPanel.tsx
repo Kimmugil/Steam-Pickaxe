@@ -111,6 +111,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   // 평가 급변 감지
   const [detectingShifts, setDetectingShifts] = useState(false);
 
+  // AI 승인 — 수집 미완료 확인 모달
+  const [approveConfirmGame, setApproveConfirmGame] = useState<Game | null>(null);
+  const [approveOnlyIds, setApproveOnlyIds] = useState<Set<string>>(new Set());
+
   // 게임별 액션 로딩 상태
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
   const [unapprovingIds, setUnapprovingIds] = useState<Set<string>>(new Set());
@@ -199,6 +203,46 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setApprovingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
+  }
+
+  // ── AI 승인 전 수집 완료 여부 체크 ──────────────────────────────────────
+  function handleApproveGameWithCheck(appid: string) {
+    const game = orderedGames.find((g) => String(g.appid) === appid);
+    if (!game) return;
+    const total = Number(game.totalReviews || 0);
+    const collected = Number(game.collected_reviews_count || 0);
+    // 95% 미만이면 경고 모달 표시
+    if (total > 0 && collected < total * 0.95) {
+      setApproveConfirmGame(game);
+      return;
+    }
+    handleApproveGame(appid);
+  }
+
+  // ── 승인만 (분석 트리거 없음) ─────────────────────────────────────────────
+  async function handleApproveOnly(appid: string) {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setApproveOnlyIds((prev) => new Set(prev).add(appid));
+    try {
+      const res = await fetch("/api/admin/approve-only", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show("AI 분석 승인 완료. 리뷰 수집 완료 후 다음 월간 분석 시 자동 실행됩니다.", "success");
+        setApproveConfirmGame(null);
+        router.refresh();
+      } else {
+        show(data.error ?? "오류가 발생했습니다.", "error");
+      }
+    } catch {
+      show("서버 연결 오류", "error");
+    } finally {
+      setApproveOnlyIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
   }
 
@@ -651,7 +695,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleApproveGame(appid)}
+                              onClick={() => handleApproveGameWithCheck(appid)}
                               disabled={approvingIds.has(appid)}
                               title={t("ADMIN_APPROVE_TITLE")}
                               className="text-xs text-accent-orange hover:text-accent-green transition-colors disabled:opacity-40 cursor-pointer"
@@ -720,7 +764,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                           {/* AI 분석 승인 (미승인 게임만) */}
                           {needsApproval && (
                             <button
-                              onClick={() => handleApproveGame(appid)}
+                              onClick={() => handleApproveGameWithCheck(appid)}
                               disabled={approvingIds.has(appid)}
                               className="px-2.5 py-1 text-xs bg-accent-orange/10 border border-accent-orange/40 text-accent-orange rounded hover:bg-accent-orange/20 transition-colors disabled:opacity-40"
                             >
@@ -1032,6 +1076,50 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover"
               >
                 {t("ADMIN_BTN_CANCEL")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI 승인 — 수집 미완료 경고 모달 */}
+      {approveConfirmGame && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-bg-card border border-border-default rounded-xl p-6 w-[420px] max-w-[calc(100vw-2rem)]">
+            <p className="font-semibold text-text-primary mb-1">⚠️ 리뷰 수집 미완료</p>
+            <p className="text-xs text-text-muted mb-5 leading-relaxed">
+              <span className="font-medium text-text-secondary">{approveConfirmGame.name_kr || approveConfirmGame.name}</span>의
+              리뷰가 아직 모두 수집되지 않았습니다.<br />
+              <span className="text-accent-orange font-medium">
+                {Number(approveConfirmGame.collected_reviews_count || 0).toLocaleString()}건 수집 완료
+                / Steam 총 {Number(approveConfirmGame.totalReviews || 0).toLocaleString()}건
+              </span><br />
+              이 상태에서 AI 분석을 실행하면 일부 기간이 불완전한 리뷰 데이터로 분석되며,
+              해당 기간은 나중에 자동으로 재분석되지 않습니다.
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  handleApproveGame(String(approveConfirmGame.appid));
+                  setApproveConfirmGame(null);
+                }}
+                disabled={approvingIds.has(String(approveConfirmGame.appid))}
+                className="w-full py-2.5 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40 hover:bg-accent-blue/30 transition-colors"
+              >
+                {approvingIds.has(String(approveConfirmGame.appid)) ? "처리 중..." : "🚀 지금 기준으로 바로 AI 분석 시작"}
+              </button>
+              <button
+                onClick={() => handleApproveOnly(String(approveConfirmGame.appid))}
+                disabled={approveOnlyIds.has(String(approveConfirmGame.appid))}
+                className="w-full py-2.5 bg-bg-secondary border border-border-default text-text-secondary rounded-lg text-sm disabled:opacity-40 hover:border-accent-blue/40 hover:text-text-primary transition-colors"
+              >
+                {approveOnlyIds.has(String(approveConfirmGame.appid)) ? "처리 중..." : "⏳ 리뷰 수집 완료 후 분석하기 (승인만)"}
+              </button>
+              <button
+                onClick={() => setApproveConfirmGame(null)}
+                className="w-full py-2 text-text-muted text-sm hover:text-text-secondary transition-colors"
+              >
+                취소
               </button>
             </div>
           </div>
