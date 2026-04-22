@@ -7,6 +7,7 @@ master_sheet.py 의 timeline_{appid}, ccu_{appid} 탭 대신 이 모듈을 사�
 import gspread
 from google.oauth2.service_account import Credentials
 import sys, os, time, functools
+from typing import Sequence
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import get_google_creds
 
@@ -231,6 +232,31 @@ def update_timeline_event_field(
         ws.batch_update(cell_updates)
 
 
+def _batch_delete_rows(ss: gspread.Spreadsheet, ws: gspread.Worksheet,
+                        row_indices: Sequence[int]) -> None:
+    """
+    행 번호 목록(1-based)을 단일 batch_update 요청으로 일괄 삭제.
+    뒤에서 앞 순으로 요청을 구성해 삭제 시 인덱스 밀림을 방지.
+    개별 delete_rows() 반복 대비 API 호출 N → 1회로 절감.
+    """
+    if not row_indices:
+        return
+    requests = [
+        {
+            "deleteDimension": {
+                "range": {
+                    "sheetId":    ws.id,
+                    "dimension":  "ROWS",
+                    "startIndex": row_idx - 1,  # 0-based
+                    "endIndex":   row_idx,
+                }
+            }
+        }
+        for row_idx in sorted(row_indices, reverse=True)
+    ]
+    ss.batch_update({"requests": requests})
+
+
 @_retry_on_quota
 def delete_timeline_rows_by_event(ss: gspread.Spreadsheet, event_id: str):
     ws = get_or_create_timeline_tab(ss)
@@ -240,8 +266,7 @@ def delete_timeline_rows_by_event(ss: gspread.Spreadsheet, event_id: str):
         for i, r in enumerate(records)
         if str(r.get("event_id")) == str(event_id)
     ]
-    for row_idx in sorted(rows_to_delete, reverse=True):
-        ws.delete_rows(row_idx)
+    _batch_delete_rows(ss, ws, rows_to_delete)
 
 
 @_retry_on_quota
@@ -261,8 +286,7 @@ def cleanup_stale_launch_buckets(ss: gspread.Spreadsheet):
     ]
     if rows_to_delete:
         print(f"  [cleanup] 런칭 버킷 {len(rows_to_delete)}행 삭제")
-        for row_idx in sorted(rows_to_delete, reverse=True):
-            ws.delete_rows(row_idx)
+        _batch_delete_rows(ss, ws, rows_to_delete)
 
 
 @_retry_on_quota
@@ -322,9 +346,10 @@ def deduplicate_timeline(ss: gspread.Spreadsheet) -> int:
             seen_keys[canon_key] = event_id
 
     if not duplicate_event_ids:
-        return 0
+        # 중복 없음 — 이미 로드된 records를 그대로 반환 (호출자가 재조회 생략 가능)
+        return 0, records
 
-    # 중복 event_id에 속한 모든 행(언어 스코프 무관) 삭제
+    # 중복 event_id에 속한 모든 행(언어 스코프 무관) 일괄 삭제
     rows_to_delete = [
         i + 2
         for i, r in enumerate(records)
@@ -335,11 +360,11 @@ def deduplicate_timeline(ss: gspread.Spreadsheet) -> int:
     dup_count  = len(duplicate_event_ids)
     print(f"  [dedup] 중복 이벤트 {dup_count}건 ({total_rows}행) 삭제")
 
-    for row_idx in sorted(rows_to_delete, reverse=True):
-        ws.delete_rows(row_idx)
-        time.sleep(0.15)  # Sheets API 레이트 리밋 방지
+    _batch_delete_rows(ss, ws, rows_to_delete)
 
-    return dup_count
+    # 삭제 후 최신 상태 반환 (호출자가 재조회 없이 바로 사용)
+    fresh_records = ws.get_all_records()
+    return dup_count, fresh_records
 
 
 # ──────────────────────────────────────────────

@@ -104,11 +104,11 @@ def run():
                 print(f"  [top_languages] 재계산 실패: {_e}")
 
         # ── 중복 이벤트 정리 ────────────────────────────────────────────────
-        _dedup_removed = deduplicate_timeline(game_ss)
+        # deduplicate_timeline이 (제거 수, 최신 records)를 함께 반환하므로
+        # 별도 gs_get_timeline() 재조회 없이 바로 사용 (API 호출 1회 절감)
+        _dedup_removed, timeline_rows = deduplicate_timeline(game_ss)
         if _dedup_removed:
             print(f"  [dedup] {_dedup_removed}건 중복 이벤트 제거")
-
-        timeline_rows = gs_get_timeline(game_ss)
 
         # ── 언어 분포 저장 + 수집 리뷰 수 보정 ────────────────────────────
         actual_collected = int(game.get("collected_reviews_count", 0) or 0)

@@ -232,21 +232,36 @@ def append_reviews(ss: gspread.Spreadsheet, reviews: list[dict]) -> int:
 def get_language_counts(ss: gspread.Spreadsheet) -> dict:
     """
     전체 리뷰 시트에서 언어별 리뷰 수를 집계합니다.
-    연도별 탭(reviews_YYYY)을 순회하여 language 컬럼을 카운팅합니다.
+    연도별 탭(reviews_YYYY)의 language 컬럼을 단일 batch 요청으로 조회합니다.
+    (탭 수만큼 반복하던 개별 col_values() 호출 → API 호출 1회로 절감)
     """
     counts: dict = {}
-    for ws in ss.worksheets():
-        if not ws.title.startswith("reviews_"):
-            continue
-        try:
-            # language 컬럼은 헤더 기준 3번째 (1-based index 3)
-            langs = ws.col_values(3)[1:]  # 헤더 행 제외
-            for lang in langs:
-                lang = lang.strip()
-                if lang:
-                    counts[lang] = counts.get(lang, 0) + 1
-        except Exception:
-            continue
+    review_tabs = [ws for ws in ss.worksheets() if ws.title.startswith("reviews_")]
+    if not review_tabs:
+        return counts
+
+    # 모든 탭의 language 컬럼(C열, 헤더 제외)을 단일 batch 요청으로 조회
+    ranges = [f"'{ws.title}'!C2:C" for ws in review_tabs]
+    try:
+        result = ss.values_batch_get(ranges)
+        for value_range in result.get("valueRanges", []):
+            for row in value_range.get("values", []):
+                if row:
+                    lang = str(row[0]).strip()
+                    if lang:
+                        counts[lang] = counts.get(lang, 0) + 1
+    except Exception as e:
+        # values_batch_get 미지원 환경 fallback: 탭별 개별 조회
+        print(f"[lang_counts] batch_get 실패 ({e}) — 개별 탭 조회로 폴백")
+        for ws in review_tabs:
+            try:
+                langs = ws.col_values(3)[1:]  # 헤더 행 제외
+                for lang in langs:
+                    lang = lang.strip()
+                    if lang:
+                        counts[lang] = counts.get(lang, 0) + 1
+            except Exception:
+                continue
     return counts
 
 
