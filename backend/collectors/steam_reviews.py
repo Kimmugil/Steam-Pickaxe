@@ -37,7 +37,12 @@ def fetch_reviews_page(appid: str, cursor: str = "*", language: str = "all") -> 
     return None
 
 
-def collect_reviews_batch(appid: str, last_cursor: str, max_pages: int = None) -> tuple[list[dict], str, int]:
+def collect_reviews_batch(
+    appid: str,
+    last_cursor: str,
+    max_pages: int = None,
+    known_ids: set = None,
+) -> tuple[list[dict], str, int]:
     """
     Returns: (reviews, next_cursor, total_count)
     next_cursor가 last_cursor와 동일하면 수집 완료.
@@ -47,6 +52,10 @@ def collect_reviews_batch(appid: str, last_cursor: str, max_pages: int = None) -
 
     페이지 한도 도달(max_pages):
     → 현재 cursor 반환 (다음 실행에서 이어서 수집).
+
+    known_ids (active 게임 전용):
+    → 페이지 전체가 이미 저장된 리뷰로만 구성되면 조기 종료.
+       Steam은 최신순으로 반환하므로, 이 조건 충족 시 이후 페이지도 모두 기존 리뷰임.
     """
     start_cursor = last_cursor or "*"
     cursor = start_cursor
@@ -70,6 +79,14 @@ def collect_reviews_batch(appid: str, last_cursor: str, max_pages: int = None) -
             naturally_exhausted = True
             print(f"[reviews] appid={appid} 수집 완료 (동일 커서/빈 페이지 감지)")
             break
+
+        # 조기 종료: 페이지 전체가 이미 저장된 리뷰로만 구성 (active 게임 전용)
+        if known_ids is not None:
+            page_ids = {str(r.get("recommendationid", "")) for r in reviews}
+            if page_ids and page_ids.issubset(known_ids):
+                naturally_exhausted = True
+                print(f"[reviews] appid={appid} 기존 리뷰 페이지 도달 — 조기 종료 ({page_count + 1}페이지)")
+                break
 
         all_reviews.extend(reviews)
         cursor = new_cursor

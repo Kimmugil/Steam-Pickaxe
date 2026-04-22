@@ -229,6 +229,39 @@ def append_reviews(ss: gspread.Spreadsheet, reviews: list[dict]) -> int:
     return added
 
 
+def get_all_existing_ids(ss: gspread.Spreadsheet) -> set:
+    """
+    모든 연도 탭(reviews_YYYY)의 recommendationid를 일괄 조회합니다.
+    active 게임의 일상 수집 시 페이지 단위 조기 종료 판단에 사용합니다.
+
+    values_batch_get으로 모든 연도 탭의 A열을 단일 API 요청으로 읽어
+    탭 수만큼 반복하던 col_values(1) 호출을 1회로 절감합니다.
+    """
+    review_tabs = [ws for ws in ss.worksheets() if ws.title.startswith("reviews_")]
+    if not review_tabs:
+        return set()
+
+    ranges = [f"'{ws.title}'!A2:A" for ws in review_tabs]
+    try:
+        result = ss.values_batch_get(ranges)
+        ids: set = set()
+        for value_range in result.get("valueRanges", []):
+            for row in value_range.get("values", []):
+                if row and row[0]:
+                    ids.add(str(row[0]))
+        return ids
+    except Exception as e:
+        print(f"[existing_ids] batch_get 실패 ({e}) — 개별 탭 조회로 폴백")
+        ids = set()
+        for ws in review_tabs:
+            try:
+                col = ws.col_values(1)[1:]
+                ids.update(str(v) for v in col if v)
+            except Exception:
+                continue
+        return ids
+
+
 def get_language_counts(ss: gspread.Spreadsheet) -> dict:
     """
     전체 리뷰 시트에서 언어별 리뷰 수를 집계합니다.

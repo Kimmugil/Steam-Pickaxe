@@ -8,7 +8,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sheets.master_sheet import get_spreadsheet, get_all_games, update_game, ensure_games_headers
-from sheets.raw_reviews import get_or_create_raw_spreadsheet, append_reviews
+from sheets.raw_reviews import get_or_create_raw_spreadsheet, open_raw_spreadsheet, append_reviews, get_all_existing_ids
 from collectors.steam_reviews import collect_reviews_batch, get_total_review_count
 from collectors.steam_news import fetch_news, fetch_store_events, classify_news, parse_news_item, parse_store_event
 from collectors.steam_meta import fetch_app_details, parse_game_meta, fetch_steam_positive_rate
@@ -127,20 +127,37 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
             total_count = get_total_review_count(appid)
             update_game(ss, appid, {"total_reviews_count": total_count})
 
+        # active 게임은 매 실행마다 cursor=""에서 재시작하므로
+        # 기존 저장된 리뷰 ID를 미리 로드하여 per-page 조기 종료에 활용
+        raw_ss = None
+        known_ids = None
+        if status == "active" and game_sheet_id:
+            try:
+                raw_ss = open_raw_spreadsheet(game_sheet_id)
+                known_ids = get_all_existing_ids(raw_ss)
+                print(f"[reviews] 기존 리뷰 ID {len(known_ids)}건 로드 (조기 종료 판단용)")
+            except Exception as e:
+                print(f"[WARN] 기존 리뷰 ID 로드 실패 ({e}) — 조기 종료 없이 전체 수집 진행")
+                raw_ss = None
+                known_ids = None
+
         reviews, next_cursor, _ = collect_reviews_batch(
-            appid, last_cursor, max_pages=MAX_PAGES_PER_RUN
+            appid, last_cursor, max_pages=MAX_PAGES_PER_RUN, known_ids=known_ids
         )
 
         if reviews:
-            # RAW 시트 가져오기 (없으면 GAS 웹앱으로 자동 생성)
-            try:
-                raw_ss = get_or_create_raw_spreadsheet(
-                    GDRIVE_FOLDER_ID, appid, game.get("name", appid)
-                )
-            except RuntimeError as e:
-                print(f"[ERROR] RAW 시트 준비 실패: {e}")
-                print("[ERROR] GAS_WEBAPP_URL이 올바르게 설정되었는지 확인하세요.")
-                return newly_activated  # 이 게임은 건너뜀
+            # RAW 시트 가져오기:
+            # - active 게임: pre-open된 raw_ss 재사용 (API 호출 절감)
+            # - collecting 게임 또는 pre-open 실패: GAS 웹앱으로 생성/재사용
+            if raw_ss is None:
+                try:
+                    raw_ss = get_or_create_raw_spreadsheet(
+                        GDRIVE_FOLDER_ID, appid, game.get("name", appid)
+                    )
+                except RuntimeError as e:
+                    print(f"[ERROR] RAW 시트 준비 실패: {e}")
+                    print("[ERROR] GAS_WEBAPP_URL이 올바르게 설정되었는지 확인하세요.")
+                    return newly_activated  # 이 게임은 건너뜀
 
             # 개별 게임 시트 ID를 master sheet에 저장 (아직 없을 때만)
             if not game_sheet_id:
