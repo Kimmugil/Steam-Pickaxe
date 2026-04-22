@@ -14,6 +14,12 @@ const STATUS_COLORS: Record<GameStatus, string> = {
   error_pool_empty: "bg-accent-red/20 text-accent-red border-accent-red/30",
 };
 
+// ── 버튼 색상 규칙 ───────────────────────────────────────────────────────────
+// 🔵 파란색  (accent-blue)   = AI 분석    — Gemini 분석 실행 (대표AI, 타임라인AI, 미분석AI)
+// 🟢 초록색  (accent-green)  = 수집       — Steam 외부 데이터 수집 (뉴스수집, 수집재시작)
+// 🟡 노란색  (accent-yellow) = 감지·주의  — 탐지 작업 또는 사용자 입력 필요 (구간재분석, 급변감지)
+// ⚫ 회색    (text-secondary) = 유지보수   — 내부 데이터 정리·보정 (언어분포재집계, 타임라인중복정리)
+
 // ── 도움말 버튼 ───────────────────────────────────────────────────────────────
 function HelpBtn({ col, onClick }: { col: string; onClick: (c: string) => void }) {
   return (
@@ -813,7 +819,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                                 onClick={() => handleTimelineAnalyze(appid)}
                                 disabled={timelineAnalyzingIds.has(appid)}
                                 title="수집 없이 현재 데이터로 전체 타임라인 월별 리뷰·이벤트를 재분석합니다. 완료 후 평가 급변 감지도 자동 실행됩니다."
-                                className="px-2.5 py-1 text-[11px] bg-accent-green/10 border border-accent-green/30 text-accent-green rounded hover:bg-accent-green/20 transition-colors disabled:opacity-40 whitespace-nowrap"
+                                className="px-2.5 py-1 text-[11px] bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded hover:bg-accent-blue/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                               >
                                 {timelineAnalyzingIds.has(appid) ? "처리 중" : "타임라인AI"}
                               </button>
@@ -836,7 +842,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                               onClick={() => handleCollectNews(appid)}
                               disabled={collectNewsIds.has(appid)}
                               title="메타데이터·이벤트·뉴스를 최신화합니다. 이미 수집된 항목은 제외하고 신규 항목만 추가합니다. 리뷰 수집은 제외됩니다."
-                              className="px-2.5 py-1 text-[11px] bg-bg-secondary border border-border-default text-text-secondary rounded hover:border-accent-blue/40 hover:text-accent-blue transition-colors disabled:opacity-40 whitespace-nowrap"
+                              className="px-2.5 py-1 text-[11px] bg-accent-green/10 border border-accent-green/30 text-accent-green rounded hover:bg-accent-green/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                             >
                               {collectNewsIds.has(appid) ? "처리 중" : "뉴스수집"}
                             </button>
@@ -860,10 +866,31 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
       {/* ── 시스템 도구 ───────────────────────────────────────────────────── */}
       <section className="mb-10">
-        <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-accent-orange rounded-full" />
-          {t("ADMIN_SECTION_TOOLS")}
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
+            <span className="w-2 h-2 bg-accent-orange rounded-full" />
+            {t("ADMIN_SECTION_TOOLS")}
+          </h2>
+          {/* 버튼 색상 범례 */}
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-accent-blue inline-block flex-shrink-0" />
+              AI 분석
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-accent-green inline-block flex-shrink-0" />
+              수집
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-accent-yellow inline-block flex-shrink-0" />
+              감지·주의
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-border-default inline-block flex-shrink-0" />
+              유지보수
+            </span>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
 
@@ -927,7 +954,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
             <button
               onClick={() => setShowRetriggerConfirm(true)}
               disabled={retriggering}
-              className="w-full py-2 text-sm border border-border-default rounded-lg text-text-secondary hover:border-accent-blue/50 hover:text-accent-blue transition-colors disabled:opacity-40 mt-auto"
+              className="w-full py-2 text-sm border border-accent-green/40 rounded-lg text-accent-green hover:bg-accent-green/10 transition-colors disabled:opacity-40 mt-auto"
             >
               {retriggering ? "처리 중..." : "🔄 수집 재시작"}
             </button>
@@ -948,7 +975,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
             <button
               onClick={handleRecalcLangDist}
               disabled={recalcingLangDist}
-              className="w-full py-2 text-sm border border-accent-blue/40 rounded-lg text-accent-blue hover:bg-accent-blue/10 transition-colors disabled:opacity-40 mt-auto"
+              className="w-full py-2 text-sm border border-border-default rounded-lg text-text-secondary hover:border-text-muted/50 hover:text-text-primary transition-colors disabled:opacity-40 mt-auto"
             >
               {recalcingLangDist ? "처리 중..." : "📊 재집계 실행"}
             </button>
