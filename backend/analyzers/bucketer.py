@@ -4,6 +4,54 @@
 from datetime import datetime, timezone, timedelta
 from calendar import monthrange
 from typing import Optional
+import re
+
+
+def _parse_release_date(date_str: str) -> Optional[datetime]:
+    """
+    Steam API가 반환하는 다양한 날짜 형식을 파싱하여 UTC datetime을 반환합니다.
+
+    지원 형식:
+      - "2026-03-19"          (ISO, %Y-%m-%d)
+      - "19 Mar, 2026"        (Steam 영문, %d %b, %Y)
+      - "Mar 19, 2026"        (Steam 영문 alt, %b %d, %Y)
+      - "2026년 3월 19일(목)"  (한국어 regex)
+    """
+    s = str(date_str).strip()
+    if not s:
+        return None
+
+    # ISO
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    # Steam 영문 "19 Mar, 2026" / "19 Mar 2026"
+    for fmt in ("%d %b, %Y", "%d %b %Y"):
+        try:
+            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    # Steam 영문 alt "Mar 19, 2026" / "Mar 19 2026"
+    for fmt in ("%b %d, %Y", "%b %d %Y"):
+        try:
+            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    # 한국어 "2026년 3월 19일" (요일 괄호 포함 가능)
+    m = re.search(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", s)
+    if m:
+        try:
+            y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return datetime(y, mo, d, tzinfo=timezone.utc)
+        except (ValueError, OverflowError):
+            pass
+
+    return None
 
 
 def _to_ts(date_str: str, end_of_day: bool = False) -> int:
@@ -60,9 +108,9 @@ def build_monthly_buckets(timeline_events: list[dict],
     # 출시 월부터 현재 월까지 빈 버킷 보장
     if release_date:
         try:
-            release_ym = str(release_date).strip()[:7]
-            if len(release_ym) == 7 and release_ym[4] == "-":
-                # release_ym ~ current_ym 사이 모든 월 추가
+            release_dt_parsed = _parse_release_date(release_date)
+            if release_dt_parsed is not None:
+                release_ym = release_dt_parsed.strftime("%Y-%m")
                 ry, rm = int(release_ym[:4]), int(release_ym[5:7])
                 cy, cm = int(current_ym[:4]), int(current_ym[5:7])
                 y, m = ry, rm
@@ -137,9 +185,8 @@ def build_early_launch_buckets(
       }, ...
     ]
     """
-    try:
-        release_dt = datetime.strptime(str(release_date).strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except Exception:
+    release_dt = _parse_release_date(release_date)
+    if release_dt is None:
         return []
 
     now = datetime.now(tz=timezone.utc)
