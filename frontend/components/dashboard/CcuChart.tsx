@@ -20,26 +20,39 @@ interface SampledPoint {
 
 type ViewRange = "all" | "90d" | "30d";
 
-function bucketKey(date: Date, isRecent: boolean): string {
-  const d = new Date(date);
+// CCU 타임스탬프는 UTC로 저장됨 — 표시는 KST(UTC+9)로 변환
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * UTC 밀리초를 KST 시간 기준으로 버킷 키(숫자 문자열)로 변환합니다.
+ * UTC 메서드로 KST 값을 읽을 수 있도록 KST_OFFSET_MS 만큼 이동한 뒤
+ * getUTC*() 메서드를 사용합니다.
+ */
+function bucketKey(utcMs: number, isRecent: boolean): string {
+  const kstMs = utcMs + KST_OFFSET_MS;
+  const d = new Date(kstMs);
   if (isRecent) {
-    d.setHours(Math.floor(d.getHours() / 4) * 4, 0, 0, 0);
-  } else {
-    d.setHours(0, 0, 0, 0);
+    const snappedH = Math.floor(d.getUTCHours() / 4) * 4;
+    return String(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), snappedH, 0, 0));
   }
-  return d.toISOString();
+  return String(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-function formatLabel(iso: string, isRecent: boolean, hourSuffix = "시"): string {
+/**
+ * bucketKey가 반환한 숫자 문자열(KST 정렬 기준 ms)을 KST 레이블로 변환합니다.
+ */
+function formatLabel(tsKey: string, isRecent: boolean, hourSuffix = "시"): string {
   try {
-    const d = new Date(iso);
-    const m = d.getMonth() + 1;
-    const day = d.getDate();
+    // tsKey 자체가 KST 기준으로 스냅된 UTC epoch ms이므로
+    // getUTC*()를 호출하면 KST 시/일/월을 반환합니다.
+    const d = new Date(Number(tsKey));
+    const m   = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
     if (!isRecent) return `${m}/${day}`;
-    const h = d.getHours();
+    const h = d.getUTCHours();
     return h === 0 ? `${m}/${day}` : `${h}${hourSuffix}`;
   } catch {
-    return iso;
+    return tsKey;
   }
 }
 
@@ -52,10 +65,10 @@ function resampleData(rows: CcuRow[], cutoffMs?: number, hourSuffix = "시"): Sa
 
   const buckets = new Map<string, { values: number[]; isRecent: boolean }>();
   for (const row of filtered) {
-    const ts = new Date(row.timestamp).getTime();
-    if (isNaN(ts)) continue;
-    const isRecent = ts >= cutoff30d;
-    const key = bucketKey(new Date(ts), cutoffMs ? true : isRecent);
+    const utcMs = new Date(row.timestamp).getTime();
+    if (isNaN(utcMs)) continue;
+    const isRecent = utcMs >= cutoff30d;
+    const key = bucketKey(utcMs, cutoffMs ? true : isRecent);
     if (!buckets.has(key)) buckets.set(key, { values: [], isRecent: cutoffMs ? true : isRecent });
     const b = buckets.get(key)!;
     const v = Number(row.ccu_value);
@@ -63,7 +76,7 @@ function resampleData(rows: CcuRow[], cutoffMs?: number, hourSuffix = "시"): Sa
   }
 
   return Array.from(buckets.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => Number(a) - Number(b))   // 숫자 정렬 (UTC ms 기준)
     .map(([ts, b]) => ({
       ts,
       label: formatLabel(ts, b.isRecent, hourSuffix),
@@ -131,7 +144,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
 
   return (
     <div>
-      {/* 범위 선택 버튼 */}
+      {/* 범위 선택 버튼 + KST 레이블 */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex gap-1">
           {(["30d", "90d", "all"] as ViewRange[]).map((r) => (
@@ -148,9 +161,14 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
             </button>
           ))}
         </div>
-        {viewRange === "all" && (
-          <span className="text-xs text-text-muted">{t("CCU_SCROLL_HINT")}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {viewRange === "all" && (
+            <span className="text-xs text-text-muted">{t("CCU_SCROLL_HINT")}</span>
+          )}
+          <span className="text-[10px] px-1.5 py-0.5 rounded border text-text-muted border-border-default bg-bg-secondary">
+            KST
+          </span>
+        </div>
       </div>
 
       {!resampled.length ? (

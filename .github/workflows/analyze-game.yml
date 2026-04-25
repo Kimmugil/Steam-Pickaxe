@@ -13,6 +13,10 @@ on:
         description: '특정 월만 분석 (YYYY-MM). 비워두면 전체 타임라인 재분석.'
         required: false
         default: ''
+      early_launch_only:
+        description: '출시 초기 주간 버킷만 재분석 (true/false)'
+        required: false
+        default: 'false'
 
 jobs:
   analyze-game:
@@ -38,12 +42,13 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TARGET_APPID: ${{ github.event.inputs.appid }}
           TARGET_YEAR_MONTH: ${{ github.event.inputs.year_month }}
+          EARLY_LAUNCH_ONLY: ${{ github.event.inputs.early_launch_only }}
         run: |
           cd backend
           python main_analyze.py
 
       - name: 평가 급변 감지 (전체 타임라인 분석 시에만)
-        if: github.event.inputs.year_month == ''
+        if: github.event.inputs.year_month == '' && github.event.inputs.early_launch_only != 'true'
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           MASTER_SPREADSHEET_ID: ${{ secrets.MASTER_SPREADSHEET_ID }}

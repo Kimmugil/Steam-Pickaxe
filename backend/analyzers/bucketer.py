@@ -1,5 +1,5 @@
 """
-시계열 버킷팅 — 이벤트 기준 / 월 단위 리뷰 구간 분할
+시계열 버킷팅 — 이벤트 기준 / 월 단위 / 출시 초기 주간 리뷰 구간 분할
 """
 from datetime import datetime, timezone, timedelta
 from calendar import monthrange
@@ -105,6 +105,73 @@ def build_monthly_buckets(timeline_events: list[dict],
             "official_events":  official_evs,
             "all_events":       month_evs,
             "is_current_month": is_current,
+        })
+
+    return buckets
+
+
+def build_early_launch_buckets(
+    release_date: str,
+    weeks: int = 8,
+) -> list[dict]:
+    """
+    출시 초기 세분화 분석용 주간 버킷 생성.
+    release_date부터 weeks주 동안 7일 단위 버킷을 반환합니다.
+    아직 시작되지 않은 미래 주차는 자동으로 제외됩니다.
+
+    반환:
+    [
+      {
+        "year_month":        "2025-05",
+        "event_id":          "weekly_2025_05_15",
+        "event_type":        "weekly_summary",
+        "date":              "2025-05-15",
+        "date_end":          "2025-05-21",
+        "title":             "출시 1주차",
+        "start_ts":          ...,
+        "end_ts":            ...,
+        "week_number":       1,
+        "official_events":   [],
+        "all_events":        [],
+        "is_current_period": bool,
+      }, ...
+    ]
+    """
+    try:
+        release_dt = datetime.strptime(str(release_date).strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except Exception:
+        return []
+
+    now = datetime.now(tz=timezone.utc)
+    buckets = []
+
+    for week_num in range(1, weeks + 1):
+        week_start = release_dt + timedelta(days=(week_num - 1) * 7)
+        week_end_dt = week_start + timedelta(days=7) - timedelta(seconds=1)
+
+        # 아직 시작되지 않은 주차는 제외
+        if week_start > now:
+            break
+
+        is_current = week_end_dt >= now
+        actual_end = min(week_end_dt, now) if is_current else week_end_dt
+
+        week_start_str = week_start.strftime("%Y-%m-%d")
+        week_end_str   = week_end_dt.strftime("%Y-%m-%d")
+
+        buckets.append({
+            "year_month":        week_start.strftime("%Y-%m"),
+            "event_id":          f"weekly_{week_start_str.replace('-', '_')}",
+            "event_type":        "weekly_summary",
+            "date":              week_start_str,
+            "date_end":          week_end_str,
+            "title":             f"출시 {week_num}주차",
+            "start_ts":          int(week_start.timestamp()),
+            "end_ts":            int(actual_end.timestamp()),
+            "week_number":       week_num,
+            "official_events":   [],
+            "all_events":        [],
+            "is_current_period": is_current,
         })
 
     return buckets

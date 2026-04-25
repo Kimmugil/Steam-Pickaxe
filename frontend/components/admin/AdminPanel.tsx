@@ -117,13 +117,14 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [monthInputVal, setMonthInputVal] = useState("");
 
   // ── 게임별 액션 로딩 상태 ─────────────────────────────────────────────────
-  const [togglingIds,          setTogglingIds]          = useState<Set<string>>(new Set());
-  const [approvingIds,         setApprovingIds]         = useState<Set<string>>(new Set());
-  const [unapprovingIds,       setUnapprovingIds]       = useState<Set<string>>(new Set());
-  const [coreAnalyzingIds,     setCoreAnalyzingIds]     = useState<Set<string>>(new Set());
-  const [timelineAnalyzingIds, setTimelineAnalyzingIds] = useState<Set<string>>(new Set());
-  const [monthAnalyzingIds,    setMonthAnalyzingIds]    = useState<Set<string>>(new Set());
-  const [collectNewsIds,       setCollectNewsIds]       = useState<Set<string>>(new Set());
+  const [togglingIds,              setTogglingIds]              = useState<Set<string>>(new Set());
+  const [approvingIds,             setApprovingIds]             = useState<Set<string>>(new Set());
+  const [unapprovingIds,           setUnapprovingIds]           = useState<Set<string>>(new Set());
+  const [coreAnalyzingIds,         setCoreAnalyzingIds]         = useState<Set<string>>(new Set());
+  const [timelineAnalyzingIds,     setTimelineAnalyzingIds]     = useState<Set<string>>(new Set());
+  const [monthAnalyzingIds,        setMonthAnalyzingIds]        = useState<Set<string>>(new Set());
+  const [earlyLaunchAnalyzingIds,  setEarlyLaunchAnalyzingIds]  = useState<Set<string>>(new Set());
+  const [collectNewsIds,           setCollectNewsIds]           = useState<Set<string>>(new Set());
 
   // ── 시스템 도구 로딩 상태 ────────────────────────────────────────────────
   const [analyzingPending,   setAnalyzingPending]   = useState(false);
@@ -242,14 +243,14 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show("AI 분석 승인 완료. 리뷰 수집 완료 후 다음 월간 분석 시 자동 실행됩니다.", "success");
+        show(t("ADMIN_TOAST_APPROVE_ONLY"), "success");
         setApproveConfirmGame(null);
         router.refresh();
       } else {
-        show(data.error ?? "오류가 발생했습니다.", "error");
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
       }
     } catch {
-      show("서버 연결 오류", "error");
+      show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setApproveOnlyIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -292,7 +293,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show("대표 AI 분석을 시작했습니다. 수 분 내 완료됩니다.", "success");
+        show(t("ADMIN_TOAST_CORE_ANALYZE"), "success");
       } else {
         show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
       }
@@ -316,7 +317,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show("타임라인 AI 분석을 시작했습니다. 완료까지 수 분~수십 분 소요됩니다.", "success");
+        show(t("ADMIN_TOAST_TIMELINE_ANALYZE"), "success");
       } else {
         show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
       }
@@ -330,7 +331,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   // ── 특정 구간 재분석 ──────────────────────────────────────────────────────
   async function handleAnalyzeMonth(appid: string, yearMonth: string) {
     if (!/^\d{4}-\d{2}$/.test(yearMonth)) {
-      show("올바른 형식으로 입력해주세요 (예: 2024-03)", "error");
+      show(t("ADMIN_MONTH_FORMAT_ERROR"), "error");
       return;
     }
     const savedPw = getSavedPw();
@@ -346,7 +347,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(`${yearMonth} 구간 재분석을 시작했습니다.`, "success");
+        show(t("ADMIN_TOAST_MONTH_REANALYZE", { ym: yearMonth }), "success");
       } else {
         show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
       }
@@ -354,6 +355,30 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setMonthAnalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
+    }
+  }
+
+  // ── 출시 초기 주간 재분석 ────────────────────────────────────────────────
+  async function handleEarlyLaunchAnalyze(appid: string) {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setEarlyLaunchAnalyzingIds((prev) => new Set(prev).add(appid));
+    try {
+      const res = await fetch("/api/admin/analyze-early-launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw, appid }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show(t("ADMIN_TOAST_EARLY_LAUNCH"), "success");
+      } else {
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      }
+    } catch {
+      show(t("SERVER_CONNECT_ERROR"), "error");
+    } finally {
+      setEarlyLaunchAnalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
   }
 
@@ -370,7 +395,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show("이벤트/뉴스 수집을 시작했습니다. 수 분 내 완료됩니다.", "success");
+        show(t("ADMIN_TOAST_COLLECT_NEWS"), "success");
       } else {
         show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
       }
@@ -395,7 +420,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show("수집 재시작을 요청했습니다. 전체 게임 리뷰·뉴스 수집이 시작됩니다.", "success");
+        show(t("ADMIN_TOAST_RETRIGGER"), "success");
       } else {
         show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
       }
@@ -491,12 +516,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show("평가 급변 감지를 시작했습니다. 수 분 내 완료됩니다.", "success");
+        show(t("ADMIN_TOAST_DETECT_SHIFTS"), "success");
       } else {
-        show(data.error ?? "오류가 발생했습니다.", "error");
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
       }
     } catch {
-      show("서버 연결 오류", "error");
+      show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setDetectingShifts(false);
     }
@@ -773,7 +798,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                         })()}
                       </td>
 
-                      {/* 마지막 수집 / AI 분석 날짜 */}
+                      {/* 마지막 수집 / AI 분석 날짜 (KST 기준) */}
                       <td className="px-4 py-3 text-xs">
                         <div className="space-y-0.5">
                           <div>
@@ -783,6 +808,9 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                           <div>
                             <span className="text-text-muted text-[10px]">{t("ADMIN_COL_ANALYZE_DATE")}</span>
                             <span className="text-text-secondary">{game.ai_briefing_date || "—"}</span>
+                            {game.ai_briefing_date && (
+                              <span className="ml-1 text-[9px] text-text-muted">KST</span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -808,31 +836,43 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                               <button
                                 onClick={() => handleCoreAnalyze(appid)}
                                 disabled={coreAnalyzingIds.has(appid)}
-                                title="수집 없이 현재 데이터 기준으로 AI 현황 진단 · CCU 피크타임 · 평가 추이 종합 진단 · 언어권 교차 분석 4가지를 재실행합니다"
+                                title={t("ADMIN_BTN_CORE_ANALYZE_TITLE")}
                                 className="px-2.5 py-1 text-[11px] bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded hover:bg-accent-blue/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                               >
-                                {coreAnalyzingIds.has(appid) ? "처리 중" : "대표AI"}
+                                {coreAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_CORE_ANALYZE")}
                               </button>
 
                               {/* 타임라인 AI 분석 */}
                               <button
                                 onClick={() => handleTimelineAnalyze(appid)}
                                 disabled={timelineAnalyzingIds.has(appid)}
-                                title="수집 없이 현재 데이터로 전체 타임라인 월별 리뷰·이벤트를 재분석합니다. 완료 후 평가 급변 감지도 자동 실행됩니다."
+                                title={t("ADMIN_BTN_TIMELINE_ANALYZE_TITLE")}
                                 className="px-2.5 py-1 text-[11px] bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded hover:bg-accent-blue/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                               >
-                                {timelineAnalyzingIds.has(appid) ? "처리 중" : "타임라인AI"}
+                                {timelineAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_TIMELINE_ANALYZE")}
                               </button>
 
                               {/* 구간 재분석 */}
                               <button
                                 onClick={() => { setMonthInputGame(appid); setMonthInputVal(""); }}
                                 disabled={monthAnalyzingIds.has(appid)}
-                                title="YYYY-MM 형식으로 년월을 입력해 해당 타임라인 구간만 선택 재분석합니다"
+                                title={t("ADMIN_BTN_MONTH_REANALYZE_TITLE")}
                                 className="px-2.5 py-1 text-[11px] bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow rounded hover:bg-accent-yellow/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                               >
-                                {monthAnalyzingIds.has(appid) ? "처리 중" : "구간재분석"}
+                                {monthAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_MONTH_REANALYZE")}
                               </button>
+
+                              {/* 출시 초기 주간 재분석 */}
+                              {game.release_date && (
+                                <button
+                                  onClick={() => handleEarlyLaunchAnalyze(appid)}
+                                  disabled={earlyLaunchAnalyzingIds.has(appid)}
+                                  title={t("ADMIN_BTN_EARLY_LAUNCH_TITLE")}
+                                  className="px-2.5 py-1 text-[11px] bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow rounded hover:bg-accent-yellow/20 transition-colors disabled:opacity-40 whitespace-nowrap"
+                                >
+                                  {earlyLaunchAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_EARLY_LAUNCH")}
+                                </button>
+                              )}
                             </>
                           )}
 
@@ -841,10 +881,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             <button
                               onClick={() => handleCollectNews(appid)}
                               disabled={collectNewsIds.has(appid)}
-                              title="메타데이터·이벤트·뉴스를 최신화합니다. 이미 수집된 항목은 제외하고 신규 항목만 추가합니다. 리뷰 수집은 제외됩니다."
+                              title={t("ADMIN_BTN_COLLECT_NEWS_TITLE")}
                               className="px-2.5 py-1 text-[11px] bg-accent-green/10 border border-accent-green/30 text-accent-green rounded hover:bg-accent-green/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                             >
-                              {collectNewsIds.has(appid) ? "처리 중" : "뉴스수집"}
+                              {collectNewsIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_COLLECT_NEWS")}
                             </button>
                           )}
                         </div>

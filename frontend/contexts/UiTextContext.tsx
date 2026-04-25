@@ -702,6 +702,33 @@ const FALLBACK: Record<string, string> = {
   HELP_DATES_L1: "마지막 수집: 이벤트가 마지막으로 수집·업데이트된 날짜입니다 (last_event_date 기준).",
   HELP_DATES_L2: "AI 분석: 게임 브리핑과 이벤트 AI 분석이 마지막으로 실행된 날짜입니다 (ai_briefing_date 기준).",
   HELP_DATES_L3: "두 날짜 차이가 클수록 수집 이후 AI 분석이 아직 반영되지 않은 구간이 있을 수 있습니다.",
+
+  // ── AdminPanel 토스트 / 버튼 추가 ────────────────────────────────────────
+  ADMIN_TOAST_APPROVE_ONLY: "AI 분석 승인 완료. 리뷰 수집 완료 후 다음 월간 분석 시 자동 실행됩니다.",
+  ADMIN_TOAST_TIMELINE_ANALYZE: "타임라인 AI 분석을 시작했습니다. 완료까지 수 분~수십 분 소요됩니다.",
+  ADMIN_TOAST_MONTH_REANALYZE: "{ym} 구간 재분석을 시작했습니다.",
+  ADMIN_TOAST_EARLY_LAUNCH: "출시 초기 주간 분석을 시작했습니다. 수 분~수십 분 소요됩니다.",
+  ADMIN_TOAST_COLLECT_NEWS: "이벤트/뉴스 수집을 시작했습니다. 수 분 내 완료됩니다.",
+  ADMIN_TOAST_RETRIGGER: "수집 재시작을 요청했습니다. 전체 게임 리뷰·뉴스 수집이 시작됩니다.",
+  ADMIN_TOAST_DETECT_SHIFTS: "평가 급변 감지를 시작했습니다. 수 분 내 완료됩니다.",
+  ADMIN_MONTH_FORMAT_ERROR: "올바른 형식으로 입력해주세요 (예: 2024-03)",
+
+  // ── AdminPanel 버튼 레이블 ────────────────────────────────────────────────
+  ADMIN_BTN_CORE_ANALYZE: "대표AI",
+  ADMIN_BTN_CORE_ANALYZE_TITLE: "수집 없이 현재 데이터 기준으로 AI 현황 진단 · CCU 피크타임 · 평가 추이 종합 진단 · 언어권 교차 분석 4가지를 재실행합니다",
+  ADMIN_BTN_TIMELINE_ANALYZE: "타임라인AI",
+  ADMIN_BTN_TIMELINE_ANALYZE_TITLE: "수집 없이 현재 데이터로 전체 타임라인 월별 리뷰·이벤트를 재분석합니다. 완료 후 평가 급변 감지도 자동 실행됩니다.",
+  ADMIN_BTN_MONTH_REANALYZE: "구간재분석",
+  ADMIN_BTN_MONTH_REANALYZE_TITLE: "YYYY-MM 형식으로 년월을 입력해 해당 타임라인 구간만 선택 재분석합니다",
+  ADMIN_BTN_EARLY_LAUNCH: "출시초기분석",
+  ADMIN_BTN_EARLY_LAUNCH_TITLE: "출시 후 8주 내 주간 단위 세분화 분석을 실행합니다. 기존 월간 분석은 유지됩니다.",
+  ADMIN_BTN_COLLECT_NEWS: "뉴스수집",
+  ADMIN_BTN_COLLECT_NEWS_TITLE: "메타데이터·이벤트·뉴스를 최신화합니다. 이미 수집된 항목은 제외하고 신규 항목만 추가합니다. 리뷰 수집은 제외됩니다.",
+
+  // ── 타임라인 주간 분석 ────────────────────────────────────────────────────
+  TIMELINE_WEEKLY_BADGE: "주간",
+  TIMELINE_WEEKLY_SECTION_LABEL: "📅 출시 초기 주간 세분화 분석",
+  TIMELINE_HAS_WEEKLY: "주간분석",
 };
 
 // ── Context 타입 ──────────────────────────────────────────────────────────────

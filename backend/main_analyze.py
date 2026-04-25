@@ -18,30 +18,50 @@ from sheets.game_sheet import (
     get_ccu_data,
 )
 from sheets.raw_reviews import open_raw_spreadsheet, get_reviews_in_range, get_language_counts
-from analyzers.bucketer import build_monthly_buckets, sample_reviews
+from analyzers.bucketer import build_monthly_buckets, build_early_launch_buckets, sample_reviews
 from analyzers.gemini_analyzer import (
     analyze_bucket, analyze_patch_summary,
     generate_ai_briefing, generate_sentiment_trend_comment,
     generate_ccu_peaktime_comment, generate_language_cross_analysis, LANGUAGE_NAMES,
 )
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 GDRIVE_FOLDER_ID    = os.environ.get("GDRIVE_FOLDER_ID", "")
 TOP_LANGUAGES_COUNT = 5
+KST = timezone(timedelta(hours=9))
 
 # ── 타겟 필터 ──────────────────────────────────────────────────────────────────
-# TARGET_APPID:       설정 시 해당 게임만 처리
-# TARGET_YEAR_MONTH:  "YYYY-MM" 설정 시 해당 월만 분석 (미설정 = 미분석+현재 월 전체)
+# TARGET_APPID:         설정 시 해당 게임만 처리
+# TARGET_YEAR_MONTH:    "YYYY-MM" 설정 시 해당 월만 분석 (미설정 = 미분석+현재 월 전체)
+# CORE_ONLY:            true 일 때 이벤트 수집/월간 분석을 건너뛰고 4개 종합 분석만 강제 실행
+# EARLY_LAUNCH_ONLY:    true 일 때 출시 초기 주간 버킷만 재분석 (월별 버킷 생략)
 TARGET_APPID       = os.environ.get("TARGET_APPID",       "").strip()
 TARGET_YEAR_MONTH  = os.environ.get("TARGET_YEAR_MONTH",  "").strip()
-# CORE_ONLY: true 일 때 이벤트 수집/월간 분석을 건너뛰고 4개 종합 분석만 강제 실행
 CORE_ONLY          = os.environ.get("CORE_ONLY",          "").strip().lower() == "true"
+EARLY_LAUNCH_ONLY  = os.environ.get("EARLY_LAUNCH_ONLY",  "").strip().lower() == "true"
+
+# 출시 초기 주간 분석 기간 (릴리즈일 기준 이 주수 동안 주간 버킷 생성)
+EARLY_LAUNCH_WEEKS = 8
+
+
+def _compute_actual_pos_rate(reviews: list[dict]) -> float:
+    """voted_up 레이블 기준 실제 긍정률 계산 (KST 기준 0.0~100.0).
+    Gemini 추정치 대신 Steam 원시 데이터를 사용해 100% 과대 계상 방지."""
+    if not reviews:
+        return 0.0
+
+    def _is_pos(r: dict) -> bool:
+        v = r.get("voted_up", False)
+        return v is True or str(v).upper() == "TRUE"
+
+    pos = sum(1 for r in reviews if _is_pos(r))
+    return round(pos / len(reviews) * 100, 1)
 
 
 def run():
     ss = get_spreadsheet()
-    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
-    now_ym = datetime.now(tz=timezone.utc).strftime("%Y-%m")
+    today  = datetime.now(tz=KST).strftime("%Y-%m-%d %H:%M")  # KST 기준 저장
+    now_ym = datetime.now(tz=KST).strftime("%Y-%m")
 
     if TARGET_APPID:
         print(f"[TARGET] 게임 필터: {TARGET_APPID}")
@@ -172,16 +192,35 @@ def run():
 
         if CORE_ONLY:
             print(f"  [CORE_ONLY] 이벤트 수집·월간 분석 건너뜀 — 4개 종합 분석만 실행")
+        if EARLY_LAUNCH_ONLY:
+            print(f"  [EARLY_LAUNCH_ONLY] 출시 초기 주간 버킷만 재분석")
 
         # ── 월별 버킷 구성 ──────────────────────────────────────────────────
         release_date = str(game.get("release_date", "")).strip()
-        monthly_buckets = build_monthly_buckets(timeline_rows, release_date=release_date or None) if not CORE_ONLY else []
+        skip_monthly = CORE_ONLY or EARLY_LAUNCH_ONLY
+        monthly_buckets = build_monthly_buckets(timeline_rows, release_date=release_date or None) if not skip_monthly else []
+
+        # 출시 초기 주간 버킷 (release_date가 있을 때만)
+        early_launch_buckets = []
+        if release_date and not CORE_ONLY:
+            early_launch_buckets = build_early_launch_buckets(release_date, weeks=EARLY_LAUNCH_WEEKS)
+            if early_launch_buckets:
+                print(f"  [early_launch] 주간 버킷 {len(early_launch_buckets)}개 (출시 후 {EARLY_LAUNCH_WEEKS}주)")
 
         # 이미 완료된 월 (monthly_summary 행이 있고 sentiment_rate가 채워진 것)
         completed_months = {
             r["event_id"][len("monthly_"):].replace("_", "-")
             for r in timeline_rows
             if r.get("event_type") == "monthly_summary"
+            and r.get("language_scope") == "all"
+            and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse", None)
+        }
+
+        # 이미 완료된 주간 버킷
+        completed_weekly = {
+            r["event_id"]
+            for r in timeline_rows
+            if r.get("event_type") == "weekly_summary"
             and r.get("language_scope") == "all"
             and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse", None)
         }
@@ -293,12 +332,9 @@ def run():
                 analysis = analyze_bucket(name, bucket["title"], sampled, scope,
                                           include_top_reviews=is_all_scope)
 
-                # sentiment_rate 검증: 0~100 범위로 클램핑 (Gemini가 범위 벗어난 값을 반환할 경우 대비)
-                _raw_rate = analysis.get("sentiment_rate", 0)
-                try:
-                    _clamped = max(0.0, min(100.0, float(_raw_rate)))
-                except (ValueError, TypeError):
-                    _clamped = 0.0
+                # sentiment_rate: Gemini 추정 대신 voted_up 레이블 기준 실제 긍정률 사용
+                # → Gemini가 100%를 반환하는 과대 계상 현상 방지
+                _clamped = _compute_actual_pos_rate(scope_reviews)
 
                 row = {
                     "event_id":           bucket["event_id"],
@@ -332,6 +368,94 @@ def run():
             wrote_new_bucket = True
             print(f"  월간 분석 완료: {bucket['title']}")
 
+        # ── 출시 초기 주간 버킷 분석 ────────────────────────────────────────
+        WEEKLY_SPARSE = 3  # 주간 리뷰 이 건수 이하면 sparse
+        for bucket in early_launch_buckets:
+            bid = bucket["event_id"]
+
+            # 완료된 주간 버킷은 skip (EARLY_LAUNCH_ONLY 시 강제 재분석)
+            if bid in completed_weekly and not EARLY_LAUNCH_ONLY and not force_full_reanalyze:
+                continue
+
+            print(f"  주간 분석: {bucket['title']} ({bucket['date']} ~ {bucket['date_end']})")
+
+            from datetime import datetime as _dt2
+            start_year = _dt2.utcfromtimestamp(max(bucket["start_ts"], 1)).year
+            end_year   = _dt2.utcfromtimestamp(max(bucket["end_ts"],   1)).year
+            week_years = list(range(start_year, end_year + 1))
+            week_reviews = get_reviews_in_range(raw_ss, bucket["start_ts"], bucket["end_ts"], week_years)
+            print(f"    → 리뷰 {len(week_reviews)}건")
+
+            if len(week_reviews) <= WEEKLY_SPARSE:
+                print(f"    → sparse (리뷰 {len(week_reviews)}건) — AI 호출 생략")
+                sparse_row = {
+                    "event_id":             bid,
+                    "event_type":           "weekly_summary",
+                    "date":                 bucket["date"],
+                    "date_end":             bucket["date_end"],
+                    "title":                bucket["title"],
+                    "language_scope":       "all",
+                    "sentiment_rate":       "sparse",
+                    "review_count":         len(week_reviews),
+                    "ai_patch_summary":     "",
+                    "ai_reaction_summary":  "",
+                    "top_keywords":         "[]",
+                    "top_reviews":          "[]",
+                    "url":                  "",
+                    "is_sale_period":       False,
+                    "sale_text":            "",
+                    "is_free_weekend":      False,
+                    "title_kr":             bucket["title"],
+                }
+                if (bid, "all") in existing_scope_ids:
+                    gs_update_timeline(game_ss, bid, "all", sparse_row, row_map=scope_row_map)
+                else:
+                    gs_append_timeline(game_ss, sparse_row)
+                    scope_row_map[(bid, "all")] = max(scope_row_map.values(), default=1) + 1
+                    existing_scope_ids.add((bid, "all"))
+                time.sleep(1)
+                continue
+
+            # 주간 버킷 분석 (all 스코프만, 언어별 스코프 생략 — 주간은 데이터가 적으므로)
+            weekly_sampled = sample_reviews(week_reviews)
+            if not weekly_sampled:
+                continue
+
+            weekly_analysis = analyze_bucket(name, bucket["title"], weekly_sampled, "all",
+                                             include_top_reviews=True)
+            weekly_rate = _compute_actual_pos_rate(week_reviews)
+
+            weekly_row = {
+                "event_id":             bid,
+                "event_type":           "weekly_summary",
+                "date":                 bucket["date"],
+                "date_end":             bucket["date_end"],
+                "title":                bucket["title"],
+                "language_scope":       "all",
+                "sentiment_rate":       weekly_rate,
+                "review_count":         len(week_reviews),
+                "ai_patch_summary":     "",
+                "ai_reaction_summary":  weekly_analysis.get("ai_reaction_summary", ""),
+                "top_keywords":         json.dumps(weekly_analysis.get("top_keywords", []), ensure_ascii=False),
+                "top_reviews":          json.dumps(weekly_analysis.get("top_reviews", []), ensure_ascii=False),
+                "url":                  "",
+                "is_sale_period":       False,
+                "sale_text":            "",
+                "is_free_weekend":      False,
+                "title_kr":             bucket["title"],
+            }
+
+            if (bid, "all") in existing_scope_ids:
+                gs_update_timeline(game_ss, bid, "all", weekly_row, row_map=scope_row_map)
+            else:
+                gs_append_timeline(game_ss, weekly_row)
+                scope_row_map[(bid, "all")] = max(scope_row_map.values(), default=1) + 1
+                existing_scope_ids.add((bid, "all"))
+
+            wrote_new_bucket = True
+            time.sleep(2)
+            print(f"  주간 분석 완료: {bucket['title']}")
+
         if wrote_new_bucket:
             time.sleep(5)
 
@@ -339,7 +463,7 @@ def run():
         final_timeline = gs_get_timeline(game_ss) if wrote_new_bucket else timeline_rows
 
         # ── 전체 AI 브리핑 (새 버킷 또는 CORE_ONLY 시에만 갱신) ─────────
-        if wrote_new_bucket or CORE_ONLY:
+        if wrote_new_bucket or CORE_ONLY or EARLY_LAUNCH_ONLY:
             briefing = _generate_briefing(name, final_timeline)
             try:
                 update_game(ss, appid, {
@@ -447,9 +571,9 @@ def run():
                 except Exception as e:
                     print(f"  [lang_cross] 오류: {e}")
 
-        # ── 감성 추이 종합 분석 (신규 버킷 작성 시 or CORE_ONLY 강제 갱신) ──
+        # ── 감성 추이 종합 분석 (신규 버킷 작성 시 or CORE_ONLY/EARLY_LAUNCH_ONLY 강제 갱신) ──
         sentiment_trend_comment = game.get("sentiment_trend_comment", "")
-        if wrote_new_bucket or CORE_ONLY:
+        if wrote_new_bucket or CORE_ONLY or EARLY_LAUNCH_ONLY:
             analyzed_monthly_rows = [
                 r for r in final_timeline
                 if r.get("event_type") == "monthly_summary"
@@ -488,6 +612,8 @@ def run():
 
         if CORE_ONLY:
             print(f"종합 분석 완료 (브리핑+CCU+언어+추이)")
+        elif EARLY_LAUNCH_ONLY:
+            print(f"출시 초기 주간 분석 완료 (이벤트={ev_count}건)")
         else:
             print(f"분석 완료 (긍정률={latest_rate}%, 이벤트={ev_count}건)")
 

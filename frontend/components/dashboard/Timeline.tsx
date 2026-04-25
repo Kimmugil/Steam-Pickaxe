@@ -178,9 +178,106 @@ function EventItem({
   );
 }
 
+// ── 주간 카드 (출시 초기 세분화 분석) ──────────────────────────────────────
+function WeeklyCard({ row }: { row: TimelineRow }) {
+  const { t } = useUiText();
+  const [expanded, setExpanded] = useState(false);
+
+  const isSparse  = String(row.sentiment_rate) === "sparse";
+  const isPending = row.sentiment_rate === "" || row.sentiment_rate == null;
+  const rate      = (!isSparse && !isPending) ? Number(row.sentiment_rate) : null;
+  const reviewCount = Number(row.review_count || 0);
+
+  const keywords: string[] = (() => {
+    try { return JSON.parse(row.top_keywords || "[]") ?? []; } catch { return []; }
+  })();
+  const reviews: TopReview[] = (() => {
+    try { return JSON.parse(row.top_reviews || "[]") ?? []; } catch { return []; }
+  })();
+
+  const dateLabel = row.date_end && row.date_end !== row.date
+    ? `${row.date} – ${row.date_end}`
+    : row.date;
+
+  return (
+    <div className="border border-accent-blue/20 rounded-lg overflow-hidden bg-accent-blue/3">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 bg-bg-card hover:bg-bg-secondary transition-colors text-left"
+      >
+        <span className="text-[10px] px-1.5 py-0.5 rounded border font-semibold shrink-0 text-accent-blue border-accent-blue/40 bg-accent-blue/10">
+          {t("TIMELINE_WEEKLY_BADGE")}
+        </span>
+        <span className="text-xs font-medium text-text-primary shrink-0">{row.title}</span>
+        <span className="text-[10px] text-text-muted shrink-0">{dateLabel}</span>
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          {isPending ? (
+            <span className="text-[10px] text-text-muted px-1.5 py-0.5 bg-bg-secondary border border-border-default rounded">
+              {t("TIMELINE_PENDING")}
+            </span>
+          ) : isSparse ? (
+            <span className="text-[10px] text-text-muted px-1.5 py-0.5 bg-bg-secondary border border-border-default rounded">
+              {t("TIMELINE_SPARSE_LABEL")}
+            </span>
+          ) : rate !== null ? (
+            <Badge rate={rate} reviewCount={reviewCount} size="sm" labelOnly />
+          ) : null}
+          <span className="text-text-muted text-xs">{expanded ? "▲" : "▼"}</span>
+        </div>
+      </button>
+
+      {expanded && !isPending && !isSparse && (
+        <div className="border-t border-border-default/30 px-3 py-3 space-y-3 bg-bg-primary/60">
+          {reviewCount > 0 && (
+            <p className="text-xs text-text-muted">
+              {t("SHIFT_REVIEW_COUNT", { count: reviewCount.toLocaleString() })}
+            </p>
+          )}
+          {row.ai_reaction_summary && (
+            <div>
+              <p className="text-xs font-medium mb-1 text-text-muted">{t("TIMELINE_REACTION")}</p>
+              <p className="text-sm text-text-secondary leading-relaxed">{row.ai_reaction_summary}</p>
+            </div>
+          )}
+          {keywords.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {keywords.map((kw, ki) => (
+                <span key={ki} className="text-xs bg-bg-secondary px-2 py-0.5 rounded text-text-secondary border border-border-default">
+                  {kw}
+                </span>
+              ))}
+            </div>
+          )}
+          {reviews.length > 0 && (
+            <div>
+              <p className="text-xs font-medium mb-1.5 text-text-muted">{t("SHIFT_TOP_REVIEWS_LABEL")}</p>
+              <div className="space-y-2">
+                {reviews.slice(0, 3).map((rv, ri) => (
+                  <div key={ri} className={`bg-bg-card border rounded-lg p-2.5 ${rv.voted_up ? "border-accent-green/20" : "border-accent-red/20"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
+                        {rv.voted_up ? t("REVIEW_POSITIVE") : t("REVIEW_NEGATIVE")}
+                      </span>
+                      <span className="text-xs text-text-muted">[{rv.language}]</span>
+                    </div>
+                    {rv.language !== "koreana" && rv.text !== rv.text_kr && (
+                      <p className="text-xs text-text-muted mb-1">{rv.text}</p>
+                    )}
+                    <p className="text-sm text-text-secondary">{rv.text_kr || rv.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 월별 카드 ────────────────────────────────────────────────────────────────
 function MonthCard({
-  summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm, hasShift, shiftRows, eventById,
+  summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm, hasShift, shiftRows, eventById, weeklyRows,
 }: {
   summaryRow: TimelineRow | null;
   eventRows: TimelineRow[];
@@ -191,6 +288,7 @@ function MonthCard({
   hasShift?: boolean;
   shiftRows?: TimelineRow[];
   eventById?: Record<string, TimelineRow>;
+  weeklyRows?: TimelineRow[];
 }) {
   const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
@@ -252,6 +350,13 @@ function MonthCard({
         {releaseYm && ym === releaseYm && (
           <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-green border-accent-green/40 bg-accent-green/10 shrink-0">
             {t("TIMELINE_RELEASE_MARKER")}
+          </span>
+        )}
+
+        {/* 주간 분석 배지 */}
+        {weeklyRows && weeklyRows.length > 0 && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-blue border-accent-blue/30 bg-accent-blue/10 shrink-0">
+            {t("TIMELINE_HAS_WEEKLY")}
           </span>
         )}
 
@@ -336,6 +441,16 @@ function MonthCard({
             </div>
           )}
 
+          {/* 출시 초기 주간 분석 섹션 */}
+          {weeklyRows && weeklyRows.length > 0 && (
+            <div className="px-4 pt-3 pb-2 border-b border-border-default space-y-2">
+              <p className="text-xs font-medium text-accent-blue">{t("TIMELINE_WEEKLY_SECTION_LABEL")}</p>
+              {[...weeklyRows].sort((a, b) => a.date.localeCompare(b.date)).map((row) => (
+                <WeeklyCard key={row.event_id} row={row} />
+              ))}
+            </div>
+          )}
+
           {/* 평가 급변 감지 섹션 — sparse/pending 월 포함 모든 상태에서 표시 */}
           {shiftRows && shiftRows.length > 0 && (
             <div className="px-4 pt-3 pb-2 border-b border-border-default space-y-2">
@@ -414,12 +529,26 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
     return map;
   }, [timelineRows]);
 
-  // 개별 이벤트 rows (all scope, monthly_summary / sentiment_shift 제외)
+  // weekly_summary rows (all scope) — 월 기준으로 그룹화
+  const weeklyByYm = useMemo(() => {
+    const map: Record<string, TimelineRow[]> = {};
+    for (const r of timelineRows) {
+      if (r.event_type === "weekly_summary" && r.language_scope === "all") {
+        const ym = r.date?.slice(0, 7) ?? "";
+        if (!ym) continue;
+        map[ym] = map[ym] ?? [];
+        map[ym].push(r);
+      }
+    }
+    return map;
+  }, [timelineRows]);
+
+  // 개별 이벤트 rows (all scope, monthly_summary / weekly_summary / sentiment_shift 제외)
   const eventsByYm = useMemo(() => {
     const map: Record<string, TimelineRow[]> = {};
     for (const r of timelineRows) {
       if (r.language_scope !== "all") continue;
-      if (r.event_type === "monthly_summary" || r.event_type === "sentiment_shift") continue;
+      if (r.event_type === "monthly_summary" || r.event_type === "weekly_summary" || r.event_type === "sentiment_shift") continue;
       const ym = r.date?.slice(0, 7) ?? "";
       if (!ym) continue;
       map[ym] = map[ym] ?? [];
@@ -436,11 +565,15 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, [releaseDate]);
 
-  // 모든 YYYY-MM 목록 (summary + event rows 합집합)
+  // 모든 YYYY-MM 목록 (summary + event + weekly rows 합집합)
   const allYms = useMemo(() => {
-    const yms = new Set([...Object.keys(summaryByYm), ...Object.keys(eventsByYm)]);
+    const yms = new Set([
+      ...Object.keys(summaryByYm),
+      ...Object.keys(eventsByYm),
+      ...Object.keys(weeklyByYm),
+    ]);
     return [...yms].sort((a, b) => sortAsc ? a.localeCompare(b) : b.localeCompare(a));
-  }, [summaryByYm, eventsByYm, sortAsc]);
+  }, [summaryByYm, eventsByYm, weeklyByYm, sortAsc]);
 
   if (allYms.length === 0) {
     return (
@@ -464,7 +597,8 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
 
       <div className="space-y-2">
         {allYms.map((ym) => {
-          const shiftsForYm = shiftsByYm[ym] ?? [];
+          const shiftsForYm  = shiftsByYm[ym]  ?? [];
+          const weeklyForYm  = weeklyByYm[ym]  ?? [];
           return (
             <MonthCard
               key={ym}
@@ -477,6 +611,7 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
               hasShift={shiftsForYm.length > 0}
               shiftRows={shiftsForYm}
               eventById={eventById}
+              weeklyRows={weeklyForYm.length > 0 ? weeklyForYm : undefined}
             />
           );
         })}

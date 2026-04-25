@@ -42,7 +42,7 @@ export interface Game {
 
 export interface TimelineRow {
   event_id: string;
-  event_type: "official" | "news" | "manual" | "free_weekend" | "launch" | "monthly_summary" | "sentiment_shift";
+  event_type: "official" | "news" | "manual" | "free_weekend" | "launch" | "monthly_summary" | "weekly_summary" | "sentiment_shift";
   date: string;
   title: string;
   title_kr?: string;   // AI 생성 한국어 제목
