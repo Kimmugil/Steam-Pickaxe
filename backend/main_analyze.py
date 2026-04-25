@@ -216,14 +216,18 @@ def run():
             and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse", None)
         }
 
-        # 이미 완료된 주간 버킷
-        completed_weekly = {
-            r["event_id"]
-            for r in timeline_rows
-            if r.get("event_type") == "weekly_summary"
-            and r.get("language_scope") == "all"
-            and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse", None)
-        }
+        # 이미 완료된 주간 버킷 — event_id → 완료된 language_scope 집합
+        completed_weekly_scopes: dict[str, set[str]] = {}
+        for _r in timeline_rows:
+            if (
+                _r.get("event_type") == "weekly_summary"
+                and str(_r.get("sentiment_rate", "")).strip() not in ("", "sparse", None)
+            ):
+                _eid = _r.get("event_id", "")
+                if _eid:
+                    completed_weekly_scopes.setdefault(_eid, set()).add(
+                        _r.get("language_scope", "all")
+                    )
 
         # scope_row_map: (event_id, language_scope) → 행 번호 (UPDATE/APPEND 분기용)
         scope_row_map      = build_scope_row_map(timeline_rows)
@@ -369,91 +373,131 @@ def run():
             print(f"  월간 분석 완료: {bucket['title']}")
 
         # ── 출시 초기 주간 버킷 분석 ────────────────────────────────────────
-        WEEKLY_SPARSE = 3  # 주간 리뷰 이 건수 이하면 sparse
-        for bucket in early_launch_buckets:
-            bid = bucket["event_id"]
+        WEEKLY_SPARSE   = 3   # 주간 리뷰 이 건수 이하면 sparse
+        WEEKLY_LANG_MIN = 10  # 언어별 스코프 최소 리뷰 수 (미달 시 생략)
 
-            # 완료된 주간 버킷은 skip (EARLY_LAUNCH_ONLY 시 강제 재분석)
-            if bid in completed_weekly and not EARLY_LAUNCH_ONLY and not force_full_reanalyze:
+        for bucket in early_launch_buckets:
+            bid        = bucket["event_id"]
+            done       = completed_weekly_scopes.get(bid, set())
+            force      = EARLY_LAUNCH_ONLY or force_full_reanalyze
+
+            need_all   = force or ("all" not in done)
+            need_langs = [l for l in top_languages if force or (l not in done)]
+
+            # 모든 스코프가 이미 완료된 경우 skip
+            if not need_all and not need_langs:
                 continue
 
             print(f"  주간 분석: {bucket['title']} ({bucket['date']} ~ {bucket['date_end']})")
 
             from datetime import datetime as _dt2
-            start_year = _dt2.utcfromtimestamp(max(bucket["start_ts"], 1)).year
-            end_year   = _dt2.utcfromtimestamp(max(bucket["end_ts"],   1)).year
-            week_years = list(range(start_year, end_year + 1))
+            start_year  = _dt2.utcfromtimestamp(max(bucket["start_ts"], 1)).year
+            end_year    = _dt2.utcfromtimestamp(max(bucket["end_ts"],   1)).year
+            week_years  = list(range(start_year, end_year + 1))
             week_reviews = get_reviews_in_range(raw_ss, bucket["start_ts"], bucket["end_ts"], week_years)
             print(f"    → 리뷰 {len(week_reviews)}건")
 
+            # sparse 처리
             if len(week_reviews) <= WEEKLY_SPARSE:
                 print(f"    → sparse (리뷰 {len(week_reviews)}건) — AI 호출 생략")
-                sparse_row = {
-                    "event_id":             bid,
-                    "event_type":           "weekly_summary",
-                    "date":                 bucket["date"],
-                    "date_end":             bucket["date_end"],
-                    "title":                bucket["title"],
-                    "language_scope":       "all",
-                    "sentiment_rate":       "sparse",
-                    "review_count":         len(week_reviews),
-                    "ai_patch_summary":     "",
-                    "ai_reaction_summary":  "",
-                    "top_keywords":         "[]",
-                    "top_reviews":          "[]",
-                    "url":                  "",
-                    "is_sale_period":       False,
-                    "sale_text":            "",
-                    "is_free_weekend":      False,
-                    "title_kr":             bucket["title"],
+                if need_all:
+                    sparse_row = {
+                        "event_id":            bid,
+                        "event_type":          "weekly_summary",
+                        "date":                bucket["date"],
+                        "date_end":            bucket["date_end"],
+                        "title":               bucket["title"],
+                        "language_scope":      "all",
+                        "sentiment_rate":      "sparse",
+                        "review_count":        len(week_reviews),
+                        "ai_patch_summary":    "",
+                        "ai_reaction_summary": "",
+                        "top_keywords":        "[]",
+                        "top_reviews":         "[]",
+                        "url":                 "",
+                        "is_sale_period":      False,
+                        "sale_text":           "",
+                        "is_free_weekend":     False,
+                        "title_kr":            bucket["title"],
+                    }
+                    if (bid, "all") in existing_scope_ids:
+                        gs_update_timeline(game_ss, bid, "all", sparse_row, row_map=scope_row_map)
+                    else:
+                        gs_append_timeline(game_ss, sparse_row)
+                        scope_row_map[(bid, "all")] = max(scope_row_map.values(), default=1) + 1
+                        existing_scope_ids.add((bid, "all"))
+                    time.sleep(1)
+                continue
+
+            # ── all 스코프 AI 분석 ───────────────────────────────────────
+            if need_all:
+                weekly_sampled  = sample_reviews(week_reviews)
+                if not weekly_sampled:
+                    continue
+                weekly_analysis = analyze_bucket(name, bucket["title"], weekly_sampled, "all",
+                                                 include_top_reviews=True)
+                weekly_rate     = _compute_actual_pos_rate(week_reviews)
+                weekly_row      = {
+                    "event_id":            bid,
+                    "event_type":          "weekly_summary",
+                    "date":                bucket["date"],
+                    "date_end":            bucket["date_end"],
+                    "title":               bucket["title"],
+                    "language_scope":      "all",
+                    "sentiment_rate":      weekly_rate,
+                    "review_count":        len(week_reviews),
+                    "ai_patch_summary":    "",
+                    "ai_reaction_summary": weekly_analysis.get("ai_reaction_summary", ""),
+                    "top_keywords":        json.dumps(weekly_analysis.get("top_keywords", []), ensure_ascii=False),
+                    "top_reviews":         json.dumps(weekly_analysis.get("top_reviews", []), ensure_ascii=False),
+                    "url":                 "",
+                    "is_sale_period":      False,
+                    "sale_text":           "",
+                    "is_free_weekend":     False,
+                    "title_kr":            bucket["title"],
                 }
                 if (bid, "all") in existing_scope_ids:
-                    gs_update_timeline(game_ss, bid, "all", sparse_row, row_map=scope_row_map)
+                    gs_update_timeline(game_ss, bid, "all", weekly_row, row_map=scope_row_map)
                 else:
-                    gs_append_timeline(game_ss, sparse_row)
+                    gs_append_timeline(game_ss, weekly_row)
                     scope_row_map[(bid, "all")] = max(scope_row_map.values(), default=1) + 1
                     existing_scope_ids.add((bid, "all"))
+                time.sleep(2)
+
+            # ── 언어별 스코프 (긍정률만 저장 — Gemini 호출 없음) ────────────
+            for scope in need_langs:
+                scope_reviews = [r for r in week_reviews if r.get("language") == scope]
+                if len(scope_reviews) < WEEKLY_LANG_MIN:
+                    continue
+                scope_rate = _compute_actual_pos_rate(scope_reviews)
+                lang_row   = {
+                    "event_id":            bid,
+                    "event_type":          "weekly_summary",
+                    "date":                bucket["date"],
+                    "date_end":            bucket["date_end"],
+                    "title":               bucket["title"],
+                    "language_scope":      scope,
+                    "sentiment_rate":      scope_rate,
+                    "review_count":        len(scope_reviews),
+                    "ai_patch_summary":    "",
+                    "ai_reaction_summary": "",
+                    "top_keywords":        "[]",
+                    "top_reviews":         "[]",
+                    "url":                 "",
+                    "is_sale_period":      False,
+                    "sale_text":           "",
+                    "is_free_weekend":     False,
+                    "title_kr":            bucket["title"],
+                }
+                if (bid, scope) in existing_scope_ids:
+                    gs_update_timeline(game_ss, bid, scope, lang_row, row_map=scope_row_map)
+                else:
+                    gs_append_timeline(game_ss, lang_row)
+                    scope_row_map[(bid, scope)] = max(scope_row_map.values(), default=1) + 1
+                    existing_scope_ids.add((bid, scope))
                 time.sleep(1)
-                continue
-
-            # 주간 버킷 분석 (all 스코프만, 언어별 스코프 생략 — 주간은 데이터가 적으므로)
-            weekly_sampled = sample_reviews(week_reviews)
-            if not weekly_sampled:
-                continue
-
-            weekly_analysis = analyze_bucket(name, bucket["title"], weekly_sampled, "all",
-                                             include_top_reviews=True)
-            weekly_rate = _compute_actual_pos_rate(week_reviews)
-
-            weekly_row = {
-                "event_id":             bid,
-                "event_type":           "weekly_summary",
-                "date":                 bucket["date"],
-                "date_end":             bucket["date_end"],
-                "title":                bucket["title"],
-                "language_scope":       "all",
-                "sentiment_rate":       weekly_rate,
-                "review_count":         len(week_reviews),
-                "ai_patch_summary":     "",
-                "ai_reaction_summary":  weekly_analysis.get("ai_reaction_summary", ""),
-                "top_keywords":         json.dumps(weekly_analysis.get("top_keywords", []), ensure_ascii=False),
-                "top_reviews":          json.dumps(weekly_analysis.get("top_reviews", []), ensure_ascii=False),
-                "url":                  "",
-                "is_sale_period":       False,
-                "sale_text":            "",
-                "is_free_weekend":      False,
-                "title_kr":             bucket["title"],
-            }
-
-            if (bid, "all") in existing_scope_ids:
-                gs_update_timeline(game_ss, bid, "all", weekly_row, row_map=scope_row_map)
-            else:
-                gs_append_timeline(game_ss, weekly_row)
-                scope_row_map[(bid, "all")] = max(scope_row_map.values(), default=1) + 1
-                existing_scope_ids.add((bid, "all"))
 
             wrote_new_bucket = True
-            time.sleep(2)
             print(f"  주간 분석 완료: {bucket['title']}")
 
         if wrote_new_bucket:
