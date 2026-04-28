@@ -22,22 +22,51 @@ const SPREADSHEET_ID = process.env.MASTER_SPREADSHEET_ID!;
 
 // ── 범용 탭 읽기 ──────────────────────────────────────
 
+/**
+ * 429 (Quota Exceeded) 자동 재시도 래퍼.
+ * 첫 번째 실패 후 1s → 2s → 4s 대기 후 최대 3회 재시도.
+ */
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      lastErr = err;
+      const code =
+        (err as { status?: number })?.status ??
+        (err as { code?: number })?.code;
+      if (code === 429 && attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 async function readSheet(tabName: string): Promise<string[][]> {
   const sheets = await getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: tabName,
-  });
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: tabName,
+    })
+  );
   return (res.data.values ?? []) as string[][];
 }
 
 /** 개별 게임 시트(game_sheet_id)에서 특정 탭 읽기 */
 async function readGameSheet(sheetId: string, tabName: string): Promise<string[][]> {
   const sheets = await getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: tabName,
-  });
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: tabName,
+    })
+  );
   return (res.data.values ?? []) as string[][];
 }
 
@@ -101,6 +130,16 @@ export async function getAllGames(): Promise<Game[]> {
   return rowsToRecords(rows) as unknown as Game[];
 }
 
+/**
+ * 캐싱된 getAllGames — 5분 TTL.
+ * 여러 게임 페이지가 동시에 재검증될 때 마스터 시트를 중복 읽지 않도록 dedup.
+ */
+export const getAllGamesCached = unstable_cache(
+  async () => getAllGames(),
+  ["all-games"],
+  { revalidate: 300 }
+);
+
 // 개별 게임 시트에서 CCU 데이터 읽기 (game_sheet_id 기반)
 export async function getCcuDataFromGameSheet(sheetId: string): Promise<CcuRow[]> {
   try {
@@ -117,7 +156,7 @@ export async function getCcuDataFromGameSheet(sheetId: string): Promise<CcuRow[]
 }
 
 export async function getGame(appid: string): Promise<Game | null> {
-  const games = await getAllGames();
+  const games = await getAllGamesCached();
   return games.find((g) => String(g.appid) === String(appid)) ?? null;
 }
 
@@ -222,6 +261,16 @@ export async function getTimeline(appid: string, gameSheetId?: string): Promise<
     return [];
   }
 }
+
+/**
+ * 캐싱된 getTimeline — 5분 TTL.
+ * 같은 게임 페이지 동시 재검증 시 타임라인 시트 중복 읽기 방지.
+ */
+export const getTimelineCached = unstable_cache(
+  async (appid: string, gameSheetId: string) => getTimeline(appid, gameSheetId),
+  ["timeline"],
+  { revalidate: 300 }
+);
 
 /**
  * 타임라인 행 추가.
@@ -367,6 +416,16 @@ export async function getCcuData(appid: string, gameSheetId?: string): Promise<C
     return [];
   }
 }
+
+/**
+ * 캐싱된 getCcuData — 5분 TTL.
+ * 같은 게임 페이지 동시 재검증 시 CCU 시트 중복 읽기 방지.
+ */
+export const getCcuDataCached = unstable_cache(
+  async (appid: string, gameSheetId: string) => getCcuData(appid, gameSheetId),
+  ["ccu-data"],
+  { revalidate: 300 }
+);
 
 const SHEET_CELL_LIMIT = 10_000_000;
 const CCU_TAB_CELLS = 1000 * 5; // 추가할 ccu 탭: 1000행 × 5열
