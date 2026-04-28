@@ -75,6 +75,14 @@ export default function GameCard({ game }: GameCardProps) {
         ) : (
           <div className="w-full h-full bg-bg-secondary" />
         )}
+        {/* AI 미승인 배지 — 좌상단 */}
+        {!game.ai_briefing && game.ai_approved !== "true" && (
+          <div className="absolute top-2 left-2">
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm border border-accent-orange/50 text-accent-orange">
+              {t("BADGE_AI_UNAPPROVED")}
+            </span>
+          </div>
+        )}
         {sentimentRate !== null && (
           <div className="absolute top-2 right-2">
             <Badge

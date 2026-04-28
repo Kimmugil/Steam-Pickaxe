@@ -92,6 +92,11 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                   {t("BADGE_EARLY_ACCESS")}
                 </span>
               )}
+              {!game.ai_briefing && game.ai_approved !== "true" && (
+                <span className="text-xs bg-accent-orange/10 text-accent-orange border border-accent-orange/40 px-2 py-0.5 rounded font-medium">
+                  {t("BADGE_AI_UNAPPROVED")}
+                </span>
+              )}
             </div>
             {game.name_kr && game.name_kr !== game.name && (
               <p className="text-text-secondary text-sm mt-0.5">{game.name}</p>

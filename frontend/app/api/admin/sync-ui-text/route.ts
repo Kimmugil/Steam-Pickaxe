@@ -115,6 +115,7 @@ const FALLBACK: Record<string, string> = {
   HEADER_AI_BRIEFING_DATE: "마지막 분석:",
   BADGE_F2P: "F2P",
   BADGE_EARLY_ACCESS: "Early Access",
+  BADGE_AI_UNAPPROVED: "AI 미승인",
 
   // ── 게임 헤더 메타 레이블 ────────────────────────────────────────────
   META_GENRES: "장르",
