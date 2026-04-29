@@ -244,7 +244,9 @@ def run():
                 continue
             # 현재 월은 항상 재분석, 나머지는 완료된 것 skip
             # force_full_reanalyze=True 이면 완료된 월도 재분석 (리뷰 10% 이상 증가 시)
-            if ym != now_ym and ym in completed_months and not force_full_reanalyze:
+            # TARGET_YEAR_MONTH로 특정 월을 명시한 경우에도 완료 여부 무시하고 강제 재분석
+            force_this_month = bool(TARGET_YEAR_MONTH and ym == TARGET_YEAR_MONTH)
+            if ym != now_ym and ym in completed_months and not force_full_reanalyze and not force_this_month:
                 continue
 
             print(f"  월간 분석: {bucket['title']} ({ym})")
