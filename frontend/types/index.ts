@@ -38,6 +38,8 @@ export interface Game {
   steam_positive_rate?: number | string; // Steam 스토어 전체 누적 긍정률 (%)
   last_shift_detection_date?: string;       // 평가 급변 감지 마지막 실행일 (YYYY-MM-DD)
   last_analyzed_review_count?: number | string; // 마지막 AI 분석 시점의 수집 리뷰 수 (재분석 필요 여부 판단용)
+  playtime_stats?: string;      // JSON: P25/P75 기반 구간별 통계
+  playtime_stats_date?: string; // 플레이타임 통계 계산 시점 (YYYY-MM-DD)
 }
 
 export interface TimelineRow {

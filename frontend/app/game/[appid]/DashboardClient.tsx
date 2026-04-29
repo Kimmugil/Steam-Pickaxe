@@ -6,13 +6,14 @@ import CcuChart from "@/components/dashboard/CcuChart";
 import CcuAdminPanel from "@/components/dashboard/CcuAdminPanel";
 import SentimentChart from "@/components/dashboard/SentimentChart";
 import LanguageTab from "@/components/dashboard/LanguageTab";
+import PlaytimeTab from "@/components/dashboard/PlaytimeTab";
 import Timeline from "@/components/dashboard/Timeline";
 import EventForm from "@/components/dashboard/EventForm";
 import { Lock } from "lucide-react";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { Game, TimelineRow, CcuRow } from "@/types";
 
-type Tab = "ccu" | "sentiment" | "language";
+type Tab = "ccu" | "sentiment" | "language" | "playtime";
 
 interface Props {
   game: Game;
@@ -44,6 +45,7 @@ export default function DashboardClient({
     { key: "ccu",       labelKey: "TAB_CCU" },
     { key: "sentiment", labelKey: "TAB_SENTIMENT" },
     { key: "language",  labelKey: "TAB_LANGUAGE" },
+    { key: "playtime",  labelKey: "TAB_PLAYTIME" },
   ];
 
   return (
@@ -98,6 +100,12 @@ export default function DashboardClient({
                 crossAnalysisComment={game.language_cross_comment}
                 languageDistribution={languageDistribution}
                 appid={String(game.appid)}
+              />
+            )}
+            {activeTab === "playtime" && (
+              <PlaytimeTab
+                playtimeStats={game.playtime_stats}
+                playtimeStatsDate={game.playtime_stats_date}
               />
             )}
           </div>

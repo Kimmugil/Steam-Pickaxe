@@ -558,9 +558,12 @@ export async function appendCcuRows(appid: string, newRows: string[][], gameShee
 // Google Sheets의 ui_text 탭을 읽어 { key: value } 맵으로 반환.
 // unstable_cache로 60초 TTL 캐싱 — Sheets API 호출 횟수 최소화.
 
+/** UI_Texts 탭 이름 — Google Sheets 탭명과 일치해야 함 */
+const UI_TEXT_TAB = "UI_Texts";
+
 async function _fetchUiText(): Promise<Record<string, string>> {
   try {
-    const rows = await readSheet("ui_text");
+    const rows = await readSheet(UI_TEXT_TAB);
     const map: Record<string, string> = {};
     // 헤더 행(row[0]) 제외, key/value 파싱
     rows.slice(1).forEach((r) => {
@@ -568,7 +571,7 @@ async function _fetchUiText(): Promise<Record<string, string>> {
     });
     return map;
   } catch {
-    // ui_text 탭이 아직 없거나 API 오류 → 빈 객체 반환 (폴백 처리는 클라이언트)
+    // UI_Texts 탭이 아직 없거나 API 오류 → 빈 객체 반환 (폴백 처리는 클라이언트)
     return {};
   }
 }
@@ -601,7 +604,7 @@ export async function syncUiText(
   if (rows.length === 0) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "ui_text",
+      range: UI_TEXT_TAB,
       valueInputOption: "RAW",
       requestBody: { values: [["key", "value"]] },
     });
@@ -627,7 +630,7 @@ export async function syncUiText(
   if (toAdd.length > 0) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "ui_text",
+      range: UI_TEXT_TAB,
       valueInputOption: "RAW",
       requestBody: { values: toAdd },
     });
@@ -692,12 +695,12 @@ export async function resetUiText(
   // 탭 전체 클리어 후 재작성
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,
-    range: "ui_text",
+    range: UI_TEXT_TAB,
   });
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: "ui_text!A1",
+    range: `${UI_TEXT_TAB}!A1`,
     valueInputOption: "RAW",
     requestBody: { values: newRows },
   });

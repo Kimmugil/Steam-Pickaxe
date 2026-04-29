@@ -94,6 +94,10 @@ GAMES_HEADERS = [
     "last_shift_detection_date",
     # 마지막 AI 분석 시점의 수집 리뷰 수 (재분석 필요 여부 판단용)
     "last_analyzed_review_count",
+    # 플레이타임 구간별 통계 (JSON) — 수집 시점 사전 계산, P25/P75 기반
+    "playtime_stats",
+    # 플레이타임 통계 계산 시점 (YYYY-MM-DD)
+    "playtime_stats_date",
     # ── 제거된 컬럼 (하위호환 기록용, 실제로 사용하지 않음) ──
     # owners_estimate, avg_playtime, median_playtime, active_players_2weeks
     #   → SteamSpy 필드였으나 SteamSpy 수집 중단으로 미사용

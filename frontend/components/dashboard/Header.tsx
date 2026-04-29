@@ -151,7 +151,7 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                     </span>
                     <span className="text-xs text-text-muted">/ 100</span>
                   </div>
-                  <span className="text-[10px] text-text-muted pl-0.5">비평가 점수</span>
+                  <span className="text-[10px] text-text-muted pl-0.5">{t("HEADER_METACRITIC_LABEL")}</span>
                 </div>
               )}
               {currentCcu !== undefined && (

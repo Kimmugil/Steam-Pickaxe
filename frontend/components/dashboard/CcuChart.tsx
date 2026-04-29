@@ -226,7 +226,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
                   : "bg-bg-secondary border border-border-default text-text-muted hover:text-text-secondary"
               }`}
             >
-              {mode === "line" ? "꺾은선" : "히트맵"}
+              {mode === "line" ? t("CCU_VIEW_LINE") : t("CCU_VIEW_HEATMAP")}
             </button>
           ))}
 
@@ -265,30 +265,29 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
           {/* 가이드 — 읽는 법 안내 */}
           <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg bg-bg-secondary border border-border-default px-3 py-2">
             <p className="text-xs text-text-muted leading-relaxed">
-              <span className="text-text-secondary font-medium">읽는 법</span>
-              &nbsp;· 행 = 요일, 열 = 시간(KST) · 색이 진할수록 해당 시간대 평균 동접자가 높음
-              &nbsp;· 칸에 마우스를 올리면 평균 CCU 수치를 확인할 수 있습니다
+              <span className="text-text-secondary font-medium">{t("CCU_HEATMAP_HOW_TO_READ")}</span>
+              &nbsp;· {t("CCU_HEATMAP_GUIDE")}
             </p>
             <div className="flex items-center gap-2 shrink-0 text-xs text-text-muted">
               {/* 데이터 없음 범례 */}
               <span className="flex items-center gap-1">
                 <span className="inline-block w-4 h-4 rounded-sm bg-bg-card border border-border-default" />
-                데이터 없음
+                {t("CCU_HEATMAP_NO_DATA_LEGEND")}
               </span>
               {/* 색 농도 그라디언트 범례 */}
-              <span className="ml-1">낮음</span>
+              <span className="ml-1">{t("CCU_HEATMAP_LOW")}</span>
               <div
                 className="w-16 h-3 rounded-sm shrink-0"
                 style={{ background: "linear-gradient(to right, rgba(79,135,255,0.08), rgba(79,135,255,1))" }}
               />
-              <span>높음</span>
+              <span>{t("CCU_HEATMAP_HIGH")}</span>
               {/* 피크 마커 범례 */}
               <span className="flex items-center gap-1 ml-1">
                 <span
                   className="inline-block w-4 h-4 rounded-sm border border-accent-blue/70"
                   style={{ backgroundColor: "rgba(79,135,255,1)" }}
                 />
-                최고치
+                {t("CCU_HEATMAP_PEAK")}
               </span>
             </div>
           </div>
@@ -330,7 +329,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
                                 cell.count === 0 ? "bg-bg-secondary" : ""
                               } ${isMax ? "border border-accent-blue/60" : ""}`}
                               style={bg ? { backgroundColor: bg } : undefined}
-                              title={cell.count > 0 ? `평균 CCU: ${cell.avg.toLocaleString()}` : "데이터 없음"}
+                              title={cell.count > 0 ? `${t("CCU_HEATMAP_TOOLTIP_AVG")} ${cell.avg.toLocaleString()}` : t("CCU_HEATMAP_TOOLTIP_NO_DATA")}
                             />
                           </td>
                         );
@@ -342,7 +341,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
             </table>
           </div>
           <p className="text-xs text-text-muted text-center mt-3">
-            전체 수집 기간 데이터 기반 · 동접자 최고치{heatmapMax > 0 ? ` ${heatmapMax.toLocaleString()}명` : ""} (테두리 셀)
+            {t("CCU_HEATMAP_FOOTER")}{heatmapMax > 0 ? ` ${heatmapMax.toLocaleString()}${t("CCU_TOOLTIP_UNIT")}` : ""} {t("CCU_HEATMAP_FOOTER_SUFFIX")}
           </p>
         </div>
       ) : (

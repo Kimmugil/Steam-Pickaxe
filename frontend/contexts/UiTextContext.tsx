@@ -21,12 +21,12 @@ import type { ReactNode } from "react";
 // ── 폴백 텍스트 ───────────────────────────────────────────────────────────────
 const FALLBACK: Record<string, string> = {
   // ── 내비게이션 ──────────────────────────────────────────────────────
-  NAV_BRAND: "⚡ 스팀 탈곡기 Pro",
+  NAV_BRAND: "🌾 스팀 정미소",
   NAV_GUIDE: "분석 방법 가이드",
   NAV_USAGE: "이용 안내",
 
   // ── 홈 페이지 ───────────────────────────────────────────────────────
-  HOME_TITLE: "Steam 게임 마켓 인텔리전스",
+  HOME_TITLE: "🌾 스팀 정미소",
   HOME_SUBTITLE: "업데이트 민심 · 트래픽 · 언어권 반응을 한눈에 꿰뚫는 스팀 분석 대시보드",
 
   // ── 검색창 ──────────────────────────────────────────────────────────
@@ -123,7 +123,20 @@ const FALLBACK: Record<string, string> = {
   TIMELINE_EDIT_SUCCESS: "수정이 완료되었습니다.",
   TIMELINE_EDIT_SAVED_NOTICE: "수정이 완료됐습니다. 새로고침 시 반영됩니다.",
 
+  // ── SteamSpy 통계 ────────────────────────────────────────────────────────
+  STAT_OWNERS_LABEL: "추정 소유자",
+  STAT_OWNERS_TOOLTIP: "SteamSpy 통계적 추정치입니다. 실제값과 차이가 있을 수 있습니다.",
+  STAT_AVG_PLAYTIME_LABEL: "평균 플레이타임",
+  STAT_AVG_PLAYTIME_TOOLTIP: "SteamSpy 추정치 기반입니다.",
+  STAT_MEDIAN_PLAYTIME_LABEL: "중간값 플레이타임",
+  STAT_MEDIAN_PLAYTIME_TOOLTIP: "SteamSpy 추정치 기반입니다.",
+  STAT_ACTIVE_2W_LABEL: "2주 활성 플레이어",
+  STAT_ACTIVE_2W_TOOLTIP: "최근 2주간 플레이한 유저 수. SteamSpy 추정치입니다.",
+  STAT_RETENTION_LABEL: "잔존율",
+  STAT_RETENTION_TOOLTIP: "최근 2주 활성 플레이어 ÷ 추정 소유자 수. SteamSpy 추정치 기반으로 절대값이 아닌 상대 비교 지표로 활용하세요.",
+
   // ── 게임 헤더 메타 레이블 ────────────────────────────────────────────────
+  HEADER_METACRITIC_LABEL: "비평가 점수",
   META_GENRES: "장르",
   META_RELEASE_DATE: "출시일",
   META_DEVELOPER: "개발사",
@@ -150,6 +163,7 @@ const FALLBACK: Record<string, string> = {
   TAB_CCU: "글로벌 트래픽 (CCU)",
   TAB_SENTIMENT: "평가 추이",
   TAB_LANGUAGE: "언어권별 분포",
+  TAB_PLAYTIME: "플레이타임 분석",
 
   // ── 업데이트 히스토리 섹션 ───────────────────────────────────────────
   HISTORY_TITLE: "업데이트 히스토리",
@@ -235,7 +249,7 @@ const FALLBACK: Record<string, string> = {
 
   // ── 자동화 스케줄 ────────────────────────────────────────────────────
   GUIDE_SCH_INFO1: "AI 분석(analyze.yml)은 매월 1일 00:00 UTC에 자동 실행됩니다. 관리자 패널에서 게임별로 '이번 달' 또는 '재분석' 버튼을 눌러 온디맨드로 즉시 트리거할 수도 있습니다. 각 게임 페이지의 'AI 분석 새로고침' 버튼은 reanalyze.yml을 트리거해 뉴스·패치 재수집(NEWS_ONLY) → 60초 대기 → AI 분석 순으로 실행됩니다. 신규 게임은 관리자 승인 후 첫 분석이 실행됩니다.",
-  GUIDE_SCH_INFO2: "CCU AI 피크타임 분석과 언어권 교차 분석은 매주 월요일에만 갱신됩니다. 동일 패턴 데이터에서 동일한 분석이 매일 반복 생성되는 비용 낭비를 방지하기 위한 조건부 실행입니다. 감성 추이 종합 진단은 신규 버킷이 작성된 경우에만 갱신됩니다.",
+  GUIDE_SCH_INFO2: "CCU AI 피크타임 분석과 언어권 교차 분석은 매월 1일에 갱신됩니다. 동일 패턴 데이터에서 동일한 분석이 매일 반복 생성되는 비용 낭비를 방지하기 위한 조건부 실행입니다. 감성 추이 종합 진단은 신규 버킷이 작성된 경우에만 갱신됩니다.",
   GUIDE_SCH_T1_1: "collect.yml",
   GUIDE_SCH_T1_2: "매일 20:00 UTC",
   GUIDE_SCH_T1_3: "익일 05:00",
@@ -321,7 +335,7 @@ const FALLBACK: Record<string, string> = {
   // ── AI 분석 상세 ─────────────────────────────────────────────────────
   GUIDE_AI_H_MODEL: "모델 및 공통 원칙",
   GUIDE_AI_MODEL_L1: "모델: Google Gemini 2.5 Flash",
-  GUIDE_AI_MODEL_L2: "JSON 구조화 출력(response_mime_type: application/json) 강제 적용으로 파싱 안정성을 보장합니다.",
+  GUIDE_AI_MODEL_L2: "Thinking 모드 활성 (thinking_budget=512 토큰): 감성 분석·인과관계 판단 전에 내부 추론 과정을 거쳐 분석 품질을 높입니다.",
   GUIDE_AI_MODEL_L3: "원칙: 현상 진단 + 인과관계만 서술. 지시적/주관적 어조 배제. 허구 수치 생성 금지.",
   GUIDE_AI_H1: "① 리뷰 샘플링 (Stratified Sampling)",
   GUIDE_AI_S1_DESC: "구간별 최대 2,000건 상한. 긍정/부정 원래 비율을 보존하는 계층 샘플링을 적용합니다.",
@@ -357,9 +371,9 @@ const FALLBACK: Record<string, string> = {
   GUIDE_AI_S4_L2: "주요 전환점과 원인 추정",
   GUIDE_AI_S4_L3: "최근 기조와 장기 트렌드 비교",
   GUIDE_AI_H5: "⑤ CCU 피크타임 분석 (generate_ccu_peaktime_comment)",
-  GUIDE_AI_S5_DESC: "전체 CCU 데이터를 KST 기준 24시간 평균으로 집약한 뒤, 피크 시간대 패턴으로 주력 플레이 권역을 추정합니다. 매주 월요일에만 갱신됩니다 (비용 절감 목적).",
+  GUIDE_AI_S5_DESC: "전체 CCU 데이터를 KST 기준 24시간 평균으로 집약한 뒤, 피크 시간대 패턴으로 주력 플레이 권역을 추정합니다. 매월 1일 갱신됩니다.",
   GUIDE_AI_H6: "⑥ 언어권 교차 분석 (generate_language_cross_analysis)",
-  GUIDE_AI_S6_DESC: "RAW 리뷰 전체의 언어 분포와 각 언어별 평균 감성률을 종합합니다. Steam 영어 과대표집 문제를 감안해 실제 주력 권역과 권역 간 평가 온도차를 진단합니다. 매주 월요일에만 갱신됩니다.",
+  GUIDE_AI_S6_DESC: "RAW 리뷰 전체의 언어 분포와 각 언어별 평균 감성률을 종합합니다. Steam 영어 과대표집 문제를 감안해 실제 주력 권역과 권역 간 평가 온도차를 진단합니다. 매월 1일 자동 갱신되며, 즉시 재분석을 희망할 경우 관리자에게 문의하세요.",
   GUIDE_AI_H7: "⑦ AI 브리핑 (generate_ai_briefing)",
   GUIDE_AI_S7_DESC: "최근 10개 구간의 날짜·제목·긍정률·리뷰수·요약을 종합하고 최근 3건 vs 이전 3건 추이 방향을 계산한 뒤, 게임 전반 현황을 3~5문장으로 진단합니다. 매월 1일 또는 온디맨드 분석 시 갱신됩니다.",
   GUIDE_AI_INFO: "분석 언어 수: 상위 5개 언어에 대해 언어별 감성 분석이 수행됩니다. 나머지 언어는 리뷰 분포(파이 차트)에는 표시되지만 AI 감성 분석 데이터는 없습니다. 언어 수를 늘리면 Gemini API 비용이 언어 수 × 이벤트 수만큼 증가합니다.",
@@ -414,7 +428,7 @@ const FALLBACK: Record<string, string> = {
   USAGE_PAGE_DESC: "대시보드를 처음 사용하는 분들을 위한 설명서입니다.",
 
   USAGE_H_SERVICE: "🎯 이 서비스는 무엇인가요?",
-  USAGE_SERVICE_DESC: "Steam 게임의 업데이트 유저 반응, 동접자(CCU), 언어권 분포를 월별 타임라인에 맞춰 분석해주는 대시보드입니다. 개발사·퍼블리셔 관계자나 게임 시장 분석에 관심 있는 분들을 위해 설계됐습니다. 리뷰·뉴스는 매일, AI 분석은 매월 자동으로 이루어집니다.",
+  USAGE_SERVICE_DESC: "Steam 게임의 업데이트 유저 반응, 동접자(CCU), 언어권 분포를 월별 타임라인에 맞춰 분석해주는 대시보드입니다. 리뷰·뉴스는 매일 수집되며, AI 분석은 매월 자동으로 이루어집니다.",
 
   USAGE_H_REGISTER: "📋 분석할 게임 등록하기",
   USAGE_REGISTER_L1: "홈 화면 검색창에 게임명, AppID, 또는 스팀 상점 URL을 입력합니다.",
@@ -426,7 +440,7 @@ const FALLBACK: Record<string, string> = {
   USAGE_H_DASHBOARD: "📊 대시보드 각 탭 보는 법",
 
   USAGE_H_HEADER: "헤더 (게임 상단 정보)",
-  USAGE_HEADER_L1: "긍정률 뱃지는 Steam 전체 누적 평가가 아닌, 가장 최근 이벤트 이후 유저 반응입니다. 최신 업데이트에 대한 민심을 빠르게 확인하는 데 유용합니다.",
+  USAGE_HEADER_L1: "Steam 전체 누적 평가를 우선 표시하고, 없을 때만 최근 이벤트 기반 rate로 표기합니다.",
   USAGE_HEADER_L2: "현재 CCU는 실시간 동시 접속자 수이며, 역대 최고 기록 대비 비율로 함께 표시됩니다.",
   USAGE_HEADER_L3: "AI 현황 진단은 최근 이벤트·리뷰 데이터를 바탕으로 생성된 종합 요약입니다. 매월 1일 자동 갱신되며, 각 게임 페이지의 'AI 분석 새로고침' 버튼이나 관리자 패널에서 즉시 실행할 수 있습니다.",
 
@@ -465,8 +479,8 @@ const FALLBACK: Record<string, string> = {
   USAGE_SCH_T3_2: "매월 1일 + 온디맨드",
   USAGE_SCH_T3_3: "관리자 승인 게임만 실행. 관리자 패널에서 즉시 트리거 가능",
   USAGE_SCH_T4_1: "CCU 피크타임·언어권 교차 분석",
-  USAGE_SCH_T4_2: "매주 월요일",
-  USAGE_SCH_T4_3: "동일 데이터 반복 생성 방지를 위해 주 1회만 갱신",
+  USAGE_SCH_T4_2: "매월 1일",
+  USAGE_SCH_T4_3: "동일 데이터 반복 생성 방지를 위해 월 1회 갱신",
   USAGE_SCH_TIP: "AI 분석은 매월 1일 자동 실행되며, 관리자 패널에서 언제든 온디맨드로 트리거할 수 있습니다. 페이지 캐시 갱신까지 최대 5분이 소요될 수 있습니다.",
 
   USAGE_H_ADMIN: "🔐 관리자 기능이 필요한 경우",
@@ -535,6 +549,7 @@ const FALLBACK: Record<string, string> = {
   TH_FUNC_DESC: "설명",
 
   // ── 관리자 패널 ─────────────────────────────────────────────────────
+  ADMIN_HELP_BTN_TITLE: "도움말",
   ADMIN_PAGE_TITLE: "🔧 관리자 패널",
   ADMIN_PAGE_SUBTITLE: "전체 게임 현황 관리 및 시스템 설정",
   ADMIN_SECTION_GAMES: "전체 게임 현황",
@@ -593,7 +608,7 @@ const FALLBACK: Record<string, string> = {
   ADMIN_TOAST_MONTH: "이번 달 수집+분석을 시작했습니다. 수분 내 반영됩니다.",
   ADMIN_TOAST_REANALYZE: "AI 재분석을 요청했습니다. 수분 내 반영됩니다.",
   ADMIN_TOAST_ANALYZE_PENDING: "미분석 이벤트 AI 분석을 시작했습니다. 수분 내 반영됩니다.",
-  ADMIN_TOAST_RETRIGGER: "수집 재시작을 요청했습니다. 전체 게임 리뷰·뉴스 수집이 시작됩니다.",
+  ADMIN_TOAST_RETRIGGER: "수집 워크플로우를 재시작했습니다. 수분 내 진행됩니다.",
   ADMIN_TOAST_SORT_ORDER: "표시 순서가 저장되었습니다.",
   ADMIN_TOAST_SYNC: "동기화 완료 — 추가 {added}건 / 기존 유지 {skipped}건",
   ADMIN_TOAST_RESET: "재설정 완료 — 유지 {kept}건 / 추가 {added}건 / 제거 {removed}건",
@@ -604,6 +619,18 @@ const FALLBACK: Record<string, string> = {
   HEADER_RATE_LABEL_RECENT: "최근 이벤트 구간 기준",
 
   // ── CCU 차트 ─────────────────────────────────────────────────────────────
+  CCU_VIEW_LINE: "꺾은선",
+  CCU_VIEW_HEATMAP: "히트맵",
+  CCU_HEATMAP_HOW_TO_READ: "읽는 법",
+  CCU_HEATMAP_GUIDE: "행 = 요일, 열 = 시간(KST) · 색이 진할수록 해당 시간대 평균 동접자가 높음 · 칸에 마우스를 올리면 평균 CCU 수치를 확인할 수 있습니다",
+  CCU_HEATMAP_NO_DATA_LEGEND: "데이터 없음",
+  CCU_HEATMAP_LOW: "낮음",
+  CCU_HEATMAP_HIGH: "높음",
+  CCU_HEATMAP_PEAK: "최고치",
+  CCU_HEATMAP_TOOLTIP_AVG: "평균 CCU:",
+  CCU_HEATMAP_TOOLTIP_NO_DATA: "데이터 없음",
+  CCU_HEATMAP_FOOTER: "전체 수집 기간 데이터 기반 · 동접자 최고치",
+  CCU_HEATMAP_FOOTER_SUFFIX: "(테두리 셀)",
   CCU_VIEW_ALL: "전체",
   CCU_VIEW_90D: "최근 90일",
   CCU_VIEW_30D: "최근 30일",
@@ -625,6 +652,25 @@ const FALLBACK: Record<string, string> = {
   CSV_AUTH_TITLE: "CSV 업로드 인증",
   CSV_AUTH_DESC: "SteamDB CCU CSV 업로드는 관리자만 가능합니다.",
   CSV_SUCCESS: "{count}건 병합 완료",
+
+  // ── 언어 탭 ─────────────────────────────────────────────────────────────
+  LANG_OTHER: "기타",
+  LANG_TAB_LANGUAGE: "언어 분포",
+  LANG_TAB_PLAYTIME: "플레이타임",
+  PLAYTIME_NEW_LABEL: "신규 유저",
+  PLAYTIME_NEW_RANGE: "하위 25%",
+  PLAYTIME_MID_LABEL: "일반 유저",
+  PLAYTIME_MID_RANGE: "25~75%",
+  PLAYTIME_HEAVY_LABEL: "헤비 유저",
+  PLAYTIME_HEAVY_RANGE: "상위 25%",
+  PLAYTIME_STATS_TITLE: "플레이타임 구간별 평가",
+  PLAYTIME_STATS_DESC: "리뷰 작성 시점 플레이타임 기준 · P25/P75 퍼센타일로 구간 분류",
+  PLAYTIME_STATS_DATE_LABEL: "통계 계산 시점:",
+  PLAYTIME_STATS_NO_DATA: "플레이타임 통계 데이터가 없습니다. 다음 수집 시 자동 계산됩니다.",
+  PLAYTIME_THRESHOLD_NEW: "기준 미만",
+  PLAYTIME_THRESHOLD_HEAVY: "이상",
+  PLAYTIME_UNIT_MIN: "분",
+  PLAYTIME_TOTAL_REVIEWS: "전체 {total}건 기반",
 
   // ── 감성 차트 ────────────────────────────────────────────────────────────
   CHART_LANG_FILTER: "언어 선택:",
@@ -668,7 +714,7 @@ const FALLBACK: Record<string, string> = {
   ADMIN_COL_ANALYZE_DATE: "분석 ",
   ADMIN_STEAM_REVIEWS: "Steam: {count}건",
   ADMIN_PROCESSING_BTN: "요청 중...",
-  ADMIN_BTN_CORE_ANALYZE: "대표AI",
+  ADMIN_BTN_CORE_ANALYZE: "🔬 종합 분석",
   ADMIN_BTN_PW_PLACEHOLDER: "비밀번호",
   ADMIN_DRAG_HINT: "드래그해서 순서 변경",
   ADMIN_TOGGLE_ON_TITLE: "ON — 클릭하면 수집 중단(숨김)",
@@ -728,6 +774,102 @@ const FALLBACK: Record<string, string> = {
   TIMELINE_WEEKLY_BADGE: "주간",
   TIMELINE_WEEKLY_SECTION_LABEL: "📅 출시 초기 주간 세분화 분석",
   TIMELINE_HAS_WEEKLY: "주간분석",
+
+  // ── 관리자 패널 — 게임 테이블 보조 레이블 ────────────────────────────────────
+  ADMIN_COL_REVIEWS_TH: "리뷰",
+  ADMIN_LABEL_COLLECTED: "수집",
+  ADMIN_LABEL_STEAM_TOTAL: "Steam총계",
+  ADMIN_BADGE_AUTO_REANALYZE: "↑ 자동 재분석 예정",
+  ADMIN_BADGE_AUTO_REANALYZE_TITLE: "직전 분석 {last}건 → 현재 {cur}건 ({pct}% 증가) — 다음 분석 시 완료된 월도 자동 재분석됩니다",
+
+  // ── 관리자 패널 — 컬럼 도움말 (리뷰) ─────────────────────────────────────────
+  HELP_REVIEWS_L4: "↑ 자동 재분석 예정: 직전 분석 이후 리뷰가 10% 이상 증가했을 때 표시됩니다. 다음 월간 분석 시 완료된 월도 자동 재분석됩니다.",
+
+  // ── 관리자 패널 — 버튼 색상 범례 ─────────────────────────────────────────────
+  ADMIN_LEGEND_AI: "AI 분석",
+  ADMIN_LEGEND_COLLECT: "수집",
+  ADMIN_LEGEND_DETECT: "감지·주의",
+  ADMIN_LEGEND_MAINTAIN: "유지보수",
+
+  // ── 관리자 패널 — 시스템 도구 카드 ──────────────────────────────────────────
+  ADMIN_TOOL_PENDING_TITLE: "미분석 AI 분석",
+  ADMIN_TOOL_PENDING_DESC: "아직 AI 분석이 진행되지 않은 구간을 자동 선별해 현재 데이터 기준으로 분석합니다. 월별 타임라인, CCU 피크타임, 종합 분석, 언어 분포 등 모든 AI 분석 항목을 대상으로 합니다.",
+  ADMIN_BTN_ANALYZE_PENDING_EXEC: "⚡ 미분석 분석 실행",
+  ADMIN_TOOL_SHIFTS_TITLE: "평가 급변 감지",
+  ADMIN_TOOL_SHIFTS_DESC: "전체 active 게임의 긍정률 급변 구간을 탐지하고, 이상 감지 시 AI 원인 분석을 실행합니다. 이미 감지된 구간은 건너뛰고 신규 구간에 대해서만 진행합니다. 매주 월요일 자동 실행됩니다.",
+  ADMIN_BTN_DETECT_SHIFTS_EXEC: "🔍 급변 감지 실행",
+  ADMIN_TOOL_RETRIGGER_TITLE: "수집 재시작",
+  ADMIN_TOOL_RETRIGGER_DESC: "일일 봇 스케줄과 무관하게 전체 게임 리뷰·이벤트·뉴스 수집을 즉시 트리거합니다.",
+  ADMIN_BTN_RETRIGGER_EXEC: "🔄 수집 재시작",
+  ADMIN_TOOL_RECALC_TITLE: "언어 분포 재집계",
+  ADMIN_TOOL_RECALC_DESC: "전체 게임 RAW 리뷰 기반 언어 분포 JSON을 강제 재계산합니다. 파이 차트 데이터·상위 언어 목록·수집 건수 보정이 함께 갱신됩니다.",
+  ADMIN_BTN_RECALC_EXEC: "📊 재집계 실행",
+  ADMIN_TOOL_DEDUP_TITLE: "타임라인 중복 정리",
+  ADMIN_TOOL_DEDUP_DESC: "전체 게임 타임라인에서 중복 이벤트를 일괄 검사하고 제거합니다. 뒤에서부터 역순으로 삭제해 인덱스 오염을 방지합니다.",
+  ADMIN_BTN_DEDUP_EXEC: "🧹 중복 정리 실행",
+  ADMIN_TOAST_RECALC_LANG: "언어 분포 재집계를 시작했습니다. 수 분 내 완료됩니다.",
+  ADMIN_TOAST_DEDUP_TIMELINES: "타임라인 중복 정리를 시작했습니다. 수 분 내 완료됩니다.",
+
+  // ── 관리자 패널 — 워크플로우 현황 테이블 ─────────────────────────────────────
+  ADMIN_SECTION_WORKFLOW: "GitHub Actions 워크플로우 현황",
+  TH_WORKFLOW_SCHEDULE: "실행 주기",
+  ADMIN_WF_CCU_NAME: "CCU 수집",
+  ADMIN_WF_CCU_SCHEDULE: "매 시간 정각",
+  ADMIN_WF_CCU_DESC: "active 게임의 동접자를 Steam API로 수집해 개별 시트에 적재합니다.",
+  ADMIN_WF_COLLECT_NAME: "리뷰·뉴스 수집",
+  ADMIN_WF_COLLECT_SCHEDULE: "매일 05:00 KST",
+  ADMIN_WF_COLLECT_DESC: "신규 리뷰·이벤트를 수집합니다. active 게임은 기존 수집 리뷰 ID를 미리 로드해 이미 수집한 페이지에 도달하면 즉시 조기 종료합니다. 게임 신규 등록 시 자동 트리거됩니다.",
+  ADMIN_WF_ANALYZE_NAME: "AI 월간 분석",
+  ADMIN_WF_ANALYZE_SCHEDULE: "매월 1일 09:00 KST",
+  ADMIN_WF_ANALYZE_DESC: "AI 승인된 게임의 월별 감성 분석·패치 요약·AI 브리핑·CCU·언어권 교차 분석을 실행합니다. 직전 분석 이후 리뷰가 10% 이상 증가한 경우 완료된 월도 자동 재분석합니다.",
+  ADMIN_WF_SHIFTS_NAME: "평가 급변 감지",
+  ADMIN_WF_SHIFTS_SCHEDULE: "매주 월 11:00 KST",
+  ADMIN_WF_SHIFTS_DESC: "전체 기간 긍정률 변화를 분석해 급락·회복 구간을 탐지하고 AI 원인 분석을 수행합니다. 이미 감지된 구간은 재분석하지 않습니다.",
+  ADMIN_WF_CORE_NAME: "대표AI 분석",
+  ADMIN_WF_CORE_SCHEDULE: "수동 (게임별)",
+  ADMIN_WF_CORE_DESC: "수집 없이 현재 데이터로 AI 현황 진단·CCU 피크타임·평가 추이·언어권 교차 분석 4가지를 즉시 재실행합니다. 게임별 [대표AI] 버튼으로 트리거.",
+  ADMIN_WF_TIMELINE_NAME: "타임라인AI 분석",
+  ADMIN_WF_TIMELINE_SCHEDULE: "수동 (게임별)",
+  ADMIN_WF_TIMELINE_DESC: "수집 없이 현재 데이터로 전체 타임라인 월별 재분석 후 평가 급변 감지를 실행합니다. 게임별 [타임라인AI] 버튼으로 트리거.",
+  ADMIN_WF_MONTH_NAME: "구간 재분석",
+  ADMIN_WF_MONTH_SCHEDULE: "수동 (게임별)",
+  ADMIN_WF_MONTH_DESC: "YYYY-MM 입력으로 특정 월의 타임라인 구간만 선택 재분석합니다. 해당 게임에 없는 년월 입력 시 분석을 건너뜁니다. 게임별 [구간재분석] 버튼으로 트리거.",
+  ADMIN_WF_NEWS_NAME: "이벤트/뉴스 수집",
+  ADMIN_WF_NEWS_SCHEDULE: "수동 (게임별)",
+  ADMIN_WF_NEWS_DESC: "메타데이터·이벤트·뉴스를 최신화합니다. 이미 수집된 항목은 제외하고 신규 항목만 추가합니다. 리뷰 수집은 제외됩니다. 게임별 [뉴스수집] 버튼으로 트리거.",
+  ADMIN_WF_PENDING_NAME: "미분석 AI 분석",
+  ADMIN_WF_PENDING_SCHEDULE: "수동 (시스템)",
+  ADMIN_WF_PENDING_DESC: "AI 분석이 진행되지 않은 구간을 전 게임 대상으로 선별해 일괄 분석합니다. 시스템 도구 [미분석 분석 실행] 버튼으로 트리거.",
+  ADMIN_WF_RETRIGGER_NAME: "수집 재시작",
+  ADMIN_WF_RETRIGGER_SCHEDULE: "수동 (시스템)",
+  ADMIN_WF_RETRIGGER_DESC: "일일 봇 스케줄과 무관하게 전체 게임 리뷰·이벤트·뉴스 수집을 즉시 트리거합니다. 시스템 도구 [수집 재시작] 버튼으로 트리거.",
+  ADMIN_WF_RECALC_NAME: "언어 분포 재집계",
+  ADMIN_WF_RECALC_SCHEDULE: "수동 (시스템)",
+  ADMIN_WF_RECALC_DESC: "전체 게임 RAW 리뷰 언어 분포를 재계산해 language_distribution·top_languages·수집 건수를 갱신합니다. 시스템 도구 [재집계 실행] 버튼으로 트리거.",
+  ADMIN_WF_DEDUP_NAME: "타임라인 중복 정리",
+  ADMIN_WF_DEDUP_SCHEDULE: "수동 (시스템)",
+  ADMIN_WF_DEDUP_DESC: "전체 게임 타임라인 탭에서 중복 이벤트를 일괄 검사·제거합니다. 시스템 도구 [중복 정리 실행] 버튼으로 트리거.",
+
+  // ── 관리자 패널 — 모달 ───────────────────────────────────────────────────────
+  ADMIN_MODAL_MONTH_INPUT_TITLE: "구간 재분석",
+  ADMIN_MODAL_MONTH_INPUT_DESC: "재분석할 년월을 입력하세요. 해당 게임의 타임라인에 없는 년월이면 분석을 건너뜁니다.",
+  ADMIN_MODAL_MONTH_PLACEHOLDER: "예: 2024-03",
+  ADMIN_BTN_REANALYZE_EXEC: "재분석 시작",
+  ADMIN_RETRIGGER_CONFIRM_DESC: "전체 active 게임의 리뷰·이벤트·뉴스 수집을 즉시 시작합니다. 일일 자동 수집과 병렬 실행될 수 있습니다. 계속하시겠습니까?",
+  ADMIN_MODAL_INCOMPLETE_REVIEWS_TITLE: "⚠️ 리뷰 수집 미완료",
+  ADMIN_MODAL_INCOMPLETE_REVIEWS_DESC: "{name}의 리뷰가 아직 모두 수집되지 않았습니다.",
+  ADMIN_MODAL_INCOMPLETE_REVIEWS_COUNTS: "{collected}건 수집 / Steam 총 {total}건",
+  ADMIN_MODAL_INCOMPLETE_REVIEWS_WARN: "이 상태에서 AI 분석을 실행하면 일부 기간이 불완전한 데이터로 분석됩니다.",
+  ADMIN_BTN_APPROVE_NOW: "🚀 지금 기준으로 AI 분석 시작",
+  ADMIN_BTN_APPROVE_WAIT: "⏳ 리뷰 수집 완료 후 분석하기 (승인만)",
+
+  // ── 관리자 패널 — 리포트 관리 섹션 ───────────────────────────────────────────
+  ADMIN_SECTION_REPORTS: "리포트 관리",
+  ADMIN_REPORTS_SUBTITLE: "홈 화면에 표시할 리포트를 관리합니다. 숨김 처리된 리포트는 데이터가 보존됩니다.",
+  ADMIN_REPORTS_VISIBLE_LABEL: "공개",
+  ADMIN_REPORTS_HIDDEN_LABEL: "숨김",
+  ADMIN_REPORTS_BTN_HIDE: "숨기기",
+  ADMIN_REPORTS_BTN_SHOW: "복원",
 };
 
 // ── Context 타입 ──────────────────────────────────────────────────────────────

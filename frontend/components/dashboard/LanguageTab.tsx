@@ -1,12 +1,11 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from "recharts";
 import Badge from "@/components/shared/Badge";
+import { useUiText } from "@/contexts/UiTextContext";
 import type { TimelineRow } from "@/types";
-
-type Seg = { total: number; positive: number; rate: number };
 
 interface LanguageTabProps {
   timelineRows: TimelineRow[];
@@ -36,23 +35,9 @@ const LANG_NAMES: Record<string, string> = {
 const PIE_COLORS = ["#4f87ff", "#5db865", "#8b6fe8", "#e08c45", "#e05c5c", "#888fa8"];
 const PIE_TOP_N = 5; // 개별 표시할 최대 언어 수 (나머지 → 기타)
 
-export default function LanguageTab({ timelineRows, crossAnalysisComment, languageDistribution, appid }: LanguageTabProps) {
-  const [activeView, setActiveView] = useState<"language" | "playtime">("language");
-  const [playtimeData, setPlaytimeData] = useState<{
-    segments: { new: Seg; mid: Seg; heavy: Seg } | null;
-    total: number;
-    loading: boolean;
-    error: string | null;
-  }>({ segments: null, total: 0, loading: false, error: null });
+export default function LanguageTab({ timelineRows, crossAnalysisComment, languageDistribution }: LanguageTabProps) {
+  const { t } = useUiText();
 
-  useEffect(() => {
-    if (activeView !== "playtime" || !appid || playtimeData.segments !== null || playtimeData.loading) return;
-    setPlaytimeData(d => ({ ...d, loading: true, error: null }));
-    fetch(`/api/game/${appid}/playtime-segments`)
-      .then(r => r.json())
-      .then(data => setPlaytimeData({ segments: data.segments, total: data.total, loading: false, error: null }))
-      .catch(e => setPlaytimeData(d => ({ ...d, loading: false, error: String(e) })));
-  }, [activeView, appid, playtimeData.segments, playtimeData.loading]);
   // ── 1. 리스트 스탯 (전체 언어) ────────────────────────────────────
   const stats = useMemo(() => {
     const allScopeRows = timelineRows.filter(
@@ -113,11 +98,11 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
     const otherReviews = rest.reduce((sum, s) => sum + s.reviews, 0);
     return [
       ...top.map((s) => ({ name: s.name, value: s.reviews })),
-      { name: "기타", value: otherReviews },
+      { name: t("LANG_OTHER"), value: otherReviews },
     ];
-  }, [stats]);
+  }, [stats, t]);
 
-  if (stats.length === 0 && activeView === "language") {
+  if (stats.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-text-muted text-sm">
         언어별 데이터가 없습니다.
@@ -128,27 +113,6 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
   const total = stats.reduce((s, r) => s + r.reviews, 0);
 
   return (
-    <>
-    {/* 서브 탭 토글 */}
-    {appid && (
-      <div className="flex gap-1 border-b border-border-default mb-2 pb-0">
-        {(["language", "playtime"] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setActiveView(v)}
-            className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
-              activeView === v
-                ? "border-accent-blue text-accent-blue"
-                : "border-transparent text-text-muted hover:text-text-secondary"
-            }`}
-          >
-            {v === "language" ? "언어 분포" : "플레이타임"}
-          </button>
-        ))}
-      </div>
-    )}
-
-    {activeView === "language" && (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 파이 차트 — 상위 5개 + 기타 */}
@@ -222,64 +186,5 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
         </div>
       )}
     </div>
-    )}
-
-    {activeView === "playtime" && (
-      <div className="space-y-4 mt-4">
-        {playtimeData.loading && (
-          <div className="flex items-center justify-center h-40 text-text-muted text-sm">분석 중...</div>
-        )}
-        {!playtimeData.loading && playtimeData.error && (
-          <div className="text-accent-red text-xs">{playtimeData.error}</div>
-        )}
-        {!playtimeData.loading && !playtimeData.error && playtimeData.segments === null && !appid && (
-          <div className="flex items-center justify-center h-40 text-text-muted text-sm">
-            appid 정보가 없어 플레이타임 데이터를 불러올 수 없습니다.
-          </div>
-        )}
-        {!playtimeData.loading && !playtimeData.error && playtimeData.segments && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {(
-                [
-                  { key: "new",   label: "신규 유저",   sub: "< 2시간" },
-                  { key: "mid",   label: "일반 유저",   sub: "2~100시간" },
-                  { key: "heavy", label: "헤비 유저",   sub: "100시간+" },
-                ] as const
-              ).map(({ key, label, sub }) => {
-                const seg = playtimeData.segments![key];
-                const rateColor =
-                  seg.rate >= 80 ? "text-accent-green" :
-                  seg.rate >= 40 ? "text-accent-yellow" :
-                  "text-accent-red";
-                const barColor =
-                  seg.rate >= 80 ? "bg-accent-green" :
-                  seg.rate >= 40 ? "bg-accent-yellow" :
-                  "bg-accent-red";
-                const totalPct = playtimeData.total > 0
-                  ? Math.round((seg.total / playtimeData.total) * 100)
-                  : 0;
-                return (
-                  <div key={key} className="bg-bg-card border border-border-default rounded-xl p-4">
-                    <div className="text-sm font-medium text-text-secondary">{label}</div>
-                    <div className="text-xs text-text-muted mb-2">({sub}) · {seg.total.toLocaleString()}건</div>
-                    <div className={`text-2xl font-bold ${rateColor}`}>{seg.rate}%</div>
-                    <div className="h-2 rounded-full bg-bg-secondary mt-2 mb-1">
-                      <div
-                        className={`h-full rounded-full ${barColor}`}
-                        style={{ width: `${seg.rate}%` }}
-                      />
-                    </div>
-                    <div className="text-xs text-text-muted">전체 대비 {totalPct}%</div>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-text-muted">플레이타임은 리뷰 작성 시점 기준입니다.</p>
-          </>
-        )}
-      </div>
-    )}
-    </>
   );
 }
