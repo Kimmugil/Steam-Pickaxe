@@ -24,6 +24,25 @@ type ViewMode = "line" | "heatmap";
 // CCU 타임스탬프는 UTC로 저장됨 — 표시는 KST(UTC+9)로 변환
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
+/**
+ * 타임스탬프 문자열을 UTC 기준 밀리초로 변환합니다.
+ *
+ * SteamDB CSV 업로드 데이터는 "YYYY-MM-DD HH:MM:SS" 형식으로 저장되며
+ * 타임존 지시자가 없습니다. JavaScript의 new Date()는 이를 브라우저
+ * 로컬시간(KST)으로 해석하여 이미 -9h가 적용된 상태가 되고, 이후
+ * KST_OFFSET_MS(+9h)를 한 번 더 더하면 이중 오프셋이 발생합니다.
+ *
+ * 타임존 지시자가 없는 경우 강제로 'Z'(UTC)를 붙여 UTC로 파싱합니다.
+ */
+function parseUtcMs(ts: string): number {
+  if (!ts) return NaN;
+  const s = ts.trim();
+  // 이미 타임존 정보가 있으면 그대로 사용
+  if (/Z|[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s).getTime();
+  // 공백 구분자를 T로 바꾸고 Z를 붙여 UTC로 파싱
+  return new Date(s.replace(" ", "T") + "Z").getTime();
+}
+
 // 히트맵 display 순서: 월(1)~일(0)
 const HEATMAP_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const HEATMAP_DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -66,11 +85,11 @@ function resampleData(rows: CcuRow[], cutoffMs?: number, hourSuffix = "시"): Sa
   const now = Date.now();
   const cutoff30d = now - 30 * 24 * 3600 * 1000;
 
-  const filtered = cutoffMs ? rows.filter(r => new Date(r.timestamp).getTime() >= cutoffMs) : rows;
+  const filtered = cutoffMs ? rows.filter(r => parseUtcMs(String(r.timestamp)) >= cutoffMs) : rows;
 
   const buckets = new Map<string, { values: number[]; isRecent: boolean }>();
   for (const row of filtered) {
-    const utcMs = new Date(row.timestamp).getTime();
+    const utcMs = parseUtcMs(String(row.timestamp));
     if (isNaN(utcMs)) continue;
     const isRecent = utcMs >= cutoff30d;
     const key = bucketKey(utcMs, cutoffMs ? true : isRecent);
@@ -148,7 +167,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
     );
 
     for (const row of data) {
-      const utcMs = new Date(row.timestamp).getTime();
+      const utcMs = parseUtcMs(String(row.timestamp));
       if (isNaN(utcMs)) continue;
       const v = Number(row.ccu_value);
       if (isNaN(v)) continue;
