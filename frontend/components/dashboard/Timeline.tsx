@@ -292,6 +292,7 @@ function MonthCard({
 }) {
   const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
   // 제목은 summaryRow가 없으면 eventRows의 첫 날짜로부터 추정
   const firstDate = eventRows[0]?.date ?? "";
@@ -320,6 +321,25 @@ function MonthCard({
   const sortedEvents = [...eventRows].sort((a, b) =>
     sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)
   );
+
+  // ── 탭 구성 ───────────────────────────────────────────────────────────────
+  const hasAnalysis  = !isPending && !isSparse && !!summaryRow &&
+    (!!summaryRow.ai_patch_summary || !!summaryRow.ai_reaction_summary);
+  const hasReviews   = reviews.length > 0;
+  const hasWeekly    = !!weeklyRows && weeklyRows.length > 0;
+  const hasShiftData = !!shiftRows && shiftRows.length > 0;
+
+  type TabId = "analysis" | "reviews" | "events" | "weekly" | "shift";
+  const tabs: { id: TabId; label: string; badge?: string }[] = [
+    ...(hasAnalysis ? [{ id: "analysis" as TabId, label: "AI 분석" }] : []),
+    ...(hasReviews  ? [{ id: "reviews"  as TabId, label: "대표 리뷰" }] : []),
+    { id: "events" as TabId, label: "이벤트", badge: sortedEvents.length > 0 ? String(sortedEvents.length) : undefined },
+    ...(hasWeekly    ? [{ id: "weekly" as TabId, label: "주간 분석", badge: String(weeklyRows!.length) }] : []),
+    ...(hasShiftData ? [{ id: "shift"  as TabId, label: "급변 감지" }] : []),
+  ];
+
+  const defaultTab: TabId = hasAnalysis ? "analysis" : hasReviews ? "reviews" : "events";
+  const currentTab = (activeTab ?? defaultTab) as TabId;
 
   return (
     <div className="border border-border-default rounded-xl overflow-hidden">
@@ -387,95 +407,136 @@ function MonthCard({
       {/* 펼침 영역 */}
       {expanded && (
         <div className="border-t border-border-default bg-bg-primary">
-          {/* AI 분석 결과 */}
-          {!isPending && !isSparse && summaryRow && (
-            <div className="px-4 py-4 space-y-3 border-b border-border-default">
-              {summaryRow.ai_patch_summary && (
-                <div>
-                  <p className="text-xs text-accent-blue mb-1 font-medium">{t("TIMELINE_PATCH_SUMMARY")}</p>
-                  <p className="text-sm text-text-secondary leading-relaxed">{summaryRow.ai_patch_summary}</p>
-                </div>
-              )}
-              {summaryRow.ai_reaction_summary && (
-                <div>
-                  <p className="text-xs text-accent-blue mb-1 font-medium">{t("TIMELINE_REACTION")}</p>
-                  <p className="text-sm text-text-secondary leading-relaxed">{summaryRow.ai_reaction_summary}</p>
-                </div>
-              )}
-              {reviewCount > 0 && (
-                <p className="text-xs text-text-muted">
-                  {t("TIMELINE_REVIEW_COUNT", { n: reviewCount.toLocaleString() })}
-                </p>
-              )}
-              {keywords.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {keywords.map((kw, ki) => (
-                    <span key={ki} className="text-xs bg-bg-secondary px-2 py-0.5 rounded text-text-secondary border border-border-default">
-                      {kw}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {reviews.length > 0 && (
-                <div>
-                  <p className="text-xs text-accent-blue mb-2 font-medium">{t("TIMELINE_TOP_REVIEWS")}</p>
-                  <div className="space-y-2">
-                    {reviews.slice(0, 3).map((rv, ri) => (
-                      <div key={ri} className={`bg-bg-card border rounded-lg p-3 ${rv.voted_up ? "border-accent-green/20" : "border-accent-red/20"}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
-                            {rv.voted_up ? t("REVIEW_POSITIVE") : t("REVIEW_NEGATIVE")}
+
+          {/* ── 탭 바 ──────────────────────────────────────────────────────── */}
+          <div className="flex border-b border-border-default bg-bg-card overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
+                  currentTab === tab.id
+                    ? "border-accent-blue text-accent-blue"
+                    : "border-transparent text-text-muted hover:text-text-secondary hover:border-border-default"
+                }`}
+              >
+                {tab.label}
+                {tab.badge && (
+                  <span className="px-1.5 py-0.5 text-[10px] bg-bg-secondary border border-border-default rounded-full text-text-muted">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* ── 탭 콘텐츠 ──────────────────────────────────────────────────── */}
+          <div className="p-4">
+
+            {/* AI 분석 탭 */}
+            {currentTab === "analysis" && hasAnalysis && summaryRow && (
+              <div className="space-y-4">
+                {/* 리뷰 수 + 키워드 */}
+                {(reviewCount > 0 || keywords.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {reviewCount > 0 && (
+                      <span className="text-xs text-text-muted shrink-0">
+                        {t("TIMELINE_REVIEW_COUNT", { n: reviewCount.toLocaleString() })}
+                      </span>
+                    )}
+                    {keywords.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {keywords.map((kw, ki) => (
+                          <span key={ki} className="text-xs bg-bg-secondary px-2 py-0.5 rounded border border-border-default text-text-secondary">
+                            {kw}
                           </span>
-                          <span className="text-xs text-text-muted">[{rv.language}]</span>
-                        </div>
-                        {rv.language !== "koreana" && rv.text !== rv.text_kr && (
-                          <p className="text-xs text-text-muted mb-1">{rv.text}</p>
-                        )}
-                        <p className="text-sm text-text-secondary">{rv.text_kr || rv.text}</p>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
+                )}
+                {/* 패치 요약 + 유저 반응 — 2열 카드 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {summaryRow.ai_patch_summary && (
+                    <div className="bg-bg-card border border-border-default rounded-lg p-4">
+                      <p className="text-xs font-semibold text-accent-blue mb-2">{t("TIMELINE_PATCH_SUMMARY")}</p>
+                      <p className="text-sm text-text-secondary leading-relaxed">{summaryRow.ai_patch_summary}</p>
+                    </div>
+                  )}
+                  {summaryRow.ai_reaction_summary && (
+                    <div className="bg-bg-card border border-border-default rounded-lg p-4">
+                      <p className="text-xs font-semibold text-accent-blue mb-2">{t("TIMELINE_REACTION")}</p>
+                      <p className="text-sm text-text-secondary leading-relaxed">{summaryRow.ai_reaction_summary}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-
-            </div>
-          )}
-
-          {/* 출시 초기 주간 분석 섹션 */}
-          {weeklyRows && weeklyRows.length > 0 && (
-            <div className="px-4 pt-3 pb-2 border-b border-border-default space-y-2">
-              <p className="text-xs font-medium text-accent-blue">{t("TIMELINE_WEEKLY_SECTION_LABEL")}</p>
-              {[...weeklyRows].sort((a, b) => a.date.localeCompare(b.date)).map((row) => (
-                <WeeklyCard key={row.event_id} row={row} />
-              ))}
-            </div>
-          )}
-
-          {/* 평가 급변 감지 섹션 — sparse/pending 월 포함 모든 상태에서 표시 */}
-          {shiftRows && shiftRows.length > 0 && (
-            <div className="px-4 pt-3 pb-2 border-b border-border-default space-y-2">
-              <p className="text-xs font-medium text-accent-yellow">{t("TIMELINE_SHIFT_DETECTED")}</p>
-              {shiftRows.map((shift) => {
-                const ids: string[] = (() => {
-                  try { return JSON.parse(shift.linked_event_ids || "[]"); } catch { return []; }
-                })();
-                const linkedEvents = ids.map(id => eventById?.[id]).filter(Boolean) as TimelineRow[];
-                return (
-                  <ShiftCard key={shift.event_id} shift={shift} linkedEvents={linkedEvents} />
-                );
-              })}
-            </div>
-          )}
-
-          {/* 개별 이벤트 목록 */}
-          <div className="px-4 py-3 space-y-0">
-            {sortedEvents.length === 0 ? (
-              <p className="text-xs text-text-muted py-2">{t("TIMELINE_MONTH_NO_EVENTS")}</p>
-            ) : (
-              sortedEvents.map((row) => (
-                <EventItem key={row.event_id} row={row} appid={appid} onEdit={onEdit} />
-              ))
+              </div>
             )}
+
+            {/* 대표 리뷰 탭 — 3열 그리드 */}
+            {currentTab === "reviews" && reviews.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {reviews.map((rv, ri) => (
+                  <div
+                    key={ri}
+                    className={`bg-bg-card border rounded-lg p-3 flex flex-col gap-2 ${
+                      rv.voted_up ? "border-accent-green/20" : "border-accent-red/20"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
+                        {rv.voted_up ? t("REVIEW_POSITIVE") : t("REVIEW_NEGATIVE")}
+                      </span>
+                      <span className="text-xs text-text-muted">[{rv.language}]</span>
+                    </div>
+                    {rv.language !== "koreana" && rv.text !== rv.text_kr && (
+                      <p className="text-xs text-text-muted leading-relaxed line-clamp-3">{rv.text}</p>
+                    )}
+                    <p className="text-sm text-text-secondary leading-relaxed">{rv.text_kr || rv.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 이벤트 탭 */}
+            {currentTab === "events" && (
+              <div className="space-y-0">
+                {sortedEvents.length === 0 ? (
+                  <p className="text-xs text-text-muted py-2">{t("TIMELINE_MONTH_NO_EVENTS")}</p>
+                ) : (
+                  sortedEvents.map((row) => (
+                    <EventItem key={row.event_id} row={row} appid={appid} onEdit={onEdit} />
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* 주간 분석 탭 — 2열 그리드 */}
+            {currentTab === "weekly" && weeklyRows && weeklyRows.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[...weeklyRows]
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((row) => (
+                    <WeeklyCard key={row.event_id} row={row} />
+                  ))}
+              </div>
+            )}
+
+            {/* 급변 감지 탭 */}
+            {currentTab === "shift" && shiftRows && shiftRows.length > 0 && (
+              <div className="space-y-3">
+                {shiftRows.map((shift) => {
+                  const ids: string[] = (() => {
+                    try { return JSON.parse(shift.linked_event_ids || "[]"); } catch { return []; }
+                  })();
+                  const linkedEvents = ids.map(id => eventById?.[id]).filter(Boolean) as TimelineRow[];
+                  return (
+                    <ShiftCard key={shift.event_id} shift={shift} linkedEvents={linkedEvents} />
+                  );
+                })}
+              </div>
+            )}
+
           </div>
         </div>
       )}
