@@ -24,7 +24,7 @@ export default async function HomePage() {
   );
 
   const FALLBACK: Record<string, string> = {
-    HOME_TITLE: "Steam 게임 마켓 인텔리전스",
+    HOME_TITLE: "🌾 스팀 정미소",
     HOME_SUBTITLE: "업데이트 민심 · 트래픽 · 언어권 반응을 한눈에 꿰뚫는 스팀 분석 대시보드",
     GAMES_SECTION_TITLE: "분석 완료된 게임",
     GAMES_EMPTY_ICON: "🎮",

@@ -18,12 +18,12 @@ import { getConfig, syncUiText, resetUiText } from "@/lib/sheets";
 const FALLBACK: Record<string, string> = {
 
   // ── 내비게이션 ──────────────────────────────────────────────────────
-  NAV_BRAND: "⚡ 스팀 탈곡기 Pro",
+  NAV_BRAND: "🌾 스팀 정미소",
   NAV_GUIDE: "분석 방법 가이드",
   NAV_USAGE: "이용 안내",
 
   // ── 홈 페이지 ───────────────────────────────────────────────────────
-  HOME_TITLE: "Steam 게임 마켓 인텔리전스",
+  HOME_TITLE: "🌾 스팀 정미소",
   HOME_SUBTITLE: "업데이트 민심 · 트래픽 · 언어권 반응을 한눈에 꿰뚫는 스팀 분석 대시보드",
 
   // ── 검색창 ──────────────────────────────────────────────────────────
