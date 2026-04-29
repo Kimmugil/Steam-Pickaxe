@@ -137,6 +137,23 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                   {Number(game.totalReviews || 0).toLocaleString()}{t("HEADER_REVIEWS_UNIT")}
                 </span>
               </div>
+              {/* Metacritic 점수 */}
+              {game.metacritic_score && Number(game.metacritic_score) > 0 && (
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-text-muted font-medium uppercase tracking-wide">Metacritic</span>
+                    <span className={`text-xl font-bold tabular-nums ${
+                      Number(game.metacritic_score) >= 75 ? "text-accent-green" :
+                      Number(game.metacritic_score) >= 50 ? "text-accent-yellow" :
+                      "text-accent-red"
+                    }`}>
+                      {game.metacritic_score}
+                    </span>
+                    <span className="text-xs text-text-muted">/ 100</span>
+                  </div>
+                  <span className="text-[10px] text-text-muted pl-0.5">비평가 점수</span>
+                </div>
+              )}
               {currentCcu !== undefined && (
                 <div className="text-sm text-text-secondary">
                   {t("HEADER_CCU_LABEL")}{" "}

@@ -1,6 +1,6 @@
 "use client";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Legend,
 } from "recharts";
 import { useState, useMemo } from "react";
@@ -50,7 +50,8 @@ interface ChartPoint {
   label: string;      // X축 표시용
   type: "monthly" | "weekly";
   title: string;      // tooltip 헤더 ("2026년 03월" / "출시 1주차")
-  [key: string]: string | number | null; // lang → rate
+  review_count?: number | null;
+  [key: string]: string | number | null | undefined; // lang → rate
 }
 
 export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment, shiftRows }: SentimentChartProps) {
@@ -59,6 +60,9 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
 
   // 다중 선택 — 초기값: "all"만 활성화
   const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set(["all"]));
+
+  // 볼륨 표시 토글
+  const [showVolume, setShowVolume] = useState(true);
 
   function toggleLang(lang: string) {
     setSelectedLangs((prev) => {
@@ -148,7 +152,29 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
     return map;
   }, [timelineRows]);
 
-  // 차트 데이터: 정렬된 포인트별 언어 긍정률 포함
+  // dateKey → review_count 맵 (language_scope === "all", monthly/weekly_summary)
+  const volumeMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of timelineRows) {
+      if (!r.date) continue;
+      if (r.language_scope !== "all") continue;
+      if (r.event_type !== "monthly_summary" && r.event_type !== "weekly_summary") continue;
+      const count = Number(r.review_count);
+      if (isNaN(count)) continue;
+
+      let dateKey: string | null = null;
+      if (r.event_type === "monthly_summary") {
+        dateKey = `${r.date.slice(0, 7)}-01`;
+      } else if (r.event_type === "weekly_summary") {
+        dateKey = r.date;
+      }
+      if (!dateKey) continue;
+      map[dateKey] = count;
+    }
+    return map;
+  }, [timelineRows]);
+
+  // 차트 데이터: 정렬된 포인트별 언어 긍정률 + 볼륨 포함
   const chartData = useMemo((): ChartPoint[] => {
     return allPoints.map((pt) => {
       const entry: ChartPoint = {
@@ -156,13 +182,14 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
         label: pt.label,
         type: pt.type,
         title: pt.title,
+        review_count: volumeMap[pt.date] ?? null,
       };
       for (const lang of langOptions) {
         entry[lang] = rateMap[pt.date]?.[lang] ?? null;
       }
       return entry;
     });
-  }, [allPoints, rateMap, langOptions]);
+  }, [allPoints, rateMap, langOptions, volumeMap]);
 
   // 급변 감지가 있는 YYYY-MM 집합 (마커 렌더링에 사용)
   const shiftMonths = useMemo(() => {
@@ -198,7 +225,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
 
   return (
     <div>
-      {/* 언어 토글 버튼 + 마커 범례 */}
+      {/* 언어 토글 버튼 + 볼륨 토글 + 마커 범례 */}
       <div className="flex gap-1 flex-wrap mb-4 items-center">
         <span className="text-xs text-text-muted mr-1">{t("CHART_LANG_FILTER")}</span>
         {langOptions.map((lang) => {
@@ -219,6 +246,18 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
             </button>
           );
         })}
+
+        {/* 볼륨 토글 버튼 */}
+        <button
+          onClick={() => setShowVolume((v) => !v)}
+          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+            showVolume
+              ? "bg-accent-blue/10 border border-accent-blue/30 text-accent-blue"
+              : "bg-bg-secondary border border-border-default text-text-muted"
+          }`}
+        >
+          볼륨
+        </button>
 
         {/* 주간 데이터 범례 */}
         {hasWeeklyData && (
@@ -244,7 +283,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
       </div>
 
       <ResponsiveContainer width="100%" height={320}>
-        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+        <ComposedChart data={chartData} margin={{ top: 5, right: showVolume ? 45 : 20, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2a2f45" />
           <XAxis
             dataKey="label"
@@ -253,15 +292,31 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
             interval="preserveStartEnd"
           />
           <YAxis
+            yAxisId="left"
             domain={[0, 100]}
             tick={{ fill: "#8b91a8", fontSize: 11 }}
             tickFormatter={(v) => `${v}%`}
             tickLine={false}
             axisLine={false}
           />
+          {showVolume && (
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              domain={[0, "auto"]}
+              tick={{ fill: "#8b91a8", fontSize: 10 }}
+              tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)}
+              tickLine={false}
+              axisLine={false}
+              width={35}
+            />
+          )}
           <Tooltip
             contentStyle={{ background: "#1e2130", border: "1px solid #2a2f45", borderRadius: 8, color: "#e8eaf0" }}
-            formatter={(v: number, name: string) => [`${v}%`, LANG_LABELS[name] ?? name]}
+            formatter={(v: number, name: string) => {
+              if (name === "review_count") return [`${v.toLocaleString()}건`, "리뷰 볼륨"];
+              return [`${v}%`, LANG_LABELS[name] ?? name];
+            }}
             labelFormatter={(_label, payload) => {
               if (!payload || !payload[0]) return String(_label);
               const pt = payload[0].payload as ChartPoint;
@@ -277,8 +332,20 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
               wrapperStyle={{ fontSize: 11, color: "#8b91a8" }}
             />
           )}
-          <ReferenceLine y={80} stroke="#5db86540" strokeDasharray="4 4" label={{ value: t("CHART_VERY_POSITIVE"), fill: "#5db865", fontSize: 10 }} />
-          <ReferenceLine y={40} stroke="#e05c5c40" strokeDasharray="4 4" label={{ value: t("CHART_MIXED"), fill: "#e05c5c", fontSize: 10 }} />
+          <ReferenceLine yAxisId="left" y={80} stroke="#5db86540" strokeDasharray="4 4" label={{ value: t("CHART_VERY_POSITIVE"), fill: "#5db865", fontSize: 10 }} />
+          <ReferenceLine yAxisId="left" y={40} stroke="#e05c5c40" strokeDasharray="4 4" label={{ value: t("CHART_MIXED"), fill: "#e05c5c", fontSize: 10 }} />
+
+          {showVolume && (
+            <Bar
+              yAxisId="right"
+              dataKey="review_count"
+              fill="#4f87ff"
+              opacity={0.15}
+              radius={[2, 2, 0, 0]}
+              name="리뷰 볼륨"
+              isAnimationActive={false}
+            />
+          )}
 
           {langOptions.map((lang) => {
             if (!selectedLangs.has(lang)) return null;
@@ -286,6 +353,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
             return (
               <Line
                 key={lang}
+                yAxisId="left"
                 type="monotone"
                 dataKey={lang}
                 stroke={color}
@@ -324,7 +392,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
               />
             );
           })}
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
 
       {trendComment && (

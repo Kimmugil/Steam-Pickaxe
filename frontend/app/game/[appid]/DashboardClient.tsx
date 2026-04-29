@@ -97,6 +97,7 @@ export default function DashboardClient({
                 timelineRows={timelineRows}
                 crossAnalysisComment={game.language_cross_comment}
                 languageDistribution={languageDistribution}
+                appid={String(game.appid)}
               />
             )}
           </div>
