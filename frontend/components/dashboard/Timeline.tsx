@@ -511,9 +511,9 @@ function MonthCard({
               </div>
             )}
 
-            {/* 주간 분석 탭 — 2열 그리드 */}
+            {/* 주간 분석 탭 — 1열 순서 리스트 */}
             {currentTab === "weekly" && weeklyRows && weeklyRows.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {[...weeklyRows]
                   .sort((a, b) => a.date.localeCompare(b.date))
                   .map((row) => (
