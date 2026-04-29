@@ -153,24 +153,46 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
   }, [timelineRows]);
 
   // dateKey → review_count 맵 (language_scope === "all", monthly/weekly_summary)
+  // 월간 summary에 review_count가 없으면 해당 월의 주간 합계로 대체
   const volumeMap = useMemo(() => {
-    const map: Record<string, number> = {};
+    const monthlyMap: Record<string, number> = {};   // "YYYY-MM-01" → count
+    const weeklyByMonth: Record<string, number> = {}; // "YYYY-MM" → sum of weekly counts
+
     for (const r of timelineRows) {
       if (!r.date) continue;
       if (r.language_scope !== "all") continue;
-      if (r.event_type !== "monthly_summary" && r.event_type !== "weekly_summary") continue;
       const count = Number(r.review_count);
-      if (isNaN(count)) continue;
 
-      let dateKey: string | null = null;
-      if (r.event_type === "monthly_summary") {
-        dateKey = `${r.date.slice(0, 7)}-01`;
-      } else if (r.event_type === "weekly_summary") {
-        dateKey = r.date;
+      if (r.event_type === "monthly_summary" && !isNaN(count) && count > 0) {
+        monthlyMap[`${r.date.slice(0, 7)}-01`] = count;
+      } else if (r.event_type === "weekly_summary" && !isNaN(count) && count > 0) {
+        const ym = r.date.slice(0, 7);
+        weeklyByMonth[ym] = (weeklyByMonth[ym] ?? 0) + count;
       }
-      if (!dateKey) continue;
-      map[dateKey] = count;
     }
+
+    // 주간 포인트 자체의 볼륨도 포함
+    const weeklyPointMap: Record<string, number> = {};
+    for (const r of timelineRows) {
+      if (!r.date) continue;
+      if (r.language_scope !== "all") continue;
+      if (r.event_type !== "weekly_summary") continue;
+      const count = Number(r.review_count);
+      if (!isNaN(count) && count > 0) weeklyPointMap[r.date] = count;
+    }
+
+    // 월간 포인트: 자체 count가 없으면 주간 합계로 대체
+    const map: Record<string, number> = { ...weeklyPointMap };
+    for (const r of timelineRows) {
+      if (!r.date) continue;
+      if (r.language_scope !== "all") continue;
+      if (r.event_type !== "monthly_summary") continue;
+      const dateKey = `${r.date.slice(0, 7)}-01`;
+      const ym = r.date.slice(0, 7);
+      const count = monthlyMap[dateKey] ?? weeklyByMonth[ym] ?? 0;
+      if (count > 0) map[dateKey] = count;
+    }
+
     return map;
   }, [timelineRows]);
 
@@ -342,7 +364,6 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
               fill="#4f87ff"
               opacity={0.15}
               radius={[2, 2, 0, 0]}
-              name="리뷰 볼륨"
               isAnimationActive={false}
             />
           )}
@@ -387,7 +408,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
                   );
                 }}
                 activeDot={{ r: 5 }}
-                connectNulls={false}
+                connectNulls={true}
                 name={lang}
               />
             );
