@@ -163,7 +163,6 @@ const FALLBACK: Record<string, string> = {
   TAB_CCU: "글로벌 트래픽 (CCU)",
   TAB_SENTIMENT: "평가 추이",
   TAB_LANGUAGE: "언어권별 분포",
-  TAB_PLAYTIME: "플레이타임 분석",
 
   // ── 업데이트 히스토리 섹션 ───────────────────────────────────────────
   HISTORY_TITLE: "업데이트 히스토리",
@@ -655,22 +654,6 @@ const FALLBACK: Record<string, string> = {
 
   // ── 언어 탭 ─────────────────────────────────────────────────────────────
   LANG_OTHER: "기타",
-  LANG_TAB_LANGUAGE: "언어 분포",
-  LANG_TAB_PLAYTIME: "플레이타임",
-  PLAYTIME_NEW_LABEL: "신규 유저",
-  PLAYTIME_NEW_RANGE: "하위 25%",
-  PLAYTIME_MID_LABEL: "일반 유저",
-  PLAYTIME_MID_RANGE: "25~75%",
-  PLAYTIME_HEAVY_LABEL: "헤비 유저",
-  PLAYTIME_HEAVY_RANGE: "상위 25%",
-  PLAYTIME_STATS_TITLE: "플레이타임 구간별 평가",
-  PLAYTIME_STATS_DESC: "리뷰 작성 시점 플레이타임 기준 · P25/P75 퍼센타일로 구간 분류",
-  PLAYTIME_STATS_DATE_LABEL: "통계 계산 시점:",
-  PLAYTIME_STATS_NO_DATA: "플레이타임 통계 데이터가 없습니다. 다음 수집 시 자동 계산됩니다.",
-  PLAYTIME_THRESHOLD_NEW: "기준 미만",
-  PLAYTIME_THRESHOLD_HEAVY: "이상",
-  PLAYTIME_UNIT_MIN: "분",
-  PLAYTIME_TOTAL_REVIEWS: "전체 {total}건 기반",
 
   // ── 감성 차트 ────────────────────────────────────────────────────────────
   CHART_LANG_FILTER: "언어 선택:",

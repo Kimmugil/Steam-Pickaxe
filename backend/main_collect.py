@@ -211,33 +211,7 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
     if final_status == "active":
         _collect_news(ss, appid, name, game_sheet_id, positive_rate=positive_rate)
 
-    # 4. 플레이타임 구간별 통계 사전 계산 (active 상태 + game_sheet_id 있을 때)
-    if final_status == "active" and game_sheet_id and not NEWS_ONLY:
-        _calc_playtime_stats(ss, appid, game_sheet_id)
-
     return newly_activated
-
-
-def _calc_playtime_stats(ss, appid: str, game_sheet_id: str) -> None:
-    """플레이타임 P25/P75 구간 통계를 계산하여 master sheet에 저장합니다."""
-    import json as _json
-    from datetime import datetime as _dt, timezone as _tz
-    try:
-        from tools.calc_playtime_stats import calc_for_game
-        print(f"[playtime] 통계 계산 시작 ({appid})")
-        stats = calc_for_game(game_sheet_id)
-        if stats is None:
-            return
-        today = _dt.now(tz=_tz.utc).strftime("%Y-%m-%d")
-        update_game(ss, appid, {
-            "playtime_stats":      _json.dumps(stats, ensure_ascii=False),
-            "playtime_stats_date": today,
-        })
-        print(f"[playtime] 저장 완료 (P25={stats['p25']}분, P75={stats['p75']}분, total={stats['total']}건)")
-    except Exception as e:
-        import traceback
-        print(f"[playtime] 계산 실패 (건너뜀): {e}")
-        print(traceback.format_exc())
 
 
 def _steam_gid(url: str) -> str | None:
