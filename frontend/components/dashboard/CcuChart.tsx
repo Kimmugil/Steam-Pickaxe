@@ -243,6 +243,37 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
       {/* 히트맵 뷰 */}
       {viewMode === "heatmap" ? (
         <div>
+          {/* 가이드 — 읽는 법 안내 */}
+          <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg bg-bg-secondary border border-border-default px-3 py-2">
+            <p className="text-xs text-text-muted leading-relaxed">
+              <span className="text-text-secondary font-medium">읽는 법</span>
+              &nbsp;· 행 = 요일, 열 = 시간(KST) · 색이 진할수록 해당 시간대 평균 동접자가 높음
+              &nbsp;· 칸에 마우스를 올리면 평균 CCU 수치를 확인할 수 있습니다
+            </p>
+            <div className="flex items-center gap-2 shrink-0 text-xs text-text-muted">
+              {/* 데이터 없음 범례 */}
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-4 h-4 rounded-sm bg-bg-card border border-border-default" />
+                데이터 없음
+              </span>
+              {/* 색 농도 그라디언트 범례 */}
+              <span className="ml-1">낮음</span>
+              <div
+                className="w-16 h-3 rounded-sm shrink-0"
+                style={{ background: "linear-gradient(to right, rgba(79,135,255,0.08), rgba(79,135,255,1))" }}
+              />
+              <span>높음</span>
+              {/* 피크 마커 범례 */}
+              <span className="flex items-center gap-1 ml-1">
+                <span
+                  className="inline-block w-4 h-4 rounded-sm border border-accent-blue/70"
+                  style={{ backgroundColor: "rgba(79,135,255,1)" }}
+                />
+                최고치
+              </span>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="border-separate border-spacing-0.5 mx-auto">
               <thead>
@@ -292,7 +323,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
             </table>
           </div>
           <p className="text-xs text-text-muted text-center mt-3">
-            전체 데이터 기반 · 시간대 KST 기준
+            전체 수집 기간 데이터 기반 · 동접자 최고치{heatmapMax > 0 ? ` ${heatmapMax.toLocaleString()}명` : ""} (테두리 셀)
           </p>
         </div>
       ) : (
