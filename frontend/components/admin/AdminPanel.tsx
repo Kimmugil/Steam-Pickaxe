@@ -27,7 +27,7 @@ function HelpBtn({ col, onClick }: { col: string; onClick: (c: string) => void }
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(col); }}
       className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-text-muted/20 text-text-muted hover:bg-accent-blue/20 hover:text-accent-blue text-[9px] font-bold transition-colors ml-1 flex-shrink-0"
-      title={t("ADMIN_HELP_BTN_TITLE")}
+      title="도움말"
     >
       ?
     </button>
