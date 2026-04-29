@@ -8,10 +8,10 @@ const HEAVY_MIN = 6000;   // >= 100시간
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { appid: string } }
+  { params }: { params: Promise<{ appid: string }> }
 ) {
   try {
-    const { appid } = params;
+    const { appid } = await params;
 
     // 게임 시트 ID 조회
     const game = await getGame(appid);
