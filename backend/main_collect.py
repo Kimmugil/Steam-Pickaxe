@@ -349,6 +349,7 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str, positive_r
             update_game(ss, appid, {
                 "latest_official_event_date":  str(latest_ev.get("date", "")),
                 "latest_official_event_title": str(latest_ev.get("title_kr") or latest_ev.get("title", "")),
+                "latest_official_event_url":   str(latest_ev.get("url", "")),
             })
         except Exception as e:
             print(f"[WARN] latest_official_event 업데이트 실패: {e}")

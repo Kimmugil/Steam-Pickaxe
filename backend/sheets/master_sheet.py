@@ -100,6 +100,7 @@ GAMES_HEADERS = [
     "latest_shift_delta",      # 급변폭 (예: "-15.3")
     "latest_official_event_date",  # 가장 최근 공식 이벤트 날짜 (YYYY-MM-DD)
     "latest_official_event_title", # 가장 최근 공식 이벤트 제목
+    "latest_official_event_url",   # 가장 최근 공식 이벤트 원문 URL
     # ── 제거된 컬럼 (하위호환 기록용, 실제로 사용하지 않음) ──
     # owners_estimate, avg_playtime, median_playtime, active_players_2weeks
     #   → SteamSpy 필드였으나 SteamSpy 수집 중단으로 미사용
