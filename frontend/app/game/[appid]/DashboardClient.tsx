@@ -29,7 +29,7 @@ export default function DashboardClient({
 }: Props) {
   const router = useRouter();
   const { t } = useUiText();
-  const [activeTab, setActiveTab] = useState<Tab>("ccu");
+  const [activeTab, setActiveTab] = useState<Tab>("sentiment");
   const [showEventModal, setShowEventModal] = useState(false);
 
   const languageDistribution = useMemo<Record<string, number>>(() => {
@@ -41,9 +41,9 @@ export default function DashboardClient({
   }, [game.language_distribution]);
 
   const TABS: { key: Tab; labelKey: string }[] = [
-    { key: "ccu",       labelKey: "TAB_CCU" },
     { key: "sentiment", labelKey: "TAB_SENTIMENT" },
     { key: "language",  labelKey: "TAB_LANGUAGE" },
+    { key: "ccu",       labelKey: "TAB_CCU" },
   ];
 
   return (
