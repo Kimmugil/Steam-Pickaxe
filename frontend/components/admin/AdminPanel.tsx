@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Toast, { useToast } from "@/components/shared/Toast";
+import AnomalySection from "./AnomalySection";
 import type { Game, GameStatus } from "@/types";
 import { useUiText } from "@/contexts/UiTextContext";
 
@@ -854,6 +855,9 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
           </p>
         )}
       </section>
+
+      {/* ── 이상 구간 감지 ───────────────────────────────────────────────── */}
+      <AnomalySection getSavedPw={getSavedPw} onToast={show} />
 
       {/* ── 시스템 도구 ───────────────────────────────────────────────────── */}
       <section className="mb-10">
