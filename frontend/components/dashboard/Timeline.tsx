@@ -410,24 +410,33 @@ function MonthCard({
 
           {/* ── 탭 바 ──────────────────────────────────────────────────────── */}
           <div className="flex border-b border-border-default bg-bg-card overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
-                  currentTab === tab.id
-                    ? "border-accent-blue text-accent-blue"
-                    : "border-transparent text-text-muted hover:text-text-secondary hover:border-border-default"
-                }`}
-              >
-                {tab.label}
-                {tab.badge && (
-                  <span className="px-1.5 py-0.5 text-[10px] bg-bg-secondary border border-border-default rounded-full text-text-muted">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              const isShift  = tab.id === "shift";
+              const isActive = currentTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
+                    isShift
+                      ? isActive
+                        ? "border-accent-yellow text-accent-yellow bg-accent-yellow/5"
+                        : "border-transparent text-accent-yellow/80 hover:border-accent-yellow/50 hover:bg-accent-yellow/5"
+                      : isActive
+                        ? "border-accent-blue text-accent-blue"
+                        : "border-transparent text-text-muted hover:text-text-secondary hover:border-border-default"
+                  }`}
+                >
+                  {isShift && <span>⚡</span>}
+                  {tab.label}
+                  {tab.badge && (
+                    <span className="px-1.5 py-0.5 text-[10px] bg-bg-secondary border border-border-default rounded-full text-text-muted">
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* ── 탭 콘텐츠 ──────────────────────────────────────────────────── */}
