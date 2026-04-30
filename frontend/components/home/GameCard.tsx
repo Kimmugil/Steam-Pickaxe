@@ -109,9 +109,13 @@ export default function GameCard({ game }: GameCardProps) {
           {/* 리뷰 수 + Steam 평점 레이블 */}
           <div className="flex items-center justify-between text-xs text-text-secondary">
             <span>{t("CARD_REVIEWS_LABEL", { n: Number(game.totalReviews || 0).toLocaleString() })}</span>
-            {sentimentRate !== null && (
-              <span className="text-text-muted font-medium">
-                {getSteamLabel(sentimentRate, Number(game.totalReviews || 0))}
+            {sentimentRate !== null && sentimentRate > 0 && (
+              <span className={`font-semibold tabular-nums ${
+                sentimentRate >= 80 ? "text-accent-green" :
+                sentimentRate >= 60 ? "text-accent-yellow" :
+                "text-accent-red"
+              }`}>
+                {sentimentRate.toFixed(0)}%
               </span>
             )}
           </div>
