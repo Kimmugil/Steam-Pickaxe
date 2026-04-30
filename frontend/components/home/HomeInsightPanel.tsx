@@ -25,9 +25,9 @@ export default function HomeInsightPanel({ games }: Props) {
     .filter(g => g.latest_shift_date && daysSince(g.latest_shift_date) <= 60)
     .sort((a, b) => (b.latest_shift_date ?? "").localeCompare(a.latest_shift_date ?? ""));
 
-  // ── 이벤트 감지 목록 (최근 30일) ─────────────────────────────────────────────
+  // ── 이벤트 감지 목록 (최근 14일) ─────────────────────────────────────────────
   const eventGames = games
-    .filter(g => g.latest_official_event_date && daysSince(g.latest_official_event_date) <= 30)
+    .filter(g => g.latest_official_event_date && daysSince(g.latest_official_event_date) <= 14)
     .sort((a, b) => (b.latest_official_event_date ?? "").localeCompare(a.latest_official_event_date ?? ""));
 
   // ── 긍정률 목록 ──────────────────────────────────────────────────────────────
@@ -47,10 +47,11 @@ export default function HomeInsightPanel({ games }: Props) {
           shiftGames.map((g) => {
             const isDecline = g.latest_shift_direction === "decline";
             const delta = g.latest_shift_delta ? parseFloat(g.latest_shift_delta) : null;
+            const shiftYm = g.latest_shift_date?.slice(0, 7) ?? "";
             return (
               <Link
                 key={g.appid}
-                href={`/game/${g.appid}`}
+                href={`/game/${g.appid}${shiftYm ? `?ym=${shiftYm}&tab=shift` : ""}`}
                 className="flex items-start gap-3 px-4 py-3 hover:bg-bg-secondary/60 transition-colors border-b border-border-default/40 last:border-b-0"
               >
                 <span className={`mt-0.5 flex-shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded ${
@@ -75,16 +76,13 @@ export default function HomeInsightPanel({ games }: Props) {
         )}
       </div>
 
-      {/* ── 📊 긍정률 (클라이언트 토글 포함) ──────────────────────────── */}
-      {rateGames.length > 0 && <RateSection games={rateGames} />}
-
       {/* ── 🔔 이벤트 감지 ──────────────────────────────────────────── */}
       <div className="px-4 py-3">
         <h3 className="text-sm font-semibold text-text-primary">🔔 이벤트 감지</h3>
       </div>
       <div>
         {eventGames.length === 0 ? (
-          <p className="px-4 py-4 text-xs text-text-muted text-center">최근 30일 내 이벤트 없음</p>
+          <p className="px-4 py-4 text-xs text-text-muted text-center">최근 14일 내 이벤트 없음</p>
         ) : (
           eventGames.map((g) => (
             <Link
@@ -92,9 +90,6 @@ export default function HomeInsightPanel({ games }: Props) {
               href={`/game/${g.appid}`}
               className="flex items-start gap-3 px-4 py-3 hover:bg-bg-secondary/60 transition-colors border-b border-border-default/40 last:border-b-0"
             >
-              <span className="mt-0.5 flex-shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue">
-                🔧 업데이트
-              </span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-text-primary truncate">{g.name_kr || g.name}</p>
                 {g.latest_official_event_title && (
@@ -108,6 +103,9 @@ export default function HomeInsightPanel({ games }: Props) {
           ))
         )}
       </div>
+
+      {/* ── 📊 긍정률 (클라이언트 토글 포함) ──────────────────────────── */}
+      {rateGames.length > 0 && <RateSection games={rateGames} />}
 
     </div>
   );

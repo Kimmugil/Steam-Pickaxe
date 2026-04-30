@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/dashboard/Header";
 import CcuChart from "@/components/dashboard/CcuChart";
 import CcuAdminPanel from "@/components/dashboard/CcuAdminPanel";
@@ -28,8 +28,12 @@ export default function DashboardClient({
   currentCcu, topSentimentRate, topLanguages,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useUiText();
   const [activeTab, setActiveTab] = useState<Tab>("sentiment");
+
+  const focusYm  = searchParams.get("ym")  ?? undefined;
+  const focusTab = searchParams.get("tab") ?? undefined;
   const [showEventModal, setShowEventModal] = useState(false);
 
   const languageDistribution = useMemo<Record<string, number>>(() => {
@@ -106,7 +110,7 @@ export default function DashboardClient({
         {/* ── 업데이트 히스토리 ────────────────────────────────────── */}
         <div className="bg-bg-card border border-border-default rounded-xl p-6">
           <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
-          <Timeline timelineRows={timelineRows} appid={String(game.appid)} releaseDate={game.release_date} />
+          <Timeline timelineRows={timelineRows} appid={String(game.appid)} releaseDate={game.release_date} focusYm={focusYm} focusTab={focusTab} />
 
           {/* 수동 이벤트 등록 버튼 */}
           <div className="mt-6 pt-4 border-t border-border-default">

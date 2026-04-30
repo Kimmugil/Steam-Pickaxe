@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Badge from "@/components/shared/Badge";
 import Toast, { useToast } from "@/components/shared/Toast";
 import ShiftCard from "@/components/dashboard/ShiftCard";
@@ -10,6 +10,8 @@ interface TimelineProps {
   timelineRows: TimelineRow[];
   appid: string;
   releaseDate?: string;
+  focusYm?: string;
+  focusTab?: string;
 }
 
 // ── 이벤트 수정 모달 ─────────────────────────────────────────────────────────
@@ -278,6 +280,7 @@ function WeeklyCard({ row }: { row: TimelineRow }) {
 // ── 월별 카드 ────────────────────────────────────────────────────────────────
 function MonthCard({
   summaryRow, eventRows, sortAsc, appid, onEdit, releaseYm, hasShift, shiftRows, eventById, weeklyRows,
+  focusYm, focusTab,
 }: {
   summaryRow: TimelineRow | null;
   eventRows: TimelineRow[];
@@ -289,14 +292,32 @@ function MonthCard({
   shiftRows?: TimelineRow[];
   eventById?: Record<string, TimelineRow>;
   weeklyRows?: TimelineRow[];
+  focusYm?: string;
+  focusTab?: string;
 }) {
   const { t } = useUiText();
-  const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // 제목은 summaryRow가 없으면 eventRows의 첫 날짜로부터 추정
-  const firstDate = eventRows[0]?.date ?? "";
-  const ym = (summaryRow?.date ?? firstDate).slice(0, 7);
+  // 제목은 summaryRow가 없으면 eventRows의 첫 날짜로부터 추정 (ym 계산을 state 초기값 이전에)
+  const firstDateEarly = eventRows[0]?.date ?? "";
+  const ymEarly = (summaryRow?.date ?? firstDateEarly).slice(0, 7);
+  const isFocused = !!focusYm && ymEarly === focusYm;
+
+  const [expanded, setExpanded] = useState(() => isFocused);
+  const [activeTab, setActiveTab] = useState<string | null>(() => isFocused && focusTab ? focusTab : null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // 딥링크: 해당 카드로 스크롤
+  useEffect(() => {
+    if (isFocused && cardRef.current) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ym은 위에서 이미 ymEarly로 계산됨 (state 초기값에 사용)
+  const ym = ymEarly;
   const [year, month] = ym ? ym.split("-").map(Number) : [0, 0];
   const monthLabel = year && month ? `${year}년 ${month.toString().padStart(2, "0")}월` : "—";
 
@@ -342,7 +363,7 @@ function MonthCard({
   const currentTab = (activeTab ?? defaultTab) as TabId;
 
   return (
-    <div className="border border-border-default rounded-xl overflow-hidden">
+    <div ref={cardRef} className="border border-border-default rounded-xl overflow-hidden">
       {/* 월 카드 헤더 */}
       <button
         onClick={() => setExpanded(!expanded)}
@@ -554,7 +575,7 @@ function MonthCard({
 }
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
-export default function Timeline({ timelineRows, appid, releaseDate }: TimelineProps) {
+export default function Timeline({ timelineRows, appid, releaseDate, focusYm, focusTab }: TimelineProps) {
   const { t } = useUiText();
   const [sortAsc, setSortAsc]     = useState(false);
   const [editingRow, setEditingRow] = useState<TimelineRow | null>(null);
@@ -682,6 +703,8 @@ export default function Timeline({ timelineRows, appid, releaseDate }: TimelineP
               shiftRows={shiftsForYm}
               eventById={eventById}
               weeklyRows={weeklyForYm.length > 0 ? weeklyForYm : undefined}
+              focusYm={focusYm}
+              focusTab={focusTab}
             />
           );
         })}
