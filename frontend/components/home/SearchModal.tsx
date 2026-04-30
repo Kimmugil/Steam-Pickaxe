@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Toast, { useToast } from "@/components/shared/Toast";
+import { useUiText } from "@/contexts/UiTextContext";
 
 interface SearchResult {
   appid: string;
@@ -19,6 +20,7 @@ interface Props {
 export default function SearchModal({ onClose }: Props) {
   const router = useRouter();
   const { toast, show, clear } = useToast();
+  const { t } = useUiText();
 
   const [query,       setQuery]       = useState("");
   const [loading,     setLoading]     = useState(false);
@@ -58,7 +60,7 @@ export default function SearchModal({ onClose }: Props) {
       const data = await res.json();
       setResults(data.results ?? []);
     } catch {
-      show("검색 중 오류가 발생했습니다.", "error");
+      show(t("SEARCH_ERROR"), "error");
     } finally {
       setLoading(false);
     }
@@ -74,19 +76,19 @@ export default function SearchModal({ onClose }: Props) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(`${result.name} 등록 완료! 분석이 시작됩니다.`, "success");
+        show(t("REGISTER_SUCCESS", { name: result.name }), "success");
         // 등록된 항목 alreadyRegistered 상태로 업데이트
         setResults((prev) =>
           prev?.map((r) => r.appid === result.appid ? { ...r, alreadyRegistered: true } : r) ?? null
         );
         router.refresh();
       } else if (data.quota_exceeded) {
-        show("등록 한도에 도달했습니다.", "error");
+        show(t("REGISTER_QUOTA_EXCEEDED"), "error");
       } else {
-        show(data.error ?? "등록 중 오류가 발생했습니다.", "error");
+        show(data.error ?? t("REGISTER_ERROR"), "error");
       }
     } catch {
-      show("서버 연결 오류", "error");
+      show(t("SEARCH_SERVER_ERROR"), "error");
     } finally {
       setRegistering(null);
     }
@@ -94,15 +96,15 @@ export default function SearchModal({ onClose }: Props) {
 
   return (
     <>
-      {/* 딤드 백드롭 */}
+      {/* 딤드 백드롭 — z-40 으로 설정해 z-50 Navbar 위에 덮이지 않음 */}
       <div
-        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* 모달 컨테이너 */}
-      <div className="fixed inset-0 z-50 overflow-y-auto pointer-events-none">
-        <div className="min-h-full flex flex-col items-center px-4 pt-16 pb-16">
+      {/* 모달 컨테이너 — 내비게이션 바(h-14) 아래부터 시작 */}
+      <div className="fixed inset-0 z-40 overflow-y-auto pointer-events-none" style={{ top: 56 }}>
+        <div className="min-h-full flex flex-col items-center px-4 pt-10 pb-16">
           <div
             className="w-full max-w-3xl pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
@@ -115,7 +117,7 @@ export default function SearchModal({ onClose }: Props) {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="게임 이름 또는 Steam AppID / URL 입력…"
+                placeholder={t("SEARCH_PLACEHOLDER")}
                 className="w-full bg-bg-card border-2 border-accent-blue/60 rounded-2xl px-6 py-4 pr-32 text-text-primary text-lg placeholder:text-text-muted focus:outline-none focus:border-accent-blue shadow-2xl transition-colors"
               />
               <button
@@ -123,23 +125,23 @@ export default function SearchModal({ onClose }: Props) {
                 disabled={loading || !query.trim()}
                 className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 bg-accent-blue text-white rounded-xl font-medium hover:bg-blue-500 disabled:opacity-40 transition-colors text-sm"
               >
-                {loading ? "검색 중…" : "검색"}
+                {loading ? t("SEARCH_BTN_LOADING") : t("SEARCH_BTN")}
               </button>
             </form>
             <p className="mt-2 text-xs text-text-muted text-center">
-              한글 게임명은 영문으로 검색하면 더 정확해요 · ESC로 닫기
+              {t("SEARCH_HINT")}
             </p>
 
             {/* ── 검색 결과 ──────────────────────────────────────────── */}
             {loading && (
               <div className="mt-10 text-center text-text-muted text-sm animate-pulse">
-                Steam에서 검색 중…
+                {t("SEARCH_LOADING_TEXT")}
               </div>
             )}
 
             {results && results.length === 0 && (
               <div className="mt-10 text-center text-text-muted text-sm">
-                검색 결과가 없습니다. 다른 검색어나 AppID를 시도해 보세요.
+                {t("SEARCH_NO_RESULTS")}
               </div>
             )}
 
@@ -151,6 +153,7 @@ export default function SearchModal({ onClose }: Props) {
                     result={r}
                     registering={registering === r.appid}
                     onRegister={() => handleRegister(r)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -168,11 +171,12 @@ export default function SearchModal({ onClose }: Props) {
 // ── 검색 결과 카드 ──────────────────────────────────────────────────────────
 
 function SearchResultCard({
-  result, registering, onRegister,
+  result, registering, onRegister, t,
 }: {
   result: SearchResult;
   registering: boolean;
   onRegister: () => void;
+  t: (key: string, vars?: Record<string, string>) => string;
 }) {
   const [imgError, setImgError] = useState(false);
 
@@ -201,14 +205,14 @@ function SearchResultCard({
         {/* 얼리 액세스 배지 */}
         {result.early_access && (
           <span className="absolute top-2 left-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 border border-accent-orange/50 text-accent-orange">
-            얼리 액세스
+            {t("EARLY_ACCESS_BADGE")}
           </span>
         )}
         {/* 이미 등록됨 오버레이 */}
         {result.alreadyRegistered && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="text-xs font-semibold text-white bg-black/60 px-3 py-1.5 rounded-full">
-              ✓ 이미 등록된 게임
+              {t("ALREADY_REGISTERED_BADGE")}
             </span>
           </div>
         )}
@@ -217,14 +221,14 @@ function SearchResultCard({
       {/* 정보 */}
       <div className="p-3 flex-1">
         <p className="font-semibold text-text-primary text-sm truncate">{result.name}</p>
-        <p className="text-xs text-text-muted mt-0.5">AppID {result.appid}</p>
+        <p className="text-xs text-text-muted mt-0.5">{t("RESULT_LABEL_APPID")} {result.appid}</p>
       </div>
 
       {/* 등록 버튼 */}
       <div className="px-3 pb-3">
         {result.alreadyRegistered ? (
           <div className="w-full py-2 text-center text-xs text-text-muted border border-border-default rounded-lg">
-            이미 등록된 게임
+            {t("ALREADY_REGISTERED_BTN")}
           </div>
         ) : (
           <button
@@ -233,7 +237,7 @@ function SearchResultCard({
             className="w-full py-2 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-40
               border-accent-green/40 text-accent-green bg-accent-green/5 hover:bg-accent-green/15"
           >
-            {registering ? "등록 중…" : "이 게임 분석 등록하기"}
+            {registering ? t("REGISTER_BTN_LOADING") : t("REGISTER_BTN")}
           </button>
         )}
       </div>

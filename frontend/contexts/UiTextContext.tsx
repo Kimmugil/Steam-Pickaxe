@@ -42,7 +42,7 @@ const FALLBACK: Record<string, string> = {
   // ── 등록 ────────────────────────────────────────────────────────────
   REGISTER_BTN: "이 게임 분석 등록하기",
   REGISTER_BTN_LOADING: "등록 중...",
-  REGISTER_SUCCESS: "{name} 등록 완료! 수집이 시작됩니다.",
+  REGISTER_SUCCESS: "{name} 등록 완료! 분석이 시작됩니다.",
   REGISTER_ERROR: "등록 중 오류가 발생했습니다.",
   REGISTER_QUOTA_EXCEEDED: "곳간 용량 부족! 농장주(김무길)에게 곳간을 늘려달라고 하세요.",
   REGISTER_APPROVAL_NOTICE: "페이지 생성 후 AI 분석은 관리자 승인 이후 진행됩니다. 수집이 완료되면 대기열에서 진행 상황을 확인할 수 있습니다.",
@@ -68,10 +68,45 @@ const FALLBACK: Record<string, string> = {
   QUEUE_ETA_SUFFIX: "(Steam API 상태에 따라 변동)",
 
   // ── 게임 목록 ───────────────────────────────────────────────────────
-  GAMES_SECTION_TITLE: "분석 완료된 게임",
+  GAMES_SECTION_TITLE: "전체 게임",
   GAMES_EMPTY_ICON: "🎮",
   GAMES_EMPTY_TITLE: "아직 등록된 게임이 없습니다.",
   GAMES_EMPTY_SUBTITLE: "위 검색창에서 Steam 게임을 검색하고 등록해 보세요.",
+  PENDING_GAMES_SECTION_TITLE: "분석 진행 중인 게임",
+  COUNT_SUFFIX: "개",
+
+  // ── 플로팅 네비게이션 (FloatingNav) ─────────────────────────────────
+  FLOATING_NAV_BTN:   "게임 등록하기",
+  FLOATING_NAV_TITLE: "스팀 게임 검색하고 등록하기",
+
+  // ── 검색 모달 추가 텍스트 (SearchModal) ──────────────────────────────
+  SEARCH_LOADING_TEXT: "Steam에서 검색 중…",
+  SEARCH_NO_RESULTS:   "검색 결과가 없습니다. 다른 검색어나 AppID를 시도해 보세요.",
+  SEARCH_ERROR:        "검색 중 오류가 발생했습니다.",
+  SEARCH_SERVER_ERROR: "서버 연결 오류",
+  EARLY_ACCESS_BADGE:      "얼리 액세스",
+  ALREADY_REGISTERED_BADGE: "✓ 이미 등록된 게임",
+  ALREADY_REGISTERED_BTN:   "이미 등록된 게임",
+
+  // ── 홈 인사이트 패널 (HomeInsightPanel / EventSection / RateSection) ──
+  INSIGHT_SHIFT_TITLE:  "⚡ 평가 급변",
+  INSIGHT_SHIFT_EMPTY:  "최근 60일 내 급변 없음",
+  SHIFT_DECLINE_LABEL:  "📉 급락",
+  SHIFT_RECOVERY_LABEL: "📈 회복",
+  INSIGHT_EVENT_TITLE:  "🔔 이벤트 감지",
+  INSIGHT_EVENT_RECENT: "최근 2주",
+  INSIGHT_EVENT_EMPTY:  "최근 14일 내 이벤트 없음",
+  INSIGHT_RATE_TITLE:   "📊 긍정률",
+  RATE_SORT_DESC:       "높은순",
+  RATE_SORT_ASC:        "낮은순",
+  RATE_SHOW_MORE:       "+{n}개 더보기 ▼",
+  RATE_COLLAPSE:        "접기 ▲",
+
+  // ── 상대 시간 표현 ────────────────────────────────────────────────────
+  REL_TODAY:      "오늘",
+  REL_DAYS_AGO:   "{n}일 전",
+  REL_WEEKS_AGO:  "{n}주 전",
+  REL_MONTHS_AGO: "{n}개월 전",
 
   // ── 게임 카드 ───────────────────────────────────────────────────────
   CARD_REVIEWS_LABEL: "리뷰 {n}건",

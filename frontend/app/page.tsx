@@ -31,6 +31,7 @@ export default async function HomePage() {
     GAMES_EMPTY_TITLE:           "아직 등록된 게임이 없습니다.",
     GAMES_EMPTY_SUBTITLE:        "위 검색창에서 Steam 게임을 검색하고 등록해 보세요.",
     PENDING_GAMES_SECTION_TITLE: "분석 진행 중인 게임",
+    COUNT_SUFFIX:                "개",
   };
   const t = (key: string) => (uiText as Record<string, string>)[key] ?? FALLBACK[key] ?? key;
 
@@ -56,13 +57,13 @@ export default async function HomePage() {
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold text-text-primary mb-3">
               {t("GAMES_SECTION_TITLE")}
-              <span className="ml-2 font-normal text-text-muted">{activeGames.length}개</span>
+              <span className="ml-2 font-normal text-text-muted">{activeGames.length}{t("COUNT_SUFFIX")}</span>
             </h2>
             <GameCardGrid games={activeGames} />
           </div>
 
           {/* ── 우측: 인사이트 패널 (sticky) ─────────────────────────── */}
-          <div className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-6">
+          <div className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-20">
             <HomeInsightPanel games={activeGames} />
           </div>
 
@@ -74,7 +75,7 @@ export default async function HomePage() {
         <section>
           <h2 className="text-sm font-semibold text-text-primary mb-3">
             {t("PENDING_GAMES_SECTION_TITLE")}
-            <span className="ml-2 font-normal text-text-muted">{pendingGames.length}개</span>
+            <span className="ml-2 font-normal text-text-muted">{pendingGames.length}{t("COUNT_SUFFIX")}</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {pendingGames.map((game) => (
