@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
+import GlobalSyncButton from "@/components/layout/GlobalSyncButton";
 import { UiTextProvider } from "@/contexts/UiTextContext";
 import { getUiText, getCachedConfig } from "@/lib/sheets";
 
@@ -52,6 +53,7 @@ export default async function RootLayout({
         <UiTextProvider initialText={uiText}>
           <Navbar />
           <main className="pt-14">{children}</main>
+          <GlobalSyncButton />
         </UiTextProvider>
       </body>
     </html>

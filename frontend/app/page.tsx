@@ -62,8 +62,8 @@ export default async function HomePage() {
             <GameCardGrid games={activeGames} />
           </div>
 
-          {/* ── 우측: 인사이트 패널 (sticky) ─────────────────────────── */}
-          <div className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-20">
+          {/* ── 우측: 인사이트 패널 (sticky, right-edge attached) ───── */}
+          <div className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-20 lg:-mr-6">
             <HomeInsightPanel games={activeGames} />
           </div>
 

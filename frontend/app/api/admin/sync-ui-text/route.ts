@@ -647,6 +647,7 @@ const FALLBACK: Record<string, string> = {
   SHIFT_REVIEW_COUNT: "해당 구간 리뷰 {count}건 분석",
   SHIFT_AI_CAUSE_LABEL: "AI 추정 원인",
   SHIFT_LINKED_EVENTS_LABEL: "근방 공식 이벤트",
+  SHIFT_LINKED_EVENTS_COUNT: "이벤트 {n}건",
   SHIFT_TOP_REVIEWS_LABEL: "이슈 관련 주요 리뷰",
   SHIFT_REVIEW_POSITIVE: "👍 긍정",
   SHIFT_REVIEW_NEGATIVE: "👎 부정",

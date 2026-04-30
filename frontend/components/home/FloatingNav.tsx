@@ -10,7 +10,8 @@ export default function FloatingNav() {
   return (
     <>
       {/* 좌측 플로팅 탭 버튼 */}
-      <div className="fixed left-0 top-1/2 -translate-y-1/2 z-40 relative">
+      <div className="fixed left-0 top-1/2 -translate-y-1/2 z-40">
+        <div className="relative">
         {/* 핑 효과 (눈길 끌기) */}
         <span className="absolute -top-1 -right-1 w-2.5 h-2.5 pointer-events-none z-10">
           <span className="absolute inline-flex h-full w-full rounded-full bg-accent-blue opacity-60 animate-ping" />
@@ -45,6 +46,7 @@ export default function FloatingNav() {
             </span>
           </span>
         </button>
+        </div>
       </div>
 
       {/* 검색 모달 */}

@@ -60,7 +60,7 @@ export default async function HomeInsightPanel({ games }: Props) {
   const rateGames = [...games].filter(g => Number(g.steam_positive_rate) > 0);
 
   return (
-    <div className="bg-bg-card border border-border-default rounded-2xl overflow-hidden divide-y divide-border-default shadow-2xl shadow-black/50 ring-1 ring-white/5">
+    <div className="bg-bg-card border border-border-default rounded-2xl lg:rounded-r-none overflow-hidden divide-y divide-border-default shadow-2xl shadow-black/50 ring-1 ring-white/5 lg:border-r-0 lg:ring-r-0">
 
       {/* ── ⚡ 평가 급변 ─────────────────────────────────────────────── */}
       <div className="px-4 py-3">

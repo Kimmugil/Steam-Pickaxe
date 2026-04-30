@@ -3,6 +3,8 @@ import { useState } from "react";
 import type { TimelineRow, TopReview } from "@/types";
 import { useUiText } from "@/contexts/UiTextContext";
 
+
+
 interface ShiftCardProps {
   shift: TimelineRow;
   linkedEvents: TimelineRow[];
@@ -11,6 +13,7 @@ interface ShiftCardProps {
 export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
   const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
+  const [eventsExpanded, setEventsExpanded] = useState(false);
 
   const isDecline   = shift.direction === "decline";
   const before      = Number(shift.sentiment_before ?? 0);
@@ -109,35 +112,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
             </div>
           )}
 
-          {/* 연결된 공식 이벤트 */}
-          {linkedEvents.length > 0 && (
-            <div>
-              <p className="text-xs font-medium mb-1.5 text-text-muted">{t("SHIFT_LINKED_EVENTS_LABEL")}</p>
-              <div className="space-y-1">
-                {linkedEvents.map((ev) => (
-                  <div key={ev.event_id} className="flex items-center gap-2">
-                    <span className="text-xs text-text-muted shrink-0">{ev.date}</span>
-                    {ev.url ? (
-                      <a
-                        href={ev.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-accent-blue hover:underline truncate"
-                      >
-                        {ev.title_kr || ev.title} ↗
-                      </a>
-                    ) : (
-                      <span className="text-xs text-text-secondary truncate">
-                        {ev.title_kr || ev.title}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 대표 리뷰 */}
+          {/* 이슈 관련 주요 리뷰 */}
           {reviews.length > 0 && (
             <div>
               <p className="text-xs font-medium mb-2 text-text-muted">{t("SHIFT_TOP_REVIEWS_LABEL")}</p>
@@ -162,6 +137,47 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 근방 공식 이벤트 (토글 접힘) */}
+          {linkedEvents.length > 0 && (
+            <div className="border border-border-default/40 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setEventsExpanded((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-bg-secondary/40 transition-colors"
+              >
+                <span className="text-xs font-medium text-text-muted">{t("SHIFT_LINKED_EVENTS_LABEL")}</span>
+                <span className="flex items-center gap-1.5 text-xs text-text-muted">
+                  <span className="text-text-primary font-semibold">
+                    {t("SHIFT_LINKED_EVENTS_COUNT", { n: String(linkedEvents.length) })}
+                  </span>
+                  <span className="text-[10px]">{eventsExpanded ? "▲" : "▼"}</span>
+                </span>
+              </button>
+              {eventsExpanded && (
+                <div className="border-t border-border-default/30 px-3 py-2 space-y-1.5">
+                  {linkedEvents.map((ev) => (
+                    <div key={ev.event_id} className="flex items-center gap-2">
+                      <span className="text-xs text-text-muted shrink-0">{ev.date}</span>
+                      {ev.url ? (
+                        <a
+                          href={ev.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-accent-blue hover:underline truncate"
+                        >
+                          {ev.title_kr || ev.title} ↗
+                        </a>
+                      ) : (
+                        <span className="text-xs text-text-secondary truncate">
+                          {ev.title_kr || ev.title}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
