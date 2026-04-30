@@ -95,6 +95,7 @@ def _process_game(ss, game: dict, appid: str, name: str, game_sheet_id: str) -> 
     if not new_shifts:
         print("  신규 급변 없음")
         _update_detection_date(ss, appid)
+        _update_latest_shift(ss, appid, timeline)  # 기존 shift 요약도 갱신
         return 0
 
     print(f"  신규 급변 {len(new_shifts)}건 감지 → AI 분석 시작")
