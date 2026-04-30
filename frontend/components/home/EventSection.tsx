@@ -24,7 +24,7 @@ export default function EventSection({ games }: { games: Game[] }) {
       >
         <h3 className="text-sm font-semibold text-text-primary">🔔 이벤트 감지</h3>
         <span className="flex items-center gap-1.5 text-xs text-text-muted">
-          최근 2주 {games.length}건
+          최근 2주 <span className="text-text-primary font-semibold">{games.length}건</span>
           <span className="text-[10px]">{expanded ? "▲" : "▼"}</span>
         </span>
       </button>
