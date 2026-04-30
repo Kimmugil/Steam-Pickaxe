@@ -116,11 +116,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const [collectNewsIds,           setCollectNewsIds]           = useState<Set<string>>(new Set());
 
   // ── 시스템 도구 로딩 상태 ────────────────────────────────────────────────
-  const [analyzingPending,   setAnalyzingPending]   = useState(false);
-  const [detectingShifts,    setDetectingShifts]    = useState(false);
-  const [retriggering,       setRetriggering]       = useState(false);
-  const [recalcingLangDist,  setRecalcingLangDist]  = useState(false);
-  const [dedupingTimelines,  setDedupingTimelines]  = useState(false);
+  const [analyzingPending,      setAnalyzingPending]      = useState(false);
+  const [detectingShifts,       setDetectingShifts]       = useState(false);
+  const [retriggering,          setRetriggering]          = useState(false);
+  const [recalcingLangDist,     setRecalcingLangDist]     = useState(false);
+  const [dedupingTimelines,     setDedupingTimelines]     = useState(false);
+  const [backfillingEventUrls,  setBackfillingEventUrls]  = useState(false);
 
   // 수집 재시작 확인 모달
   const [showRetriggerConfirm, setShowRetriggerConfirm] = useState(false);
@@ -465,6 +466,30 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setDedupingTimelines(false);
+    }
+  }
+
+  // ── 이벤트 URL 백필 ──────────────────────────────────────────────────────
+  async function handleBackfillEventUrls() {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setBackfillingEventUrls(true);
+    try {
+      const res = await fetch("/api/admin/backfill-event-urls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show(`이벤트 URL 백필 완료 — 업데이트 ${data.updated}건 / 스킵 ${data.skipped}건`, "success");
+      } else {
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      }
+    } catch {
+      show(t("SERVER_CONNECT_ERROR"), "error");
+    } finally {
+      setBackfillingEventUrls(false);
     }
   }
 
@@ -889,6 +914,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
               btnLabel: t("ADMIN_BTN_DEDUP_EXEC"), loading: dedupingTimelines,
               onClick: handleDedupTimelines,
               btnClass: "border-border-default text-text-secondary hover:border-accent-orange/50 hover:text-accent-orange",
+            },
+            {
+              icon: "🔗", title: "이벤트 URL 백필", desc: "타임라인에서 최신 공식 이벤트 URL을 master sheet에 소급 저장합니다.",
+              btnLabel: "백필 실행", loading: backfillingEventUrls,
+              onClick: handleBackfillEventUrls,
+              btnClass: "border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10",
             },
           ].map((tool, i, arr) => (
             <div
