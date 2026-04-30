@@ -540,9 +540,6 @@ const FALLBACK: Record<string, string> = {
   NAV_HOME: "← 홈으로",
   NAV_GUIDE_BACK: "← 분석 방법 가이드",
 
-  // ── 홈 페이지 추가 ───────────────────────────────────────────────────
-  PENDING_GAMES_SECTION_TITLE: "분석 진행 중인 게임",
-
   // ── 인라인 레이블 ────────────────────────────────────────────────────
   LABEL_TIP: "💡 Tip",
   LABEL_ADMIN_FUNC: "🔐 관리자 기능",
@@ -694,7 +691,6 @@ const FALLBACK: Record<string, string> = {
   KPI_AVG_RATE_LABEL:     "평균 긍정률",
 
   // ── 홈 인사이트 섹션 ────────────────────────────────────────────────────
-  INSIGHT_SHIFT_TITLE:    "⚡ 최근 평가 급변 감지",
   INSIGHT_SHIFT_DECLINE:  "📉 급락",
   INSIGHT_SHIFT_RECOVERY: "📈 회복",
   INSIGHT_UPDATE_TITLE:   "🔧 최근 주요 업데이트",
