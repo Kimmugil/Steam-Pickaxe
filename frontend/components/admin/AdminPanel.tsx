@@ -97,13 +97,6 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   // ── UI 상태 ───────────────────────────────────────────────────────────────
   const [activeHelp, setActiveHelp] = useState<string | null>(null);
 
-  // 드래그 순서
-  const [orderedGames, setOrderedGames] = useState<Game[]>(() =>
-    [...allGames].sort((a, b) => (Number(a.sort_order) || 9999) - (Number(b.sort_order) || 9999))
-  );
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-
   // AI 승인
   const [approveConfirmGame, setApproveConfirmGame] = useState<Game | null>(null);
   const [approveOnlyIds, setApproveOnlyIds] = useState<Set<string>>(new Set());
@@ -216,7 +209,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   }
 
   function handleApproveGameWithCheck(appid: string) {
-    const game = orderedGames.find((g) => String(g.appid) === appid);
+    const game = allGames.find((g) => String(g.appid) === appid);
     if (!game) return;
     const total     = Number(game.totalReviews || 0);
     const collected = Number(game.collected_reviews_count || 0);
@@ -523,46 +516,6 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
     }
   }
 
-  // ── 드래그 순서 ───────────────────────────────────────────────────────────
-  function handleDragStart(idx: number) { setDragIdx(idx); }
-  function handleDragOver(e: React.DragEvent, idx: number) {
-    e.preventDefault();
-    if (dragIdx !== null && dragOverIdx !== idx) setDragOverIdx(idx);
-  }
-  function handleDrop(targetIdx: number) {
-    if (dragIdx === null || dragIdx === targetIdx) {
-      setDragIdx(null); setDragOverIdx(null); return;
-    }
-    const next = [...orderedGames];
-    const [moved] = next.splice(dragIdx, 1);
-    next.splice(targetIdx, 0, moved);
-    setOrderedGames(next);
-    setDragIdx(null); setDragOverIdx(null);
-    saveSortOrders(next);
-  }
-  function handleDragEnd() { setDragIdx(null); setDragOverIdx(null); }
-
-  async function saveSortOrders(games: Game[]) {
-    const savedPw = getSavedPw();
-    if (!savedPw) return;
-    const orders = games.map((g, i) => ({ appid: String(g.appid), sort_order: i + 1 }));
-    try {
-      const res = await fetch("/api/admin/sort-order-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: savedPw, orders }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        show(t("ADMIN_TOAST_SORT_ORDER"), "success");
-      } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
-      }
-    } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
-    }
-  }
-
   // ── 비밀번호 게이트 ──────────────────────────────────────────────────────
   if (!authed) {
     return (
@@ -616,10 +569,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
           <span className="w-2 h-2 bg-accent-blue rounded-full" />
           {t("ADMIN_SECTION_GAMES")}
-          <span className="text-xs font-normal text-text-muted">({orderedGames.length}개)</span>
+          <span className="text-xs font-normal text-text-muted">({allGames.length}개)</span>
         </h2>
 
-        {orderedGames.length === 0 ? (
+        {allGames.length === 0 ? (
           <div className="text-center py-16 text-text-muted border border-dashed border-border-default rounded-xl">
             <p className="text-3xl mb-3">🎮</p>
             <p>{t("ADMIN_GAMES_EMPTY")}</p>
@@ -661,10 +614,6 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                       <HelpBtn col="dates" onClick={setActiveHelp} />
                     </span>
                   </th>
-                  {/* 순서 */}
-                  <th className="text-center px-2 py-3 text-xs font-medium text-text-muted w-10">
-                    {t("ADMIN_COL_ORDER")}
-                  </th>
                   {/* 액션 */}
                   <th className="text-right px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
                     {t("ADMIN_COL_ACTION")}
@@ -672,28 +621,17 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 </tr>
               </thead>
               <tbody>
-                {orderedGames.map((game, i) => {
+                {[...allGames].sort((a, b) => (a.name_kr || a.name).localeCompare(b.name_kr || b.name)).map((game) => {
                   const appid      = String(game.appid);
                   const isActive   = game.status === "active";
                   const isArchived = game.status === "archived";
                   const canToggle  = isActive || isArchived;
                   const isApproved = String(game.ai_approved ?? "").toLowerCase() === "true";
-                  const isDragging = dragIdx === i;
-                  const isDragOver = dragOverIdx === i && dragIdx !== null && dragIdx !== i;
 
                   return (
                     <tr
                       key={appid}
-                      draggable
-                      onDragStart={() => handleDragStart(i)}
-                      onDragOver={(e) => handleDragOver(e, i)}
-                      onDrop={() => handleDrop(i)}
-                      onDragEnd={handleDragEnd}
-                      className={`border-b border-border-default last:border-b-0 transition-colors ${
-                        isArchived ? "opacity-60" : "hover:bg-bg-secondary/50"
-                      } ${isDragging ? "opacity-40" : ""} ${
-                        isDragOver ? "border-t-2 border-accent-blue bg-accent-blue/5" : ""
-                      }`}
+                      className={`border-b border-border-default last:border-b-0 transition-colors ${isArchived ? "opacity-60" : "hover:bg-bg-secondary/50"}`}
                     >
                       {/* 게임명 */}
                       <td className="px-4 py-3">
@@ -813,18 +751,6 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             )}
                           </div>
                         </div>
-                      </td>
-
-                      {/* 드래그 핸들 */}
-                      <td className="px-2 py-3 text-center">
-                        <span
-                          className="inline-flex flex-col gap-[3px] cursor-grab active:cursor-grabbing px-1 py-1 rounded hover:bg-bg-hover"
-                          title={t("ADMIN_DRAG_HINT")}
-                        >
-                          <span className="block w-4 h-[2px] bg-text-muted/50 rounded" />
-                          <span className="block w-4 h-[2px] bg-text-muted/50 rounded" />
-                          <span className="block w-4 h-[2px] bg-text-muted/50 rounded" />
-                        </span>
                       </td>
 
                       {/* 액션 버튼 */}

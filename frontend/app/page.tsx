@@ -1,5 +1,5 @@
 import SearchBox from "@/components/home/SearchBox";
-import GameCard from "@/components/home/GameCard";
+import GameCardGrid from "@/components/home/GameCardGrid";
 import PendingGameCard from "@/components/home/PendingGameCard";
 import HomeInsightPanel from "@/components/home/HomeInsightPanel";
 import { getAllGames, getUiText } from "@/lib/sheets";
@@ -61,11 +61,7 @@ export default async function HomePage() {
               {t("GAMES_SECTION_TITLE")}
               <span className="ml-2 font-normal text-text-muted">{activeGames.length}개</span>
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              {activeGames.map((game) => (
-                <GameCard key={game.appid} game={game} />
-              ))}
-            </div>
+            <GameCardGrid games={activeGames} />
           </div>
 
           {/* ── 우측: 인사이트 패널 (sticky) ─────────────────────────── */}
