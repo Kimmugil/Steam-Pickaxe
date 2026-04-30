@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConfig, getAllGames, getTimeline, updateGame } from "@/lib/sheets";
+import { getConfig, getAllGames, getTimeline, updateGame, ensureGamesColumn } from "@/lib/sheets";
 
 export const maxDuration = 300; // Vercel Pro: 5분
 
@@ -12,6 +12,9 @@ export async function POST(req: NextRequest) {
     if (password !== config.admin_password) {
       return NextResponse.json({ error: "비밀번호가 올바르지 않습니다." }, { status: 401 });
     }
+
+    // 컬럼이 없으면 먼저 생성 (없으면 updateGame이 조용히 스킵함)
+    await ensureGamesColumn("latest_official_event_url");
 
     const games = await getAllGames();
     const results: { appid: string; name: string; status: string; url?: string }[] = [];

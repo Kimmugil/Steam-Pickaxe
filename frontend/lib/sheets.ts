@@ -172,6 +172,23 @@ export async function appendGame(game: Partial<Game>) {
   });
 }
 
+/**
+ * games 시트에 특정 컬럼 헤더가 없으면 맨 오른쪽에 추가합니다.
+ * updateGame 이 컬럼을 찾지 못해 조용히 스킵하는 문제 방지용.
+ */
+export async function ensureGamesColumn(columnName: string): Promise<void> {
+  const sheets = await getSheetsClient();
+  const headers = await readSheet("games").then((r) => r[0] ?? []);
+  if (headers.includes(columnName)) return; // 이미 있으면 종료
+  const nextCol = colLetter(headers.length);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `games!${nextCol}1`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[columnName]] },
+  });
+}
+
 /** 0-based 열 인덱스 → A1 표기법 열 문자 (A, B, ..., Z, AA, AB, ...) */
 function colLetter(idx: number): string {
   let col = "";
