@@ -25,6 +25,15 @@ function toIsoDate(raw: string | undefined): string {
   return s;
 }
 
+/** ai_briefing에서 첫 문장만 추출 */
+function firstSentence(text: string | undefined): string {
+  if (!text) return "";
+  // 첫 줄 또는 첫 마침표/느낌표/물음표 기준으로 자름
+  const line = text.split("\n")[0].trim();
+  const m = line.match(/^([^.!?]*[.!?])/);
+  return m ? m[1].trim() : line.slice(0, 80);
+}
+
 function daysSince(dateStr: string): number {
   if (!dateStr) return 0;
   const d = new Date(dateStr);
@@ -57,6 +66,7 @@ export default function GameCard({ game }: GameCardProps) {
       : null;
 
   const releaseIso = toIsoDate(game.release_date);
+  const oneLiner   = firstSentence(game.ai_briefing);
 
   return (
     <Link
@@ -103,6 +113,13 @@ export default function GameCard({ game }: GameCardProps) {
         </p>
         {game.name_kr && game.name_kr !== game.name && (
           <p className="text-xs text-text-muted truncate mt-0.5">{game.name}</p>
+        )}
+
+        {/* AI 한줄평 */}
+        {oneLiner && (
+          <p className="text-[11px] text-text-muted leading-relaxed mt-1.5 line-clamp-2 italic">
+            {oneLiner}
+          </p>
         )}
 
         <div className="mt-2 space-y-1">
