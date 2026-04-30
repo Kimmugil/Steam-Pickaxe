@@ -1,7 +1,7 @@
-import SearchBox from "@/components/home/SearchBox";
 import GameCardGrid from "@/components/home/GameCardGrid";
 import PendingGameCard from "@/components/home/PendingGameCard";
 import HomeInsightPanel from "@/components/home/HomeInsightPanel";
+import FloatingNav from "@/components/home/FloatingNav";
 import { getAllGames, getUiText } from "@/lib/sheets";
 
 export const revalidate = 60;
@@ -37,12 +37,9 @@ export default async function HomePage() {
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8">
 
-      {/* ── 헤더: 타이틀 + 검색창 ────────────────────────────────────── */}
-      <section className="text-center space-y-5">
+      {/* ── 헤더: 타이틀만 ───────────────────────────────────────────── */}
+      <section className="text-center">
         <p className="text-2xl font-semibold text-text-primary">{t("HOME_TITLE")}</p>
-        <div className="max-w-2xl mx-auto">
-          <SearchBox />
-        </div>
       </section>
 
       {/* ── 2단 분할 레이아웃 ──────────────────────────────────────────── */}
@@ -86,6 +83,9 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ── 우측 플로팅 네비 (검색 & 등록) ──────────────────────────── */}
+      <FloatingNav />
 
     </div>
   );
