@@ -1,5 +1,5 @@
 import SearchBox from "@/components/home/SearchBox";
-import GameCard from "@/components/home/GameCard";
+import GameTable from "@/components/home/GameTable";
 import PendingGameCard from "@/components/home/PendingGameCard";
 import InsightSection from "@/components/home/InsightSection";
 import { getAllGames, getUiText } from "@/lib/sheets";
@@ -33,8 +33,24 @@ export default async function HomePage() {
     GAMES_EMPTY_SUBTITLE: "위 검색창에서 Steam 게임을 검색하고 등록해 보세요.",
     SEARCH_SECTION_TITLE: "게임 등록",
     PENDING_GAMES_SECTION_TITLE: "분석 진행 중인 게임",
+    KPI_GAMES_LABEL:   "분석 완료",
+    KPI_SHIFTS_LABEL:  "최근 급변",
+    KPI_UPDATES_LABEL: "최근 업데이트",
+    KPI_AVG_RATE_LABEL: "평균 긍정률",
   };
   const t = (key: string) => (uiText as Record<string, string>)[key] ?? FALLBACK[key] ?? key;
+
+  // ── KPI 계산 ──────────────────────────────────────────────────────────────
+  const now = Date.now();
+  const daysSince = (d: string | undefined) =>
+    d ? Math.floor((now - new Date(d).getTime()) / 86400000) : 9999;
+
+  const kpiShifts  = activeGames.filter(g => g.latest_shift_date  && daysSince(g.latest_shift_date)  <= 60).length;
+  const kpiUpdates = activeGames.filter(g => g.latest_official_event_date && daysSince(g.latest_official_event_date) <= 21).length;
+  const ratedGames = activeGames.filter(g => Number(g.steam_positive_rate) > 0);
+  const kpiAvgRate = ratedGames.length > 0
+    ? Math.round(ratedGames.reduce((s, g) => s + Number(g.steam_positive_rate), 0) / ratedGames.length)
+    : null;
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-12">
@@ -45,6 +61,23 @@ export default async function HomePage() {
           <SearchBox />
         </div>
       </section>
+
+      {/* ── KPI 지표 행 ────────────────────────────────────────────────────── */}
+      {activeGames.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: t("KPI_GAMES_LABEL"),    value: `${activeGames.length}개` },
+            { label: t("KPI_SHIFTS_LABEL"),   value: kpiShifts  > 0 ? `${kpiShifts}개`  : "—" },
+            { label: t("KPI_UPDATES_LABEL"),  value: kpiUpdates > 0 ? `${kpiUpdates}개` : "—" },
+            { label: t("KPI_AVG_RATE_LABEL"), value: kpiAvgRate !== null ? `${kpiAvgRate}%` : "—" },
+          ].map(({ label, value }) => (
+            <div key={label} className="bg-bg-card border border-border-default rounded-xl px-4 py-3 text-center">
+              <p className="text-xs text-text-muted mb-1">{label}</p>
+              <p className="text-xl font-bold text-text-primary">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── 인사이트 섹션 ────────────────────────────────────────── */}
       {activeGames.length > 0 && (
@@ -64,11 +97,7 @@ export default async function HomePage() {
             <p className="text-sm mt-1">{t("GAMES_EMPTY_SUBTITLE")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {activeGames.map((game) => (
-              <GameCard key={game.appid} game={game} />
-            ))}
-          </div>
+          <GameTable games={activeGames} />
         )}
       </section>
 

@@ -12,10 +12,6 @@ const FALLBACK: Record<string, string> = {
   INSIGHT_SHIFT_DECLINE:  "📉 급락",
   INSIGHT_SHIFT_RECOVERY: "📈 회복",
   INSIGHT_UPDATE_TITLE:   "🔧 최근 주요 업데이트",
-  INSIGHT_RATE_TITLE:     "📊 긍정률 현황",
-  INSIGHT_RATE_UP:        "↑ 상승 중",
-  INSIGHT_RATE_DOWN:      "↓ 하락 중",
-  INSIGHT_RATE_STABLE:    "→ 안정",
 };
 
 function t(uiText: Record<string, string>, key: string): string {
@@ -57,12 +53,7 @@ export default function InsightSection({ games, uiText }: Props) {
     .filter(g => g.latest_official_event_date && daysSince(g.latest_official_event_date) <= 21)
     .sort((a, b) => (b.latest_official_event_date ?? "").localeCompare(a.latest_official_event_date ?? ""));
 
-  // ── 3. 긍정률 현황 (steam_positive_rate 기준, 전체 표시) ─────────────────
-  const rateGames = [...games]
-    .filter(g => g.steam_positive_rate !== undefined && g.steam_positive_rate !== "")
-    .sort((a, b) => Number(b.steam_positive_rate) - Number(a.steam_positive_rate));
-
-  const hasInsights = shiftGames.length > 0 || updateGames.length > 0 || rateGames.length > 0;
+  const hasInsights = shiftGames.length > 0 || updateGames.length > 0;
   if (!hasInsights) return null;
 
   return (
@@ -139,80 +130,6 @@ export default function InsightSection({ games, uiText }: Props) {
                 </div>
               </Link>
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── 긍정률 현황 섹션 ────────────────────────────────────────────── */}
-      {rateGames.length > 0 && (
-        <section>
-          <h2 className="text-base font-semibold text-text-primary mb-3">
-            {t(uiText, "INSIGHT_RATE_TITLE")}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-            {rateGames.map((game, idx) => {
-              const steamRate = Number(game.steam_positive_rate) || 0;
-              const latestRate = Number(game.latest_sentiment_rate) || 0;
-              const hasTrend = latestRate > 0;
-              const delta = hasTrend ? latestRate - steamRate : 0;
-              const trend = hasTrend && Math.abs(delta) > 10
-                ? (delta > 0 ? "up" : "down")
-                : "stable";
-
-              const barColor =
-                steamRate >= 80 ? "bg-accent-green" :
-                steamRate >= 60 ? "bg-accent-yellow" :
-                "bg-accent-red";
-              const rateColor =
-                steamRate >= 80 ? "text-accent-green" :
-                steamRate >= 60 ? "text-accent-yellow" :
-                "text-accent-red";
-              const trendColor =
-                trend === "up" ? "text-accent-green" :
-                trend === "down" ? "text-accent-red" :
-                "text-text-muted";
-              const trendLabel =
-                trend === "up"   ? t(uiText, "INSIGHT_RATE_UP") :
-                trend === "down" ? t(uiText, "INSIGHT_RATE_DOWN") :
-                                   t(uiText, "INSIGHT_RATE_STABLE");
-
-              return (
-                <Link
-                  key={game.appid}
-                  href={`/game/${game.appid}`}
-                  className="bg-bg-card border border-border-default hover:border-border-hover rounded-xl px-4 py-3 flex items-center gap-3 transition-all hover:shadow-md hover:shadow-black/20"
-                >
-                  {/* 순위 */}
-                  <span className="text-xs text-text-muted w-5 text-center flex-shrink-0">
-                    {idx + 1}
-                  </span>
-                  <GameThumb game={game} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      {game.name_kr || game.name}
-                    </p>
-                    {/* 긍정률 바 */}
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <div className="flex-1 h-1.5 rounded-full bg-bg-secondary">
-                        <div
-                          className={`h-full rounded-full ${barColor}`}
-                          style={{ width: `${Math.min(steamRate, 100)}%` }}
-                        />
-                      </div>
-                      <span className={`text-xs font-semibold ${rateColor} w-10 text-right`}>
-                        {steamRate.toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                  {/* 추이 */}
-                  {hasTrend && (
-                    <span className={`text-[10px] font-medium ${trendColor} flex-shrink-0 w-14 text-right`}>
-                      {trendLabel}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
           </div>
         </section>
       )}

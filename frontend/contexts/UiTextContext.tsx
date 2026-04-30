@@ -652,12 +652,17 @@ const FALLBACK: Record<string, string> = {
   CSV_AUTH_DESC: "SteamDB CCU CSV 업로드는 관리자만 가능합니다.",
   CSV_SUCCESS: "{count}건 병합 완료",
 
+  // ── 홈 KPI 지표 ─────────────────────────────────────────────────────────
+  KPI_GAMES_LABEL:        "분석 완료",
+  KPI_SHIFTS_LABEL:       "최근 급변",
+  KPI_UPDATES_LABEL:      "최근 업데이트",
+  KPI_AVG_RATE_LABEL:     "평균 긍정률",
+
   // ── 홈 인사이트 섹션 ────────────────────────────────────────────────────
   INSIGHT_SHIFT_TITLE:    "⚡ 최근 평가 급변 감지",
   INSIGHT_SHIFT_DECLINE:  "📉 급락",
   INSIGHT_SHIFT_RECOVERY: "📈 회복",
   INSIGHT_UPDATE_TITLE:   "🔧 최근 주요 업데이트",
-  INSIGHT_RATE_TITLE:     "📊 긍정률 현황",
   INSIGHT_RATE_UP:        "↑ 상승 중",
   INSIGHT_RATE_DOWN:      "↓ 하락 중",
   INSIGHT_RATE_STABLE:    "→ 안정",

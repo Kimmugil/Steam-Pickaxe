@@ -611,75 +611,6 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         <p className="text-sm text-text-muted mt-1">{t("ADMIN_PAGE_SUBTITLE")}</p>
       </div>
 
-      {/* ── 리포트 관리 ───────────────────────────────────────────────────── */}
-      <section className="mb-10">
-        <h2 className="text-base font-semibold text-text-primary mb-1 flex items-center gap-2">
-          <span className="w-2 h-2 bg-accent-orange rounded-full" />
-          {t("ADMIN_SECTION_REPORTS")}
-        </h2>
-        <p className="text-xs text-text-muted mb-4">{t("ADMIN_REPORTS_SUBTITLE")}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {orderedGames.map((game) => {
-            const appid    = String(game.appid);
-            const isActive = game.status === "active";
-            const isArchived = game.status === "archived";
-            const canToggle = isActive || isArchived;
-            return (
-              <div
-                key={appid}
-                className={`flex items-center gap-3 bg-bg-card border rounded-xl p-3 transition-opacity ${
-                  isArchived ? "opacity-50 border-border-default" : "border-border-default hover:border-text-muted/30"
-                }`}
-              >
-                {/* 썸네일 */}
-                {game.thumbnail ? (
-                  <img
-                    src={game.thumbnail}
-                    alt={game.name}
-                    className="w-14 h-8 object-cover rounded flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-14 h-8 bg-bg-secondary rounded flex-shrink-0" />
-                )}
-                {/* 게임명 */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-text-primary truncate">
-                    {game.name_kr || game.name}
-                  </p>
-                  <p className="text-[10px] text-text-muted">AppID {appid}</p>
-                </div>
-                {/* 상태 배지 */}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
-                  isActive
-                    ? "bg-accent-green/20 text-accent-green"
-                    : "bg-bg-secondary text-text-muted"
-                }`}>
-                  {isActive ? t("ADMIN_REPORTS_VISIBLE_LABEL") : t("ADMIN_REPORTS_HIDDEN_LABEL")}
-                </span>
-                {/* 액션 버튼 */}
-                {canToggle && (
-                  <button
-                    onClick={() => handleToggleActive(appid, isActive)}
-                    disabled={togglingIds.has(appid)}
-                    className={`text-[11px] px-2.5 py-1 rounded border transition-colors disabled:opacity-40 flex-shrink-0 whitespace-nowrap ${
-                      isActive
-                        ? "border-accent-red/30 text-accent-red hover:bg-accent-red/10"
-                        : "border-accent-green/30 text-accent-green hover:bg-accent-green/10"
-                    }`}
-                  >
-                    {togglingIds.has(appid)
-                      ? t("PROCESSING")
-                      : isActive
-                        ? t("ADMIN_REPORTS_BTN_HIDE")
-                        : t("ADMIN_REPORTS_BTN_SHOW")}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
       {/* ── 게임 현황 테이블 ──────────────────────────────────────────────── */}
       <section className="mb-10">
         <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
@@ -1001,102 +932,57 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-
-          {/* 미분석 AI 분석 */}
-          <div className="bg-bg-card border border-border-default rounded-xl p-6 flex flex-col gap-4">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl mt-0.5">⚡</span>
-              <div>
-                <p className="font-semibold text-text-primary text-sm mb-1">{t("ADMIN_TOOL_PENDING_TITLE")}</p>
-                <p className="text-xs text-text-muted leading-relaxed">{t("ADMIN_TOOL_PENDING_DESC")}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleAnalyzePending}
-              disabled={analyzingPending}
-              className="w-full py-2 text-sm border border-accent-blue/40 rounded-lg text-accent-blue hover:bg-accent-blue/10 transition-colors disabled:opacity-40"
+        <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
+          {[
+            {
+              icon: "⚡", title: t("ADMIN_TOOL_PENDING_TITLE"), desc: t("ADMIN_TOOL_PENDING_DESC"),
+              btnLabel: t("ADMIN_BTN_ANALYZE_PENDING_EXEC"), loading: analyzingPending,
+              onClick: handleAnalyzePending,
+              btnClass: "border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10",
+            },
+            {
+              icon: "🔍", title: t("ADMIN_TOOL_SHIFTS_TITLE"), desc: t("ADMIN_TOOL_SHIFTS_DESC"),
+              btnLabel: t("ADMIN_BTN_DETECT_SHIFTS_EXEC"), loading: detectingShifts,
+              onClick: handleDetectShifts,
+              btnClass: "border-accent-yellow/40 text-accent-yellow hover:bg-accent-yellow/10",
+            },
+            {
+              icon: "🔄", title: t("ADMIN_TOOL_RETRIGGER_TITLE"), desc: t("ADMIN_TOOL_RETRIGGER_DESC"),
+              btnLabel: t("ADMIN_BTN_RETRIGGER_EXEC"), loading: retriggering,
+              onClick: () => setShowRetriggerConfirm(true),
+              btnClass: "border-accent-green/40 text-accent-green hover:bg-accent-green/10",
+            },
+            {
+              icon: "📊", title: t("ADMIN_TOOL_RECALC_TITLE"), desc: t("ADMIN_TOOL_RECALC_DESC"),
+              btnLabel: t("ADMIN_BTN_RECALC_EXEC"), loading: recalcingLangDist,
+              onClick: handleRecalcLangDist,
+              btnClass: "border-border-default text-text-secondary hover:border-text-muted/50 hover:text-text-primary",
+            },
+            {
+              icon: "🧹", title: t("ADMIN_TOOL_DEDUP_TITLE"), desc: t("ADMIN_TOOL_DEDUP_DESC"),
+              btnLabel: t("ADMIN_BTN_DEDUP_EXEC"), loading: dedupingTimelines,
+              onClick: handleDedupTimelines,
+              btnClass: "border-border-default text-text-secondary hover:border-accent-orange/50 hover:text-accent-orange",
+            },
+          ].map((tool, i, arr) => (
+            <div
+              key={tool.title}
+              className={`flex items-center gap-4 px-4 py-3 ${i < arr.length - 1 ? "border-b border-border-default" : ""}`}
             >
-              {analyzingPending ? t("PROCESSING") : t("ADMIN_BTN_ANALYZE_PENDING_EXEC")}
-            </button>
-          </div>
-
-          {/* 평가 급변 감지 */}
-          <div className="bg-bg-card border border-border-default rounded-xl p-6 flex flex-col gap-4">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl mt-0.5">🔍</span>
-              <div>
-                <p className="font-semibold text-text-primary text-sm mb-1">{t("ADMIN_TOOL_SHIFTS_TITLE")}</p>
-                <p className="text-xs text-text-muted leading-relaxed">{t("ADMIN_TOOL_SHIFTS_DESC")}</p>
+              <span className="text-lg w-6 text-center flex-shrink-0">{tool.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary">{tool.title}</p>
+                <p className="text-xs text-text-muted leading-relaxed truncate">{tool.desc}</p>
               </div>
+              <button
+                onClick={tool.onClick}
+                disabled={tool.loading}
+                className={`flex-shrink-0 px-3 py-1.5 text-xs border rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap ${tool.btnClass}`}
+              >
+                {tool.loading ? t("PROCESSING") : tool.btnLabel}
+              </button>
             </div>
-            <button
-              onClick={handleDetectShifts}
-              disabled={detectingShifts}
-              className="w-full py-2 text-sm border border-accent-yellow/40 rounded-lg text-accent-yellow hover:bg-accent-yellow/10 transition-colors disabled:opacity-40"
-            >
-              {detectingShifts ? t("PROCESSING") : t("ADMIN_BTN_DETECT_SHIFTS_EXEC")}
-            </button>
-          </div>
-
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-          {/* 수집 재시작 */}
-          <div className="bg-bg-card border border-border-default rounded-xl p-5 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <span className="text-xl mt-0.5">🔄</span>
-              <div>
-                <p className="font-semibold text-text-primary text-sm mb-1">{t("ADMIN_TOOL_RETRIGGER_TITLE")}</p>
-                <p className="text-xs text-text-muted leading-relaxed">{t("ADMIN_TOOL_RETRIGGER_DESC")}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowRetriggerConfirm(true)}
-              disabled={retriggering}
-              className="w-full py-2 text-sm border border-accent-green/40 rounded-lg text-accent-green hover:bg-accent-green/10 transition-colors disabled:opacity-40 mt-auto"
-            >
-              {retriggering ? t("PROCESSING") : t("ADMIN_BTN_RETRIGGER_EXEC")}
-            </button>
-          </div>
-
-          {/* 언어 분포 재집계 */}
-          <div className="bg-bg-card border border-border-default rounded-xl p-5 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <span className="text-xl mt-0.5">📊</span>
-              <div>
-                <p className="font-semibold text-text-primary text-sm mb-1">{t("ADMIN_TOOL_RECALC_TITLE")}</p>
-                <p className="text-xs text-text-muted leading-relaxed">{t("ADMIN_TOOL_RECALC_DESC")}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleRecalcLangDist}
-              disabled={recalcingLangDist}
-              className="w-full py-2 text-sm border border-border-default rounded-lg text-text-secondary hover:border-text-muted/50 hover:text-text-primary transition-colors disabled:opacity-40 mt-auto"
-            >
-              {recalcingLangDist ? t("PROCESSING") : t("ADMIN_BTN_RECALC_EXEC")}
-            </button>
-          </div>
-
-          {/* 타임라인 중복 정리 */}
-          <div className="bg-bg-card border border-border-default rounded-xl p-5 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <span className="text-xl mt-0.5">🧹</span>
-              <div>
-                <p className="font-semibold text-text-primary text-sm mb-1">{t("ADMIN_TOOL_DEDUP_TITLE")}</p>
-                <p className="text-xs text-text-muted leading-relaxed">{t("ADMIN_TOOL_DEDUP_DESC")}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleDedupTimelines}
-              disabled={dedupingTimelines}
-              className="w-full py-2 text-sm border border-border-default rounded-lg text-text-secondary hover:border-accent-orange/50 hover:text-accent-orange transition-colors disabled:opacity-40 mt-auto"
-            >
-              {dedupingTimelines ? t("PROCESSING") : t("ADMIN_BTN_DEDUP_EXEC")}
-            </button>
-          </div>
-
+          ))}
         </div>
       </section>
 
