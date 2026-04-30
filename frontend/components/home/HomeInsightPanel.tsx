@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Game } from "@/types";
 import RateSection from "./RateSection";
+import EventSection from "./EventSection";
 
 interface Props {
   games: Game[];
@@ -76,33 +77,8 @@ export default function HomeInsightPanel({ games }: Props) {
         )}
       </div>
 
-      {/* ── 🔔 이벤트 감지 ──────────────────────────────────────────── */}
-      <div className="px-4 py-3">
-        <h3 className="text-sm font-semibold text-text-primary">🔔 이벤트 감지</h3>
-      </div>
-      <div>
-        {eventGames.length === 0 ? (
-          <p className="px-4 py-4 text-xs text-text-muted text-center">최근 14일 내 이벤트 없음</p>
-        ) : (
-          eventGames.map((g) => (
-            <Link
-              key={g.appid}
-              href={`/game/${g.appid}`}
-              className="flex items-start gap-3 px-4 py-3 hover:bg-bg-secondary/60 transition-colors border-b border-border-default/40 last:border-b-0"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-text-primary truncate">{g.name_kr || g.name}</p>
-                {g.latest_official_event_title && (
-                  <p className="text-[10px] text-text-muted truncate mt-0.5">{g.latest_official_event_title}</p>
-                )}
-              </div>
-              <span className="text-[10px] text-text-muted flex-shrink-0 mt-0.5">
-                {fmtRelative(g.latest_official_event_date)}
-              </span>
-            </Link>
-          ))
-        )}
-      </div>
+      {/* ── 🔔 이벤트 감지 (클라이언트 토글 포함) ──────────────────────── */}
+      <EventSection games={eventGames} />
 
       {/* ── 📊 긍정률 (클라이언트 토글 포함) ──────────────────────────── */}
       {rateGames.length > 0 && <RateSection games={rateGames} />}

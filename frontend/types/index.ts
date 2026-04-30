@@ -44,6 +44,7 @@ export interface Game {
   latest_shift_delta?: string;           // 급변폭 문자열
   latest_official_event_date?: string;   // 가장 최근 공식 이벤트 날짜
   latest_official_event_title?: string;  // 가장 최근 공식 이벤트 제목
+  latest_official_event_url?: string;    // 가장 최근 공식 이벤트 원문 URL
 }
 
 export interface TimelineRow {

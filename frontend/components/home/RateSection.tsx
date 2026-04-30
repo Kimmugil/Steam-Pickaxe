@@ -5,14 +5,20 @@ import type { Game } from "@/types";
 
 type RateSort = "desc" | "asc";
 
+const LIMIT = 5;
+
 export default function RateSection({ games }: { games: Game[] }) {
-  const [order, setOrder] = useState<RateSort>("desc");
+  const [order, setOrder]       = useState<RateSort>("desc");
+  const [showAll, setShowAll]   = useState(false);
 
   const sorted = [...games].sort((a, b) =>
     order === "desc"
       ? (Number(b.steam_positive_rate) || 0) - (Number(a.steam_positive_rate) || 0)
       : (Number(a.steam_positive_rate) || 0) - (Number(b.steam_positive_rate) || 0)
   );
+
+  const visible   = showAll ? sorted : sorted.slice(0, LIMIT);
+  const hasMore   = sorted.length > LIMIT;
 
   return (
     <>
@@ -23,7 +29,7 @@ export default function RateSection({ games }: { games: Game[] }) {
           {(["desc", "asc"] as RateSort[]).map((o) => (
             <button
               key={o}
-              onClick={() => setOrder(o)}
+              onClick={() => { setOrder(o); setShowAll(false); }}
               className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
                 order === o
                   ? "border-accent-blue text-accent-blue bg-accent-blue/10"
@@ -38,8 +44,8 @@ export default function RateSection({ games }: { games: Game[] }) {
 
       {/* 목록 */}
       <div className="px-4 pb-3 space-y-2.5">
-        {sorted.map((game, idx) => {
-          const rate = Number(game.steam_positive_rate);
+        {visible.map((game, idx) => {
+          const rate      = Number(game.steam_positive_rate);
           const barColor  = rate >= 80 ? "bg-accent-green"  : rate >= 60 ? "bg-accent-yellow"  : "bg-accent-red";
           const rateColor = rate >= 80 ? "text-accent-green": rate >= 60 ? "text-accent-yellow" : "text-accent-red";
           return (
@@ -61,6 +67,16 @@ export default function RateSection({ games }: { games: Game[] }) {
             </Link>
           );
         })}
+
+        {/* 더보기 / 접기 */}
+        {hasMore && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="w-full pt-1 text-[11px] text-text-muted hover:text-accent-blue transition-colors text-center"
+          >
+            {showAll ? "접기 ▲" : `+${sorted.length - LIMIT}개 더보기 ▼`}
+          </button>
+        )}
       </div>
     </>
   );
