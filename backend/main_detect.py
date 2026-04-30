@@ -129,6 +129,7 @@ def _process_game(ss, game: dict, appid: str, name: str, game_sheet_id: str) -> 
 
     if not DRY_RUN:
         _update_detection_date(ss, appid)
+        _update_latest_shift(ss, appid, timeline)
 
     print(f"  완료: {saved}건 {'(예정)' if DRY_RUN else '저장'}")
     return saved
@@ -160,6 +161,22 @@ def _update_detection_date(ss, appid: str):
         update_game(ss, appid, {"last_shift_detection_date": today})
     except Exception as e:
         print(f"  [WARN] last_shift_detection_date 업데이트 실패: {e}")
+
+
+def _update_latest_shift(ss, appid: str, timeline: list):
+    """타임라인 전체에서 가장 최근 sentiment_shift 이벤트를 master sheet에 요약 저장."""
+    shift_events = [r for r in timeline if r.get("event_type") == "sentiment_shift"]
+    if not shift_events:
+        return
+    latest = max(shift_events, key=lambda r: r.get("date", ""))
+    try:
+        update_game(ss, appid, {
+            "latest_shift_date":      str(latest.get("date", "")),
+            "latest_shift_direction": str(latest.get("direction", "")),
+            "latest_shift_delta":     str(latest.get("sentiment_delta", "")),
+        })
+    except Exception as e:
+        print(f"  [WARN] latest_shift 업데이트 실패: {e}")
 
 
 if __name__ == "__main__":

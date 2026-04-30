@@ -1,6 +1,7 @@
 import SearchBox from "@/components/home/SearchBox";
 import GameCard from "@/components/home/GameCard";
 import PendingGameCard from "@/components/home/PendingGameCard";
+import InsightSection from "@/components/home/InsightSection";
 import { getAllGames, getUiText } from "@/lib/sheets";
 
 export const revalidate = 60;
@@ -44,6 +45,11 @@ export default async function HomePage() {
           <SearchBox />
         </div>
       </section>
+
+      {/* ── 인사이트 섹션 ────────────────────────────────────────── */}
+      {activeGames.length > 0 && (
+        <InsightSection games={activeGames} uiText={uiText as Record<string, string>} />
+      )}
 
       {/* ── 분석 완료된 게임 ──────────────────────────────────────── */}
       <section>

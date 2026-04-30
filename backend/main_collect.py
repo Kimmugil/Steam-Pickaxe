@@ -338,6 +338,21 @@ def _collect_news(ss, appid: str, game_name: str, game_sheet_id: str, positive_r
     if backfilled:
         print(f"뉴스/패치 {backfilled}건 content 백필 완료")
 
+    # 기존 + 신규 전체에서 최신 공식 이벤트를 master sheet에 요약 저장
+    all_official = [
+        r for r in (list(existing) + added_rows)
+        if r.get("event_type") == "official" and r.get("date")
+    ]
+    if all_official:
+        latest_ev = max(all_official, key=lambda r: r.get("date", ""))
+        try:
+            update_game(ss, appid, {
+                "latest_official_event_date":  str(latest_ev.get("date", "")),
+                "latest_official_event_title": str(latest_ev.get("title_kr") or latest_ev.get("title", "")),
+            })
+        except Exception as e:
+            print(f"[WARN] latest_official_event 업데이트 실패: {e}")
+
     if added:
         print(f"뉴스/패치 {added}건 추가 (GetNewsForApp + StoreEvents 합산)")
         # 두 번째 gs_get_timeline 호출 없이 기존 + 신규 행으로 last_event_date 계산
