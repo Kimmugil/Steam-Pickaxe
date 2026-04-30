@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (year_month) inputs.year_month = String(year_month);
 
     const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/analyze-game.yml/dispatches`,
+      `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/analyze.yml/dispatches`,
       {
         method: "POST",
         headers: {
