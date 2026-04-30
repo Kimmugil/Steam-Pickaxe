@@ -919,7 +919,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
               icon: "🔗", title: "이벤트 URL 백필", desc: "타임라인에서 최신 공식 이벤트 URL을 master sheet에 소급 저장합니다.",
               btnLabel: "백필 실행", loading: backfillingEventUrls,
               onClick: handleBackfillEventUrls,
-              btnClass: "border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10",
+              btnClass: "border-border-default text-text-secondary hover:border-accent-orange/50 hover:text-accent-orange",
             },
           ].map((tool, i, arr) => (
             <div
