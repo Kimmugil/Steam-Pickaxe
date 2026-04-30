@@ -40,8 +40,9 @@ export async function POST(req: NextRequest) {
     );
 
     if (!res.ok) {
+      const body = await res.text();
       return NextResponse.json(
-        { error: "GitHub Actions 트리거 실패. PAT 권한을 확인하세요." },
+        { error: `GitHub API ${res.status}: ${body}` },
         { status: 500 }
       );
     }
