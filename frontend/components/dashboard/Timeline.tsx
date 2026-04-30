@@ -306,15 +306,17 @@ function MonthCard({
   const [activeTab, setActiveTab] = useState<string | null>(() => isFocused && focusTab ? focusTab : null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // 딥링크: 해당 카드로 스크롤
+  // 딥링크(초기 진입) 또는 차트 마커 클릭 시: 카드 열기 + 탭 전환 + 스크롤
   useEffect(() => {
-    if (isFocused && cardRef.current) {
-      setTimeout(() => {
-        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 300);
-    }
+    if (!isFocused) return;
+    setExpanded(true);
+    if (focusTab) setActiveTab(focusTab);
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+  // focusYm이 바뀔 때마다 반응 (차트 마커 클릭 포함)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [focusYm]);
 
   // ym은 위에서 이미 ymEarly로 계산됨 (state 초기값에 사용)
   const ym = ymEarly;

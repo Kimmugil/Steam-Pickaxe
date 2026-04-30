@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/dashboard/Header";
 import CcuChart from "@/components/dashboard/CcuChart";
@@ -32,8 +32,13 @@ export default function DashboardClient({
   const { t } = useUiText();
   const [activeTab, setActiveTab] = useState<Tab>("sentiment");
 
-  const focusYm  = searchParams.get("ym")  ?? undefined;
-  const focusTab = searchParams.get("tab") ?? undefined;
+  const [focusYm,  setFocusYm]  = useState<string | undefined>(searchParams.get("ym")  ?? undefined);
+  const [focusTab, setFocusTab] = useState<string | undefined>(searchParams.get("tab") ?? undefined);
+
+  const handleShiftMarkerClick = useCallback((ym: string) => {
+    setFocusYm(ym);
+    setFocusTab("shift");
+  }, []);
   const [showEventModal, setShowEventModal] = useState(false);
 
   const languageDistribution = useMemo<Record<string, number>>(() => {
@@ -94,6 +99,7 @@ export default function DashboardClient({
                 topLanguages={topLanguages}
                 sentimentTrendComment={game.sentiment_trend_comment}
                 shiftRows={timelineRows.filter(r => r.event_type === "sentiment_shift")}
+                onShiftClick={handleShiftMarkerClick}
               />
             )}
             {activeTab === "language" && (

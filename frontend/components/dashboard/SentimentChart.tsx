@@ -12,6 +12,7 @@ interface SentimentChartProps {
   topLanguages: string[];
   sentimentTrendComment?: string; // 여러 구간 통합 추이 진단 (game.sentiment_trend_comment)
   shiftRows?: TimelineRow[];      // sentiment_shift 이벤트 (급변 마커용)
+  onShiftClick?: (ym: string) => void; // 급변 마커 클릭 시 콜백
 }
 
 const LANG_LABELS: Record<string, string> = {
@@ -54,7 +55,7 @@ interface ChartPoint {
   [key: string]: string | number | null | undefined; // lang → rate
 }
 
-export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment, shiftRows }: SentimentChartProps) {
+export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment, shiftRows, onShiftClick }: SentimentChartProps) {
   const { t } = useUiText();
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
 
@@ -389,10 +390,19 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
                   if (val === null || val === undefined) return <g key={`dot-${cx}-${cy}-${lang}`} />;
                   const isWeekly = payload.type === "weekly";
                   const hasShift = shiftMonths.has(payload.date.slice(0, 7));
+                  const isShiftDot = hasShift && lang === "all";
                   return (
-                    <g key={`dot-${cx}-${cy}-${lang}`}>
-                      {hasShift && lang === "all" && (
-                        <circle cx={cx} cy={cy} r={8} fill="none" stroke="#f5c842" strokeWidth={2} opacity={0.8} />
+                    <g
+                      key={`dot-${cx}-${cy}-${lang}`}
+                      onClick={isShiftDot ? () => onShiftClick?.(payload.date.slice(0, 7)) : undefined}
+                      style={isShiftDot ? { cursor: "pointer" } : undefined}
+                    >
+                      {isShiftDot && (
+                        <>
+                          {/* 클릭 히트 영역 확장 */}
+                          <circle cx={cx} cy={cy} r={14} fill="transparent" />
+                          <circle cx={cx} cy={cy} r={8} fill="none" stroke="#f5c842" strokeWidth={2} opacity={0.8} />
+                        </>
                       )}
                       {isWeekly ? (
                         // 주간: hollow(속이 빈) 도트
