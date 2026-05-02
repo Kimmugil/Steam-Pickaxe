@@ -89,6 +89,7 @@ const FALLBACK: Record<string, string> = {
   CARD_DAYS_AGO: "{n}일 전 업데이트",
   CARD_LAST_EVENT_LABEL: "최근 이벤트",
   CARD_AI_DATE_LABEL: "AI 분석",
+  CARD_RECENT_EVENT_LABEL: "최근 이벤트",
 
   // ── 관리자 모달 ─────────────────────────────────────────────────────
   ADMIN_PW_TITLE: "관리자 비밀번호 확인",
