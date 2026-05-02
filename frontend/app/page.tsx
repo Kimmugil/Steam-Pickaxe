@@ -38,7 +38,10 @@ export default async function HomePage() {
 
   return (
     <>
-    <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8 lg:pr-[22rem]">
+    {/* 패널 너비만큼 오른쪽을 잘라 내어, 내부 mx-auto가 패널 제외 영역 안에서 정확히 중앙 정렬되도록 함 */}
+    {/* lg: right-4(1rem) + w-72(18rem) = 19rem / xl: right-4(1rem) + w-80(20rem) = 21rem */}
+    <div className="lg:pr-[19rem] xl:pr-[21rem]">
+    <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8">
 
       {/* ── 헤더: 타이틀만 ───────────────────────────────────────────── */}
       <section className="text-center">
@@ -80,6 +83,7 @@ export default async function HomePage() {
       {/* ── 모바일 전용 좌측 플로팅 버튼 ────────────────────────────── */}
       <FloatingNav />
 
+    </div>
     </div>
 
     {/* ── 데스크탑 우측 플로팅 패널 (등록 버튼 + 인사이트) ──────────── */}

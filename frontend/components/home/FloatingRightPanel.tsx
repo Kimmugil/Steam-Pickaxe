@@ -13,8 +13,8 @@ export default function FloatingRightPanel({ children }: Props) {
 
   return (
     <>
-      {/* 데스크탑 전용 우측 플로팅 패널 */}
-      <div className="hidden lg:flex fixed right-4 top-20 z-30 w-72 xl:w-80 flex-col gap-2 max-h-[calc(100vh-5.5rem)]">
+      {/* 데스크탑 전용 우측 플로팅 패널 — 우중앙 수직 정렬 */}
+      <div className="hidden lg:flex fixed right-4 top-1/2 -translate-y-1/2 z-30 w-72 xl:w-80 flex-col gap-2 max-h-[calc(100vh-6rem)]">
 
         {/* 가로형 게임 등록하기 버튼 */}
         <div className="relative flex-shrink-0">
