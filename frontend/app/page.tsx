@@ -2,6 +2,7 @@ import GameCardGrid from "@/components/home/GameCardGrid";
 import PendingGameCard from "@/components/home/PendingGameCard";
 import HomeInsightPanel from "@/components/home/HomeInsightPanel";
 import FloatingNav from "@/components/home/FloatingNav";
+import FloatingRightPanel from "@/components/home/FloatingRightPanel";
 import { getAllGames, getUiText } from "@/lib/sheets";
 
 export const revalidate = 60;
@@ -36,7 +37,8 @@ export default async function HomePage() {
   const t = (key: string) => (uiText as Record<string, string>)[key] ?? FALLBACK[key] ?? key;
 
   return (
-    <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8">
+    <>
+    <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8 lg:pr-[22rem]">
 
       {/* ── 헤더: 타이틀만 ───────────────────────────────────────────── */}
       <section className="text-center">
@@ -51,22 +53,12 @@ export default async function HomePage() {
           <p className="text-sm mt-1">{t("GAMES_EMPTY_SUBTITLE")}</p>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-
-          {/* ── 좌측: 게임 카드 목록 ───────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-semibold text-text-primary mb-3">
-              {t("GAMES_SECTION_TITLE")}
-              <span className="ml-2 font-normal text-text-muted">{activeGames.length}{t("COUNT_SUFFIX")}</span>
-            </h2>
-            <GameCardGrid games={activeGames} />
-          </div>
-
-          {/* ── 우측: 인사이트 패널 (sticky, right-edge attached) ───── */}
-          <div className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-20 lg:-mr-6">
-            <HomeInsightPanel games={activeGames} />
-          </div>
-
+        <div>
+          <h2 className="text-sm font-semibold text-text-primary mb-3">
+            {t("GAMES_SECTION_TITLE")}
+            <span className="ml-2 font-normal text-text-muted">{activeGames.length}{t("COUNT_SUFFIX")}</span>
+          </h2>
+          <GameCardGrid games={activeGames} />
         </div>
       )}
 
@@ -85,9 +77,17 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── 우측 플로팅 네비 (검색 & 등록) ──────────────────────────── */}
+      {/* ── 모바일 전용 좌측 플로팅 버튼 ────────────────────────────── */}
       <FloatingNav />
 
     </div>
+
+    {/* ── 데스크탑 우측 플로팅 패널 (등록 버튼 + 인사이트) ──────────── */}
+    {activeGames.length > 0 && (
+      <FloatingRightPanel>
+        <HomeInsightPanel games={activeGames} />
+      </FloatingRightPanel>
+    )}
+    </>
   );
 }
