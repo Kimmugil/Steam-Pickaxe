@@ -575,8 +575,8 @@ export async function appendCcuRows(appid: string, newRows: string[][], gameShee
 // Google Sheets의 ui_text 탭을 읽어 { key: value } 맵으로 반환.
 // unstable_cache로 60초 TTL 캐싱 — Sheets API 호출 횟수 최소화.
 
-/** UI_Texts 탭 이름 — Google Sheets 탭명과 일치해야 함 */
-const UI_TEXT_TAB = "UI_Texts";
+/** ui_text 탭 이름 — Google Sheets 탭명과 일치해야 함 */
+const UI_TEXT_TAB = "ui_text";
 
 async function _fetchUiText(): Promise<Record<string, string>> {
   try {
@@ -612,7 +612,7 @@ export async function syncUiText(
   // 현재 ui_text 탭 읽기
   let rows: string[][] = [];
   try {
-    rows = await readSheet("ui_text");
+    rows = await readSheet(UI_TEXT_TAB);
   } catch {
     // 탭이 없으면 빈 배열로 처리
   }
@@ -675,7 +675,7 @@ export async function resetUiText(
   // 현재 ui_text 탭 읽기 (커스텀 값 보존을 위해)
   let rows: string[][] = [];
   try {
-    rows = await readSheet("ui_text");
+    rows = await readSheet(UI_TEXT_TAB);
   } catch {
     // 탭 없으면 빈 배열
   }
