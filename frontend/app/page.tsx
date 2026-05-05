@@ -38,17 +38,8 @@ export default async function HomePage() {
 
   return (
     <>
-    {/* ── 타이틀: 래퍼 밖에서 뷰포트 전체 기준 중앙 정렬 ────────────── */}
-    <div className="text-center pt-10 pb-0">
-      <p className="text-2xl font-semibold text-text-primary">{t("HOME_TITLE")}</p>
-    </div>
+    <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8">
 
-    {/* 패널 너비만큼 오른쪽을 잘라 내어, 내부 mx-auto가 패널 제외 영역 안에서 정확히 중앙 정렬되도록 함 */}
-    {/* lg: right-4(1rem) + w-72(18rem) = 19rem / xl: right-4(1rem) + w-80(20rem) = 21rem */}
-    <div className="lg:pr-[19rem] xl:pr-[21rem]">
-    <div className="max-w-screen-xl mx-auto px-6 pb-10 pt-6 space-y-8">
-
-      {/* ── 2단 분할 레이아웃 ──────────────────────────────────────────── */}
       {activeGames.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
           <p className="text-4xl mb-4">{t("GAMES_EMPTY_ICON")}</p>
@@ -83,7 +74,6 @@ export default async function HomePage() {
       {/* ── 모바일 전용 좌측 플로팅 버튼 ────────────────────────────── */}
       <FloatingNav />
 
-    </div>
     </div>
 
     {/* ── 데스크탑 우측 플로팅 패널 (등록 버튼 + 인사이트) ──────────── */}
