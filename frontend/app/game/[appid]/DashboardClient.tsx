@@ -5,7 +5,6 @@ import Header from "@/components/dashboard/Header";
 import CcuChart from "@/components/dashboard/CcuChart";
 import CcuAdminPanel from "@/components/dashboard/CcuAdminPanel";
 import SentimentChart from "@/components/dashboard/SentimentChart";
-import LifecycleSummary from "@/components/dashboard/LifecycleSummary";
 import LanguageTab from "@/components/dashboard/LanguageTab";
 import Timeline from "@/components/dashboard/Timeline";
 import EventForm from "@/components/dashboard/EventForm";
@@ -39,6 +38,16 @@ export default function DashboardClient({
   const handleShiftMarkerClick = useCallback((ym: string) => {
     setFocusYm(ym);
     setFocusTab("shift");
+  }, []);
+
+  // 차트 포인트 / 키워드 밴드 클릭 → 해당 월 타임라인 카드로 이동
+  const handlePointClick = useCallback((ym: string) => {
+    setFocusYm(ym);
+    setFocusTab(undefined);
+    // 타임라인 섹션으로 스크롤
+    setTimeout(() => {
+      document.getElementById("timeline-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }, []);
   const [showEventModal, setShowEventModal] = useState(false);
 
@@ -95,16 +104,15 @@ export default function DashboardClient({
               </>
             )}
             {activeTab === "sentiment" && (
-              <>
-                <LifecycleSummary lifecycleComment={game.lifecycle_comment} />
-                <SentimentChart
-                  timelineRows={timelineRows}
-                  topLanguages={topLanguages}
-                  sentimentTrendComment={game.sentiment_trend_comment}
-                  shiftRows={timelineRows.filter(r => r.event_type === "sentiment_shift")}
-                  onShiftClick={handleShiftMarkerClick}
-                />
-              </>
+              <SentimentChart
+                timelineRows={timelineRows}
+                topLanguages={topLanguages}
+                sentimentTrendComment={game.sentiment_trend_comment}
+                shiftRows={timelineRows.filter(r => r.event_type === "sentiment_shift")}
+                onShiftClick={handleShiftMarkerClick}
+                onPointClick={handlePointClick}
+                lifecycleComment={game.lifecycle_comment}
+              />
             )}
             {activeTab === "language" && (
               <LanguageTab
@@ -118,7 +126,7 @@ export default function DashboardClient({
         </div>
 
         {/* ── 업데이트 히스토리 ────────────────────────────────────── */}
-        <div className="bg-bg-card border border-border-default rounded-xl p-6">
+        <div id="timeline-section" className="bg-bg-card border border-border-default rounded-xl p-6">
           <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
           <Timeline timelineRows={timelineRows} appid={String(game.appid)} releaseDate={game.release_date} focusYm={focusYm} focusTab={focusTab} />
 

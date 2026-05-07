@@ -6,13 +6,29 @@ import {
 import { useState, useMemo, useRef } from "react";
 import type { TimelineRow } from "@/types";
 import { useUiText } from "@/contexts/UiTextContext";
+import LifecycleSummary from "@/components/dashboard/LifecycleSummary";
 
 interface SentimentChartProps {
   timelineRows: TimelineRow[];
   topLanguages: string[];
-  sentimentTrendComment?: string; // 여러 구간 통합 추이 진단 (game.sentiment_trend_comment)
-  shiftRows?: TimelineRow[];      // sentiment_shift 이벤트 (급변 마커용)
-  onShiftClick?: (ym: string) => void; // 급변 마커 클릭 시 콜백
+  sentimentTrendComment?: string;
+  shiftRows?: TimelineRow[];
+  onShiftClick?: (ym: string) => void;
+  onPointClick?: (ym: string) => void; // 차트 포인트·키워드 밴드 클릭 → 타임라인 이동
+  lifecycleComment?: string;           // 게임 수명 주기 분석
+}
+
+/** "crashes (충돌)" → "충돌", "그래픽 (Graphics)" → "그래픽", "DLC" → "DLC" */
+function extractKorean(raw: string): string {
+  const match = raw.match(/^(.+?)\s*\((.+?)\)\s*$/);
+  if (match) {
+    const outside = match[1].trim();
+    const inside  = match[2].trim();
+    if (/[가-힣]/.test(inside))  return inside;
+    if (/[가-힣]/.test(outside)) return outside;
+    return outside; // 둘 다 영어면 바깥쪽 반환
+  }
+  return raw.trim();
 }
 
 const LANG_LABELS: Record<string, string> = {
@@ -55,7 +71,10 @@ interface ChartPoint {
   [key: string]: string | number | null | undefined; // lang → rate
 }
 
-export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment, shiftRows, onShiftClick }: SentimentChartProps) {
+export default function SentimentChart({
+  timelineRows, topLanguages, sentimentTrendComment,
+  shiftRows, onShiftClick, onPointClick, lifecycleComment,
+}: SentimentChartProps) {
   const { t } = useUiText();
   const bandScrollRef = useRef<HTMLDivElement>(null);
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
@@ -229,6 +248,24 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
     return set;
   }, [shiftRows]);
 
+  // 날짜키 → 원본 키워드 목록 (툴팁용)
+  const keywordsByDateKey = useMemo<Record<string, string[]>>(() => {
+    const map: Record<string, string[]> = {};
+    for (const r of timelineRows) {
+      if (!r.date) continue;
+      if (r.language_scope !== "all") continue;
+      if (!r.top_keywords || r.top_keywords === "[]") continue;
+      if (r.event_type !== "monthly_summary" && r.event_type !== "weekly_summary") continue;
+      let kws: string[] = [];
+      try { kws = JSON.parse(r.top_keywords); } catch { continue; }
+      const dateKey = r.event_type === "monthly_summary"
+        ? `${r.date.slice(0, 7)}-01`
+        : r.date;
+      if (!map[dateKey]) map[dateKey] = kws;
+    }
+    return map;
+  }, [timelineRows]);
+
   // 하단 코멘트: sentiment_trend_comment 우선, 없으면 최신 monthly_summary의 ai_reaction_summary 폴백
   const trendComment = useMemo(() => {
     if (sentimentTrendComment) return sentimentTrendComment;
@@ -256,7 +293,7 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
         return {
           ym,
           label: r.event_type === "weekly_summary" ? (r.title_kr || r.title || ym) : ym,
-          keywords: keywords.slice(0, 4),
+          keywords: keywords.slice(0, 4).map(extractKorean),
           rate: isNaN(rate) ? null : rate,
           isShift: shiftMonths.has(ym),
           isWeekly: r.event_type === "weekly_summary",
@@ -332,7 +369,15 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
       </div>
 
       <ResponsiveContainer width="100%" height={320}>
-        <ComposedChart data={chartData} margin={{ top: 5, right: showVolume ? 45 : 20, left: 0, bottom: 5 }}>
+        <ComposedChart
+          data={chartData}
+          margin={{ top: 5, right: showVolume ? 45 : 20, left: 0, bottom: 5 }}
+          style={{ cursor: onPointClick ? "pointer" : undefined }}
+          onClick={(data: { activePayload?: Array<{ payload: ChartPoint }> }) => {
+            const pt = data?.activePayload?.[0]?.payload;
+            if (pt && onPointClick) onPointClick(pt.date.slice(0, 7));
+          }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#2a2f45" />
           <XAxis
             dataKey="label"
@@ -361,18 +406,55 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
             />
           )}
           <Tooltip
-            contentStyle={{ background: "#1e2130", border: "1px solid #2a2f45", borderRadius: 8, color: "#e8eaf0" }}
-            formatter={(v: number, name: string) => {
-              if (name === "review_count") return [`${v.toLocaleString()}건`, "리뷰 볼륨"];
-              return [`${v}%`, LANG_LABELS[name] ?? name];
-            }}
-            labelFormatter={(_label, payload) => {
-              if (!payload || !payload[0]) return String(_label);
-              const pt = payload[0].payload as ChartPoint;
-              if (pt.type === "weekly") {
-                return `📅 ${pt.title}  (${pt.date})`;
-              }
-              return pt.title;
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const pt = payload[0]?.payload as ChartPoint;
+              if (!pt) return null;
+              const kws = (keywordsByDateKey[pt.date] ?? [])
+                .map(extractKorean).slice(0, 5);
+              const header = pt.type === "weekly"
+                ? `📅 ${pt.title}  (${pt.date})`
+                : pt.title;
+              return (
+                <div style={{
+                  background: "#1e2130", border: "1px solid #2a2f45",
+                  borderRadius: 8, color: "#e8eaf0", fontSize: 12,
+                  minWidth: 140, maxWidth: 220, overflow: "hidden",
+                }}>
+                  <div style={{ padding: "6px 12px 5px", borderBottom: "1px solid #2a2f45" }}>
+                    <p style={{ color: "#8b91a8", fontSize: 11, margin: 0 }}>{header}</p>
+                  </div>
+                  <div style={{ padding: "6px 12px 4px" }}>
+                    {payload.map((entry) => {
+                      if (entry.value === null || entry.value === undefined) return null;
+                      if (entry.dataKey === "review_count") return (
+                        <p key="vol" style={{ margin: "2px 0", color: "#4f87ff", opacity: 0.8 }}>
+                          리뷰 볼륨: {Number(entry.value).toLocaleString()}건
+                        </p>
+                      );
+                      const label = LANG_LABELS[entry.dataKey as string] ?? String(entry.dataKey);
+                      return (
+                        <p key={String(entry.dataKey)} style={{ margin: "2px 0", color: entry.color as string }}>
+                          {label}: {entry.value}%
+                        </p>
+                      );
+                    })}
+                  </div>
+                  {kws.length > 0 && (
+                    <div style={{ padding: "4px 12px 8px", borderTop: "1px solid #2a2f45" }}>
+                      <p style={{ color: "#8b91a8", fontSize: 10, margin: "0 0 4px" }}>주요 키워드</p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                        {kws.map((kw, i) => (
+                          <span key={i} style={{
+                            fontSize: 10, padding: "1px 6px", borderRadius: 4,
+                            background: "#2a2f45", color: "#a0a6b8", border: "1px solid #3a3f55",
+                          }}>{kw}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
             }}
           />
           {selectedLangs.size > 1 && (
@@ -461,6 +543,13 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
         </div>
       )}
 
+      {/* ── 게임 수명 주기 분석 ──────────────────────────────────────────── */}
+      {lifecycleComment && (
+        <div className="mt-4">
+          <LifecycleSummary lifecycleComment={lifecycleComment} />
+        </div>
+      )}
+
       {/* ── 키워드 밴드 ─────────────────────────────────────────────────── */}
       {keywordBandData.length > 0 && (
         <div className="mt-5">
@@ -504,10 +593,13 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
                 return (
                   <div
                     key={row.ym + row.label}
-                    className={`flex-shrink-0 w-[84px] rounded-lg px-2 pt-2 pb-2 flex flex-col gap-1 ${
+                    onClick={() => onPointClick?.(row.ym)}
+                    className={`flex-shrink-0 w-[84px] rounded-lg px-2 pt-2 pb-2 flex flex-col gap-1 transition-colors ${
+                      onPointClick ? "cursor-pointer hover:brightness-125" : ""
+                    } ${
                       row.isShift
                         ? "bg-accent-yellow/5 border border-accent-yellow/25"
-                        : "bg-bg-secondary/30 border border-transparent"
+                        : "bg-bg-secondary/30 border border-transparent hover:border-border-default"
                     }`}
                   >
                     {/* 상단: 날짜 + 급변 아이콘 */}
