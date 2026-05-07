@@ -22,7 +22,8 @@ from analyzers.bucketer import build_monthly_buckets, build_early_launch_buckets
 from analyzers.gemini_analyzer import (
     analyze_bucket, analyze_patch_summary,
     generate_ai_briefing, generate_sentiment_trend_comment,
-    generate_ccu_peaktime_comment, generate_language_cross_analysis, LANGUAGE_NAMES,
+    generate_ccu_peaktime_comment, generate_language_cross_analysis,
+    generate_lifecycle_comment, LANGUAGE_NAMES,
 )
 from datetime import datetime, timezone, timedelta
 
@@ -617,7 +618,7 @@ def run():
                 except Exception as e:
                     print(f"  [lang_cross] 오류: {e}")
 
-        # ── 감성 추이 종합 분석 (신규 버킷 작성 시 or CORE_ONLY/EARLY_LAUNCH_ONLY 강제 갱신) ──
+        # ── 감성 추이 종합 분석 + 수명 주기 분석 (신규 버킷 작성 시 or CORE_ONLY/EARLY_LAUNCH_ONLY 강제 갱신) ──
         sentiment_trend_comment = game.get("sentiment_trend_comment", "")
         if wrote_new_bucket or CORE_ONLY or EARLY_LAUNCH_ONLY:
             analyzed_monthly_rows = [
@@ -626,6 +627,8 @@ def run():
                 and r.get("language_scope") == "all"
                 and str(r.get("sentiment_rate", "")).strip() not in ("", "sparse")
             ]
+            sorted_monthly = sorted(analyzed_monthly_rows, key=lambda r: r.get("date", ""))
+
             if len(analyzed_monthly_rows) >= 2:
                 trend_buckets = [
                     {
@@ -634,7 +637,7 @@ def run():
                         "sentiment_rate": r.get("sentiment_rate", ""),
                         "review_count":   r.get("review_count", 0),
                     }
-                    for r in sorted(analyzed_monthly_rows, key=lambda r: r.get("date", ""))
+                    for r in sorted_monthly
                 ]
                 try:
                     sentiment_trend_comment = generate_sentiment_trend_comment(name, trend_buckets)
@@ -647,6 +650,33 @@ def run():
                     time.sleep(2)
                 except Exception as e:
                     print(f"  [sentiment_trend] 오류: {e}")
+
+            # ── 수명 주기 분석 (3개월+ 데이터가 있는 경우에만) ─────────────
+            if len(analyzed_monthly_rows) >= 3:
+                lifecycle_buckets = [
+                    {
+                        "date":               r.get("date", ""),
+                        "title":              r.get("title", ""),
+                        "sentiment_rate":     r.get("sentiment_rate", ""),
+                        "review_count":       r.get("review_count", 0),
+                        "ai_reaction_summary": r.get("ai_reaction_summary", ""),
+                        "top_keywords":       r.get("top_keywords", "[]"),
+                    }
+                    for r in sorted_monthly
+                ]
+                try:
+                    lifecycle_comment = generate_lifecycle_comment(
+                        name, lifecycle_buckets, release_date=release_date
+                    )
+                    if lifecycle_comment:
+                        try:
+                            update_game(ss, appid, {"lifecycle_comment": lifecycle_comment})
+                            print(f"  [저장] lifecycle_comment 완료")
+                        except Exception as _e:
+                            print(f"  [저장] lifecycle_comment 실패: {_e}")
+                    time.sleep(2)
+                except Exception as e:
+                    print(f"  [lifecycle] 오류: {e}")
 
         # ── 마지막 분석 시점의 리뷰 수 저장 (다음 실행 시 재분석 필요 여부 판단용) ──
         if not CORE_ONLY and not TARGET_YEAR_MONTH:

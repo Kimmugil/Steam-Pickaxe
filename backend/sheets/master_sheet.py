@@ -86,6 +86,7 @@ GAMES_HEADERS = [
     "ccu_peaktime_comment",      # CCU 시간대별 주력 권역 분석
     "language_cross_comment",    # 언어권 교차 분석
     "sentiment_trend_comment",   # 평가 추이 종합 진단 (여러 구간 통합)
+    "lifecycle_comment",         # 수명 주기 분석 JSON (early/growth/mature 단계별 기대 포인트 변화)
     # 홈 화면 표시 순서 (숫자 오름차순, 0 또는 빈값은 맨 뒤)
     "sort_order",
     # Steam 스토어 전체 누적 긍정률 (%) — appreviews API 기준

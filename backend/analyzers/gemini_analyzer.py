@@ -251,6 +251,114 @@ def generate_ccu_peaktime_comment(game_name: str, ccu_data: list[dict]) -> str:
     return _gen_text(prompt)
 
 
+def generate_lifecycle_comment(
+    game_name: str,
+    monthly_buckets: list[dict],
+    release_date: str = "",
+) -> str:
+    """
+    게임 수명 주기 분석 — 운영 시점별 기대 포인트 변화 진단.
+
+    monthly_buckets: [{ date, title, sentiment_rate, review_count,
+                        ai_reaction_summary, top_keywords (JSON str) }]
+    release_date:    "YYYY-MM-DD" (없으면 첫 버킷을 출시 기준으로 간주)
+
+    반환: JSON 문자열 {
+        "early":  "<0~6개월 요약>",
+        "growth": "<6~18개월 요약 or ''>",
+        "mature": "<18개월+ 요약 or ''>"
+    }
+    """
+    if not monthly_buckets:
+        return ""
+
+    from datetime import datetime as _dt
+
+    # 출시일 파싱 (없으면 첫 버킷 날짜 사용)
+    try:
+        if release_date:
+            release_dt = _dt.strptime(release_date[:10], "%Y-%m-%d")
+        else:
+            release_dt = _dt.strptime(monthly_buckets[0]["date"][:7] + "-01", "%Y-%m-%d")
+    except Exception:
+        release_dt = None
+
+    # 각 버킷에 출시 후 경과 개월 수 첨부
+    rows_text_by_phase: dict[str, list[str]] = {"early": [], "growth": [], "mature": []}
+    for b in monthly_buckets:
+        try:
+            bucket_dt = _dt.strptime(b["date"][:7] + "-01", "%Y-%m-%d")
+        except Exception:
+            continue
+
+        months_since = 0
+        if release_dt:
+            months_since = (bucket_dt.year - release_dt.year) * 12 + (bucket_dt.month - release_dt.month)
+
+        if months_since < 6:
+            phase = "early"
+        elif months_since < 18:
+            phase = "growth"
+        else:
+            phase = "mature"
+
+        # 키워드 파싱
+        try:
+            kws = json.loads(b.get("top_keywords", "[]") or "[]")
+            kw_str = ", ".join(kws[:5]) if kws else ""
+        except Exception:
+            kw_str = ""
+
+        rate = b.get("sentiment_rate", "")
+        summary = str(b.get("ai_reaction_summary", ""))[:200]
+        line = f"[{b['date'][:7]}] 긍정률 {rate}%, 리뷰 {b.get('review_count', 0)}건"
+        if kw_str:
+            line += f", 키워드: {kw_str}"
+        if summary:
+            line += f"\n  → {summary}"
+        rows_text_by_phase[phase].append(line)
+
+    # 단계별 데이터 포맷
+    phase_sections: list[str] = []
+    if rows_text_by_phase["early"]:
+        phase_sections.append("【출시 초기 (0~6개월)】\n" + "\n".join(rows_text_by_phase["early"]))
+    if rows_text_by_phase["growth"]:
+        phase_sections.append("【성장기 (6~18개월)】\n" + "\n".join(rows_text_by_phase["growth"]))
+    if rows_text_by_phase["mature"]:
+        phase_sections.append("【성숙기 (18개월+)】\n" + "\n".join(rows_text_by_phase["mature"]))
+
+    if not phase_sections:
+        return ""
+
+    prompt = f"""게임: {game_name}
+출시일: {release_date or "불명"}
+
+아래는 운영 시점별 유저 반응 데이터입니다.
+
+{chr(10).join(phase_sections)}
+
+위 데이터를 바탕으로 각 운영 단계에서 유저들이 어떤 점에 만족하고, 어떤 점에 불만을 느꼈으며,
+게임에 무엇을 기대하는지를 단계별로 분석하세요.
+데이터가 없는 단계는 빈 문자열로 남기세요.
+
+반드시 아래 JSON 형식으로만 응답하세요 (마크다운 없이):
+{{
+  "early":  "<출시 초기 요약. 2~4문장. 없으면 빈 문자열>",
+  "growth": "<성장기 요약. 2~4문장. 없으면 빈 문자열>",
+  "mature": "<성숙기 요약. 2~4문장. 없으면 빈 문자열>"
+}}
+
+규칙:
+- 현상과 인과관계만 서술, 지시적 어조 금지
+- 데이터에 없는 수치·날짜 생성 금지
+- 각 단계에서 유저가 기대한 바의 변화에 주목"""
+
+    result = _gen_json(prompt)
+    if not result:
+        return ""
+    return json.dumps(result, ensure_ascii=False)
+
+
 def generate_language_cross_analysis(game_name: str, language_stats: list[dict], ccu_peak_comment: str) -> str:
     """언어권 교차 분석 AI 코멘트"""
     prompt = f"""게임: {game_name}

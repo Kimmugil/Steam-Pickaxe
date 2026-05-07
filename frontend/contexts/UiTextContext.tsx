@@ -729,6 +729,16 @@ const FALLBACK: Record<string, string> = {
   SHIFT_AI_CAUSE_LABEL: "AI 추정 원인",
   SHIFT_LINKED_EVENTS_LABEL: "근방 공식 이벤트",
   SHIFT_LINKED_EVENTS_COUNT: "이벤트 {n}건",
+
+  // ── 키워드 타임라인 ────────────────────────────────────────────────────────
+  KEYWORD_TIMELINE_TITLE: "키워드 타임라인",
+
+  // ── 수명 주기 분석 ─────────────────────────────────────────────────────────
+  LIFECYCLE_SECTION_TITLE: "게임 수명 주기 분석",
+  LIFECYCLE_PHASE_COUNT:   "{n}단계 분석",
+  LIFECYCLE_EARLY_LABEL:  "출시 초기 (0~6개월)",
+  LIFECYCLE_GROWTH_LABEL: "성장기 (6~18개월)",
+  LIFECYCLE_MATURE_LABEL: "성숙기 (18개월+)",
   SHIFT_TOP_REVIEWS_LABEL: "이슈 관련 주요 리뷰",
   SHIFT_REVIEW_POSITIVE: "👍 긍정",
   SHIFT_REVIEW_NEGATIVE: "👎 부정",

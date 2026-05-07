@@ -34,6 +34,7 @@ export interface Game {
   ccu_peaktime_comment?: string;      // CCU 시간대별 주력 권역 AI 분석
   language_cross_comment?: string;    // 언어권 교차 AI 분석
   sentiment_trend_comment?: string;   // 평가 추이 종합 진단 (여러 구간 통합)
+  lifecycle_comment?: string;         // 수명 주기 분석 JSON (early/growth/mature)
   sort_order?: number | string;       // 홈 화면 표시 순서 (오름차순, 0/빈값=맨 뒤)
   steam_positive_rate?: number | string; // Steam 스토어 전체 누적 긍정률 (%)
   last_shift_detection_date?: string;       // 평가 급변 감지 마지막 실행일 (YYYY-MM-DD)
