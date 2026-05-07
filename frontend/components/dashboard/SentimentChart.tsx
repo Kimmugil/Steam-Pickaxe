@@ -6,6 +6,7 @@ import {
 import { useState, useMemo, useRef } from "react";
 import type { TimelineRow } from "@/types";
 import { useUiText } from "@/contexts/UiTextContext";
+import { useChartTheme } from "@/lib/useChartTheme";
 import LifecycleSummary from "@/components/dashboard/LifecycleSummary";
 
 interface SentimentChartProps {
@@ -76,6 +77,7 @@ export default function SentimentChart({
   shiftRows, onShiftClick, onPointClick, lifecycleComment,
 }: SentimentChartProps) {
   const { t } = useUiText();
+  const chart = useChartTheme();
   const bandScrollRef = useRef<HTMLDivElement>(null);
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
 
@@ -349,7 +351,7 @@ export default function SentimentChart({
         {hasWeeklyData && (
           <span className="flex items-center gap-1.5 text-xs text-text-muted shrink-0 ml-1">
             <svg width="16" height="16" viewBox="0 0 16 16">
-              <circle cx="8" cy="8" r="5" fill="#1e2130" stroke="#4f87ff" strokeWidth="2" />
+              <circle cx="8" cy="8" r="5" fill={chart.dotBgFill} stroke="#4f87ff" strokeWidth="2" />
               <circle cx="8" cy="8" r="2" fill="#4f87ff" />
             </svg>
             주간
@@ -378,17 +380,17 @@ export default function SentimentChart({
             if (pt && onPointClick) onPointClick(pt.date.slice(0, 7));
           }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#2a2f45" />
+          <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
           <XAxis
             dataKey="label"
-            tick={{ fill: "#8b91a8", fontSize: 11 }}
+            tick={{ fill: chart.axisTextFill, fontSize: 11 }}
             tickLine={false}
             interval="preserveStartEnd"
           />
           <YAxis
             yAxisId="left"
             domain={[0, 100]}
-            tick={{ fill: "#8b91a8", fontSize: 11 }}
+            tick={{ fill: chart.axisTextFill, fontSize: 11 }}
             tickFormatter={(v) => `${v}%`}
             tickLine={false}
             axisLine={false}
@@ -398,7 +400,7 @@ export default function SentimentChart({
               yAxisId="right"
               orientation="right"
               domain={[0, "auto"]}
-              tick={{ fill: "#8b91a8", fontSize: 10 }}
+              tick={{ fill: chart.axisTextFill, fontSize: 10 }}
               tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)}
               tickLine={false}
               axisLine={false}
@@ -417,18 +419,22 @@ export default function SentimentChart({
                 : pt.title;
               return (
                 <div style={{
-                  background: "#1e2130", border: "1px solid #2a2f45",
-                  borderRadius: 8, color: "#e8eaf0", fontSize: 12,
+                  background: "rgb(var(--bg-card-rgb))",
+                  border: "1px solid rgb(var(--border-default-rgb))",
+                  borderRadius: 8,
+                  color: "rgb(var(--text-primary-rgb))",
+                  fontSize: 12,
                   minWidth: 140, maxWidth: 220, overflow: "hidden",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
                 }}>
-                  <div style={{ padding: "6px 12px 5px", borderBottom: "1px solid #2a2f45" }}>
-                    <p style={{ color: "#8b91a8", fontSize: 11, margin: 0 }}>{header}</p>
+                  <div style={{ padding: "6px 12px 5px", borderBottom: "1px solid rgb(var(--border-default-rgb))" }}>
+                    <p style={{ color: "rgb(var(--text-secondary-rgb))", fontSize: 11, margin: 0 }}>{header}</p>
                   </div>
                   <div style={{ padding: "6px 12px 4px" }}>
                     {payload.map((entry) => {
                       if (entry.value === null || entry.value === undefined) return null;
                       if (entry.dataKey === "review_count") return (
-                        <p key="vol" style={{ margin: "2px 0", color: "#4f87ff", opacity: 0.8 }}>
+                        <p key="vol" style={{ margin: "2px 0", color: "rgb(var(--accent-blue-rgb))", opacity: 0.85 }}>
                           리뷰 볼륨: {Number(entry.value).toLocaleString()}건
                         </p>
                       );
@@ -441,13 +447,15 @@ export default function SentimentChart({
                     })}
                   </div>
                   {kws.length > 0 && (
-                    <div style={{ padding: "4px 12px 8px", borderTop: "1px solid #2a2f45" }}>
-                      <p style={{ color: "#8b91a8", fontSize: 10, margin: "0 0 4px" }}>주요 키워드</p>
+                    <div style={{ padding: "4px 12px 8px", borderTop: "1px solid rgb(var(--border-default-rgb))" }}>
+                      <p style={{ color: "rgb(var(--text-secondary-rgb))", fontSize: 10, margin: "0 0 4px" }}>주요 키워드</p>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                         {kws.map((kw, i) => (
                           <span key={i} style={{
                             fontSize: 10, padding: "1px 6px", borderRadius: 4,
-                            background: "#2a2f45", color: "#a0a6b8", border: "1px solid #3a3f55",
+                            background: "rgb(var(--border-default-rgb))",
+                            color: "rgb(var(--text-secondary-rgb))",
+                            border: "1px solid rgb(var(--border-hover-rgb))",
                           }}>{kw}</span>
                         ))}
                       </div>
@@ -460,7 +468,7 @@ export default function SentimentChart({
           {selectedLangs.size > 1 && (
             <Legend
               formatter={(value) => LANG_LABELS[value] ?? value}
-              wrapperStyle={{ fontSize: 11, color: "#8b91a8" }}
+              wrapperStyle={{ fontSize: 11, color: "rgb(var(--text-secondary-rgb))" }}
             />
           )}
           <ReferenceLine yAxisId="left" y={80} stroke="#5db86540" strokeDasharray="4 4" label={{ value: t("CHART_VERY_POSITIVE"), fill: "#5db865", fontSize: 10 }} />
@@ -515,12 +523,12 @@ export default function SentimentChart({
                       {isWeekly ? (
                         // 주간: hollow(속이 빈) 도트
                         <>
-                          <circle cx={cx} cy={cy} r={5} fill="#1e2130" stroke={color} strokeWidth={2} />
+                          <circle cx={cx} cy={cy} r={5} fill={chart.dotBgFill} stroke={color} strokeWidth={2} />
                           <circle cx={cx} cy={cy} r={2} fill={color} />
                         </>
                       ) : (
                         // 월간: solid 도트
-                        <circle cx={cx} cy={cy} r={4} fill={color} stroke="#1e2130" strokeWidth={2} />
+                        <circle cx={cx} cy={cy} r={4} fill={color} stroke={chart.dotBgFill} strokeWidth={2} />
                       )}
                     </g>
                   );

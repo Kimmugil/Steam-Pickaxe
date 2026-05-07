@@ -4,15 +4,59 @@
 
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
+/* ── 다크 테마 (기본) ────────────────────────────────────────────── */
 :root {
-  --bg-primary: #0f1117;
-  --bg-secondary: #1a1d27;
-  --bg-card: #1e2130;
+  --bg-primary-rgb:    15 17 23;
+  --bg-secondary-rgb:  26 29 39;
+  --bg-card-rgb:       30 33 48;
+  --bg-hover-rgb:      37 40 64;
+
+  --accent-blue-rgb:   79 135 255;
+  --accent-green-rgb:  93 184 101;
+  --accent-red-rgb:    224 92 92;
+  --accent-orange-rgb: 224 140 69;
+  --accent-yellow-rgb: 212 184 74;
+  --accent-purple-rgb: 139 111 232;
+
+  --text-primary-rgb:   232 234 240;
+  --text-secondary-rgb: 139 145 168;
+  --text-muted-rgb:     85 92 117;
+
+  --border-default-rgb: 42 47 69;
+  --border-hover-rgb:   61 68 96;
+
+  --sale-rgb:        224 140 69;
+  --freeweekend-rgb: 93 184 101;
+}
+
+/* ── 라이트 테마 ─────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary-rgb:    240 242 248;
+  --bg-secondary-rgb:  255 255 255;
+  --bg-card-rgb:       255 255 255;
+  --bg-hover-rgb:      232 236 246;
+
+  --accent-blue-rgb:   42 101 232;
+  --accent-green-rgb:  46 138 54;
+  --accent-red-rgb:    201 53 53;
+  --accent-orange-rgb: 194 101 18;
+  --accent-yellow-rgb: 138 109 0;
+  --accent-purple-rgb: 91 62 204;
+
+  --text-primary-rgb:   26 29 46;
+  --text-secondary-rgb: 74 79 106;
+  --text-muted-rgb:     122 128 160;
+
+  --border-default-rgb: 213 217 236;
+  --border-hover-rgb:   184 189 212;
+
+  --sale-rgb:        194 101 18;
+  --freeweekend-rgb: 46 138 54;
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: #e8eaf0;
+  background-color: rgb(var(--bg-primary-rgb));
+  color: rgb(var(--text-primary-rgb));
   font-family: "Pretendard", "Inter", system-ui, sans-serif;
 }
 
@@ -21,9 +65,9 @@ body {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track { background: #1a1d27; }
-::-webkit-scrollbar-thumb { background: #3d4460; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #4f5680; }
+::-webkit-scrollbar-track { background: rgb(var(--bg-secondary-rgb)); }
+::-webkit-scrollbar-thumb { background: rgb(var(--border-hover-rgb)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--text-muted-rgb)); }
 
 /* 아코디언 애니메이션 */
 .accordion-content {

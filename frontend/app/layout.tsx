@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import GlobalSyncButton from "@/components/layout/GlobalSyncButton";
 import { UiTextProvider } from "@/contexts/UiTextContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { getUiText, getCachedConfig } from "@/lib/sheets";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -37,23 +38,25 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // 서버에서 Sheets ui_text 탭을 조회 (unstable_cache로 60초 TTL 캐싱).
-  // 같은 TTL 내 중복 호출은 캐시에서 즉시 반환되므로 API 과금 없음.
-  // 실패 시 빈 객체 → Context 내부 FALLBACK 텍스트가 자동 적용됨.
   const uiText = await getUiText();
 
   return (
     <html lang="ko">
+      <head>
+        {/* 테마 플래시 방지: 페이지 로드 직후 data-theme 즉시 적용 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-bg-primary text-text-primary">
-        {/*
-          UiTextProvider는 Client Component.
-          서버에서 조회한 uiText를 initialText로 주입해
-          클라이언트 추가 fetch 없이 SSR 시점에 텍스트 완전 제공.
-        */}
         <UiTextProvider initialText={uiText}>
-          <Navbar />
-          <main className="pt-14">{children}</main>
-          <GlobalSyncButton />
+          <ThemeProvider>
+            <Navbar />
+            <main className="pt-14">{children}</main>
+            <GlobalSyncButton />
+          </ThemeProvider>
         </UiTextProvider>
       </body>
     </html>

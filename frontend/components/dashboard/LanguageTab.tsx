@@ -6,6 +6,7 @@ import {
 import Badge from "@/components/shared/Badge";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { TimelineRow } from "@/types";
+import { useChartTheme } from "@/lib/useChartTheme";
 
 interface LanguageTabProps {
   timelineRows: TimelineRow[];
@@ -37,6 +38,7 @@ const PIE_TOP_N = 5; // 개별 표시할 최대 언어 수 (나머지 → 기타
 
 export default function LanguageTab({ timelineRows, crossAnalysisComment, languageDistribution }: LanguageTabProps) {
   const { t } = useUiText();
+  const chart = useChartTheme();
 
   // ── 1. 리스트 스탯 (전체 언어) ────────────────────────────────────
   const stats = useMemo(() => {
@@ -131,14 +133,14 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
                   const pct = total > 0 ? Math.round((value / total) * 100 * 10) / 10 : 0;
                   return `${name} ${pct}%`;
                 }}
-                labelLine={{ stroke: "#3d4460" }}
+                labelLine={{ stroke: chart.gridStroke }}
               >
                 {pieData.map((_, i) => (
                   <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{ background: "#1e2130", border: "1px solid #2a2f45", borderRadius: 8, color: "#e8eaf0" }}
+                contentStyle={{ background: "rgb(var(--bg-card-rgb))", border: "1px solid rgb(var(--border-default-rgb))", borderRadius: 8, color: "rgb(var(--text-primary-rgb))" }}
                 formatter={(v: number, name: string) => {
                   const pct = total > 0 ? Math.round((v / total) * 100 * 10) / 10 : 0;
                   return [`${v.toLocaleString()}건 (${pct}%)`, name];

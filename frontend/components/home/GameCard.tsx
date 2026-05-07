@@ -136,12 +136,13 @@ export default function GameCard({ game }: GameCardProps) {
           {/* 우측 — 핵심 지표 */}
           {sentimentRate !== null && sentimentRate > 0 && (
             <div className="text-right flex-shrink-0">
+              <p className="text-[9px] text-text-muted mb-0.5">{t("CARD_POSITIVE_RATE_LABEL")}</p>
               <p className={`text-2xl font-bold tabular-nums leading-none ${rateColor}`}>
                 {sentimentRate.toFixed(0)}%
               </p>
               {hasShift && shiftDelta !== null && (
                 <p className={`text-[11px] font-semibold mt-1 tabular-nums ${isDecline ? "text-accent-red" : "text-accent-green"}`}>
-                  {isDecline ? "↓" : "↑"} {Math.abs(shiftDelta).toFixed(1)}pp · {fmtAgo(shiftDays)}
+                  {isDecline ? "↓" : "↑"} {Math.abs(shiftDelta).toFixed(1)}%p · {fmtAgo(shiftDays)}
                 </p>
               )}
             </div>
@@ -150,14 +151,15 @@ export default function GameCard({ game }: GameCardProps) {
 
         {/* 최근 공식 이벤트 (14일 이내만 표시) */}
         {hasRecentEvent && (
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-accent-blue">
-            <span className="flex-shrink-0">🔔</span>
-            <span className="truncate min-w-0">
-              {game.latest_official_event_title
-                ? `${game.latest_official_event_title} · ${fmtAgo(eventDays)}`
-                : `${t("CARD_RECENT_EVENT_LABEL")} · ${fmtAgo(eventDays)}`
-              }
-            </span>
+          <div className="mt-2">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] flex-shrink-0">🔔</span>
+              <span className="text-[10px] font-medium text-text-muted">{t("CARD_RECENT_EVENT_LABEL")}</span>
+              <span className="text-[10px] text-text-muted/60 flex-shrink-0 ml-auto">{fmtAgo(eventDays)}</span>
+            </div>
+            {game.latest_official_event_title && (
+              <p className="text-[10px] text-accent-blue truncate mt-0.5 pl-3">{game.latest_official_event_title}</p>
+            )}
           </div>
         )}
 

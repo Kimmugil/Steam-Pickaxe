@@ -40,17 +40,18 @@ export default function EventSection({ games }: { games: Game[] }) {
             games.map((g) => {
               const externalUrl = g.latest_official_event_url;
               const inner = (
-                <>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-text-primary truncate">{g.name_kr || g.name}</p>
-                    {g.latest_official_event_title && (
-                      <p className="text-[10px] text-text-muted truncate mt-0.5">{g.latest_official_event_title}</p>
-                    )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-medium text-text-primary truncate flex-1 min-w-0">{g.name_kr || g.name}</p>
+                    <span className="flex-shrink-0 text-[9px] font-medium text-accent-blue border border-accent-blue/25 bg-accent-blue/10 px-1.5 py-0.5 rounded">
+                      {t("EVENT_TYPE_OFFICIAL")}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-text-muted flex-shrink-0 mt-0.5">
-                    {fmtRelative(g.latest_official_event_date)}
-                  </span>
-                </>
+                  {g.latest_official_event_title && (
+                    <p className="text-[10px] text-text-muted truncate mt-0.5">{g.latest_official_event_title}</p>
+                  )}
+                  <p className="text-[10px] text-text-muted/70 mt-0.5">{fmtRelative(g.latest_official_event_date)}</p>
+                </div>
               );
 
               return externalUrl ? (

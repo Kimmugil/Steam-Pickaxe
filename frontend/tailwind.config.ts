@@ -8,32 +8,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Steam 느낌의 다크 테마
         bg: {
-          primary: "#0f1117",
-          secondary: "#1a1d27",
-          card: "#1e2130",
-          hover: "#252840",
+          primary:   "rgb(var(--bg-primary-rgb) / <alpha-value>)",
+          secondary: "rgb(var(--bg-secondary-rgb) / <alpha-value>)",
+          card:      "rgb(var(--bg-card-rgb) / <alpha-value>)",
+          hover:     "rgb(var(--bg-hover-rgb) / <alpha-value>)",
         },
         accent: {
-          blue: "#4f87ff",
-          green: "#5db865",
-          red: "#e05c5c",
-          orange: "#e08c45",
-          yellow: "#d4b84a",
-          purple: "#8b6fe8",
+          blue:   "rgb(var(--accent-blue-rgb) / <alpha-value>)",
+          green:  "rgb(var(--accent-green-rgb) / <alpha-value>)",
+          red:    "rgb(var(--accent-red-rgb) / <alpha-value>)",
+          orange: "rgb(var(--accent-orange-rgb) / <alpha-value>)",
+          yellow: "rgb(var(--accent-yellow-rgb) / <alpha-value>)",
+          purple: "rgb(var(--accent-purple-rgb) / <alpha-value>)",
         },
         text: {
-          primary: "#e8eaf0",
-          secondary: "#8b91a8",
-          muted: "#555c75",
+          primary:   "rgb(var(--text-primary-rgb) / <alpha-value>)",
+          secondary: "rgb(var(--text-secondary-rgb) / <alpha-value>)",
+          muted:     "rgb(var(--text-muted-rgb) / <alpha-value>)",
         },
         border: {
-          default: "#2a2f45",
-          hover: "#3d4460",
+          default: "rgb(var(--border-default-rgb) / <alpha-value>)",
+          hover:   "rgb(var(--border-hover-rgb) / <alpha-value>)",
         },
-        sale: "#e08c45",
-        freeweekend: "#5db865",
+        sale:        "rgb(var(--sale-rgb) / <alpha-value>)",
+        freeweekend: "rgb(var(--freeweekend-rgb) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["Pretendard", "Inter", "system-ui", "sans-serif"],

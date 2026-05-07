@@ -89,7 +89,7 @@ export default async function HomeInsightPanel({ games }: Props) {
                   <p className="text-xs font-medium text-text-primary truncate">{g.name_kr || g.name}</p>
                   {delta !== null && (
                     <p className={`text-[10px] font-semibold mt-0.5 ${isDecline ? "text-accent-red" : "text-accent-green"}`}>
-                      {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}pp
+                      긍정률 {delta > 0 ? "+" : ""}{delta.toFixed(1)}%p 변화
                     </p>
                   )}
                 </div>

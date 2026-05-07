@@ -109,13 +109,15 @@ const FALLBACK: Record<string, string> = {
   REL_MONTHS_AGO: "{n}개월 전",
 
   // ── 게임 카드 ───────────────────────────────────────────────────────
-  CARD_RELEASE_DATE_LABEL: "Steam 출시일",
+  CARD_RELEASE_DATE_LABEL:  "Steam 출시일",
+  CARD_POSITIVE_RATE_LABEL: "긍정률",
   CARD_REVIEWS_LABEL: "리뷰 {n}건",
-  CARD_EVENTS_LABEL: "이벤트 {n}건",
+  CARD_EVENTS_LABEL:  "이벤트 {n}건",
   CARD_DAYS_AGO: "{n}일 전 업데이트",
-  CARD_LAST_EVENT_LABEL: "최근 이벤트",
-  CARD_AI_DATE_LABEL: "AI 분석",
-  CARD_RECENT_EVENT_LABEL: "최근 이벤트",
+  CARD_LAST_EVENT_LABEL:   "최근 이벤트",
+  CARD_AI_DATE_LABEL:      "AI 분석",
+  CARD_RECENT_EVENT_LABEL: "공식 이벤트",
+  EVENT_TYPE_OFFICIAL:     "공식 이벤트",
 
   // ── 관리자 모달 ─────────────────────────────────────────────────────
   ADMIN_PW_TITLE: "관리자 비밀번호 확인",

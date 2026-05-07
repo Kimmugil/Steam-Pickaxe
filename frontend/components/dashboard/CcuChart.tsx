@@ -6,6 +6,7 @@ import {
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { CcuRow } from "@/types";
 import { useUiText } from "@/contexts/UiTextContext";
+import { useChartTheme } from "@/lib/useChartTheme";
 
 interface CcuChartProps {
   data: CcuRow[];
@@ -114,6 +115,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
   const [viewRange, setViewRange] = useState<ViewRange>("30d");
   const [viewMode, setViewMode] = useState<ViewMode>("line");
   const { t } = useUiText();
+  const chart = useChartTheme();
   const VIEW_LABELS: Record<ViewRange, string> = {
     all: t("CCU_VIEW_ALL"),
     "90d": t("CCU_VIEW_90D"),
@@ -359,23 +361,23 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
             <div style={{ width: chartWidth, height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={resampled} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2f45" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: "#8b91a8", fontSize: 10 }}
+                    tick={{ fill: chart.axisTextFill, fontSize: 10 }}
                     interval={tickInterval}
                     tickLine={false}
                   />
                   <YAxis
                     domain={yDomain}
-                    tick={{ fill: "#8b91a8", fontSize: 11 }}
+                    tick={{ fill: chart.axisTextFill, fontSize: 11 }}
                     tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)}
                     tickLine={false}
                     axisLine={false}
                     width={40}
                   />
                   <Tooltip
-                    contentStyle={{ background: "#1e2130", border: "1px solid #2a2f45", borderRadius: 8, color: "#e8eaf0" }}
+                    contentStyle={{ background: "rgb(var(--bg-card-rgb))", border: "1px solid rgb(var(--border-default-rgb))", borderRadius: 8, color: "rgb(var(--text-primary-rgb))" }}
                     formatter={(v: number) => [`${v.toLocaleString()}${t("CCU_TOOLTIP_UNIT")}`, "CCU"]}
                     labelFormatter={(label) => String(label)}
                   />
