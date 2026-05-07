@@ -833,6 +833,10 @@ const FALLBACK: Record<string, string> = {
   ADMIN_LEGEND_MAINTAIN: "유지보수",
 
   // ── 관리자 패널 — 시스템 도구 카드 ──────────────────────────────────────────
+  ADMIN_TOOL_CORE_ALL_TITLE: "전체 종합 분석",
+  ADMIN_TOOL_CORE_ALL_DESC: "전체 active 게임에 대해 CORE_ONLY 모드로 종합 분석을 일괄 실행합니다. AI 브리핑·CCU 피크타임·감성 추이·언어권 교차·수명 주기 분석을 모두 갱신합니다. (이벤트 수집 없음)",
+  ADMIN_BTN_CORE_ALL_EXEC: "🧠 전체 종합 분석 실행",
+  ADMIN_TOAST_CORE_ALL: "전체 종합 분석을 요청했습니다. GitHub Actions에서 순차 처리됩니다. (게임 수에 따라 수십 분 소요)",
   ADMIN_TOOL_PENDING_TITLE: "미분석 AI 분석",
   ADMIN_TOOL_PENDING_DESC: "아직 AI 분석이 진행되지 않은 구간을 자동 선별해 현재 데이터 기준으로 분석합니다. 월별 타임라인, CCU 피크타임, 종합 분석, 언어 분포 등 모든 AI 분석 항목을 대상으로 합니다.",
   ADMIN_BTN_ANALYZE_PENDING_EXEC: "⚡ 미분석 분석 실행",

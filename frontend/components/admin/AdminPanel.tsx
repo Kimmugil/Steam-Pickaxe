@@ -118,6 +118,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
   // ── 시스템 도구 로딩 상태 ────────────────────────────────────────────────
   const [analyzingPending,      setAnalyzingPending]      = useState(false);
+  const [coreAnalyzingAll,      setCoreAnalyzingAll]      = useState(false);
   const [detectingShifts,       setDetectingShifts]       = useState(false);
   const [retriggering,          setRetriggering]          = useState(false);
   const [recalcingLangDist,     setRecalcingLangDist]     = useState(false);
@@ -491,6 +492,30 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       show(t("SERVER_CONNECT_ERROR"), "error");
     } finally {
       setBackfillingEventUrls(false);
+    }
+  }
+
+  // ── 전체 종합 AI 분석 (CORE_ONLY, 전체 게임) ─────────────────────────────
+  async function handleCoreAnalyzeAll() {
+    const savedPw = getSavedPw();
+    if (!savedPw) return;
+    setCoreAnalyzingAll(true);
+    try {
+      const res = await fetch("/api/admin/analyze-core-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: savedPw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        show(t("ADMIN_TOAST_CORE_ALL"), "success");
+      } else {
+        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      }
+    } catch {
+      show(t("SERVER_CONNECT_ERROR"), "error");
+    } finally {
+      setCoreAnalyzingAll(false);
     }
   }
 
@@ -889,6 +914,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
         <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
           {[
+            {
+              icon: "🧠", title: t("ADMIN_TOOL_CORE_ALL_TITLE"), desc: t("ADMIN_TOOL_CORE_ALL_DESC"),
+              btnLabel: t("ADMIN_BTN_CORE_ALL_EXEC"), loading: coreAnalyzingAll,
+              onClick: handleCoreAnalyzeAll,
+              btnClass: "border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10",
+            },
             {
               icon: "⚡", title: t("ADMIN_TOOL_PENDING_TITLE"), desc: t("ADMIN_TOOL_PENDING_DESC"),
               btnLabel: t("ADMIN_BTN_ANALYZE_PENDING_EXEC"), loading: analyzingPending,
