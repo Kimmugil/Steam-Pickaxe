@@ -3,7 +3,7 @@ import {
   ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Legend,
 } from "recharts";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import type { TimelineRow } from "@/types";
 import { useUiText } from "@/contexts/UiTextContext";
 
@@ -57,6 +57,7 @@ interface ChartPoint {
 
 export default function SentimentChart({ timelineRows, topLanguages, sentimentTrendComment, shiftRows, onShiftClick }: SentimentChartProps) {
   const { t } = useUiText();
+  const bandScrollRef = useRef<HTMLDivElement>(null);
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
 
   // 다중 선택 — 초기값: "all"만 활성화
@@ -237,6 +238,31 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
     summaryRows.sort((a, b) => b.date.localeCompare(a.date));
     return summaryRows[0]?.ai_reaction_summary ?? "";
   }, [sentimentTrendComment, timelineRows]);
+
+  // 키워드 밴드 데이터 (language_scope=all, 키워드 있는 것만)
+  const keywordBandData = useMemo(() => {
+    return timelineRows
+      .filter(r =>
+        (r.event_type === "monthly_summary" || r.event_type === "weekly_summary") &&
+        r.language_scope === "all" &&
+        r.top_keywords && r.top_keywords !== "[]"
+      )
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map(r => {
+        let keywords: string[] = [];
+        try { keywords = JSON.parse(r.top_keywords || "[]"); } catch { /* empty */ }
+        const rate = Number(r.sentiment_rate);
+        const ym = r.date.slice(0, 7);
+        return {
+          ym,
+          label: r.event_type === "weekly_summary" ? (r.title_kr || r.title || ym) : ym,
+          keywords: keywords.slice(0, 4),
+          rate: isNaN(rate) ? null : rate,
+          isShift: shiftMonths.has(ym),
+          isWeekly: r.event_type === "weekly_summary",
+        };
+      });
+  }, [timelineRows, shiftMonths]);
 
   if (chartData.length === 0) {
     return (
@@ -432,6 +458,105 @@ export default function SentimentChart({ timelineRows, topLanguages, sentimentTr
             {sentimentTrendComment ? "AI 평가 추이 종합 진단" : "AI 평가 변동 원인 진단 (최근 이벤트 기준)"}
           </p>
           <p className="text-sm text-text-secondary leading-relaxed">{trendComment}</p>
+        </div>
+      )}
+
+      {/* ── 키워드 밴드 ─────────────────────────────────────────────────── */}
+      {keywordBandData.length > 0 && (
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+              {t("KEYWORD_TIMELINE_TITLE")}
+            </p>
+            {keywordBandData.length > 8 && (
+              <span className="text-[10px] text-text-muted">← 스크롤</span>
+            )}
+          </div>
+          <div ref={bandScrollRef} className="overflow-x-auto pb-1 -mx-1 px-1">
+            <div
+              className="flex gap-1.5"
+              style={{ minWidth: `${keywordBandData.length * 90}px` }}
+            >
+              {keywordBandData.map((row) => {
+                const rateColor =
+                  row.rate === null ? "text-text-muted"
+                  : row.rate >= 80 ? "text-accent-green"
+                  : row.rate >= 60 ? "text-accent-yellow"
+                  : "text-accent-red";
+
+                const kwStyle =
+                  row.rate === null
+                    ? "bg-bg-secondary/60 text-text-muted border-border-default"
+                    : row.rate >= 80
+                    ? "bg-accent-green/10 text-accent-green border-accent-green/20"
+                    : row.rate >= 60
+                    ? "bg-accent-yellow/10 text-accent-yellow border-accent-yellow/20"
+                    : "bg-accent-red/10 text-accent-red border-accent-red/20";
+
+                const barColor =
+                  row.rate === null ? 0
+                  : row.rate >= 80 ? 1   // green
+                  : row.rate >= 60 ? 2   // yellow
+                  : 3;                   // red
+
+                const barClass = ["bg-border-default", "bg-accent-green", "bg-accent-yellow", "bg-accent-red"][barColor];
+
+                return (
+                  <div
+                    key={row.ym + row.label}
+                    className={`flex-shrink-0 w-[84px] rounded-lg px-2 pt-2 pb-2 flex flex-col gap-1 ${
+                      row.isShift
+                        ? "bg-accent-yellow/5 border border-accent-yellow/25"
+                        : "bg-bg-secondary/30 border border-transparent"
+                    }`}
+                  >
+                    {/* 상단: 날짜 + 급변 아이콘 */}
+                    <div className="flex items-center gap-0.5">
+                      {row.isShift && (
+                        <span className="text-accent-yellow text-[9px] flex-shrink-0">⚡</span>
+                      )}
+                      <span
+                        className={`text-[9px] font-mono leading-tight truncate ${
+                          row.isWeekly ? "text-text-muted" : "text-text-secondary"
+                        }`}
+                        title={row.label}
+                      >
+                        {row.label}
+                      </span>
+                    </div>
+
+                    {/* 긍정률 + 게이지 바 */}
+                    {row.rate !== null && (
+                      <div>
+                        <span className={`text-[12px] font-bold tabular-nums leading-none ${rateColor}`}>
+                          {row.rate.toFixed(0)}%
+                        </span>
+                        <div className="mt-0.5 h-0.5 rounded-full bg-bg-secondary overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${barClass}`}
+                            style={{ width: `${row.rate}%`, opacity: 0.6 }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 키워드 칩 */}
+                    <div className="flex flex-col gap-0.5 mt-0.5">
+                      {row.keywords.map((kw, i) => (
+                        <span
+                          key={i}
+                          className={`text-[9px] px-1 py-0.5 rounded border leading-tight truncate ${kwStyle}`}
+                          title={kw}
+                        >
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>

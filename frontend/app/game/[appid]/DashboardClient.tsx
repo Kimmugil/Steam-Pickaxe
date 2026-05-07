@@ -5,7 +5,6 @@ import Header from "@/components/dashboard/Header";
 import CcuChart from "@/components/dashboard/CcuChart";
 import CcuAdminPanel from "@/components/dashboard/CcuAdminPanel";
 import SentimentChart from "@/components/dashboard/SentimentChart";
-import KeywordTimeline from "@/components/dashboard/KeywordTimeline";
 import LifecycleSummary from "@/components/dashboard/LifecycleSummary";
 import LanguageTab from "@/components/dashboard/LanguageTab";
 import Timeline from "@/components/dashboard/Timeline";
@@ -104,14 +103,6 @@ export default function DashboardClient({
                   sentimentTrendComment={game.sentiment_trend_comment}
                   shiftRows={timelineRows.filter(r => r.event_type === "sentiment_shift")}
                   onShiftClick={handleShiftMarkerClick}
-                />
-                <KeywordTimeline
-                  timelineRows={timelineRows}
-                  shiftMonths={new Set(
-                    timelineRows
-                      .filter(r => r.event_type === "sentiment_shift")
-                      .map(r => r.date.slice(0, 7))
-                  )}
                 />
               </>
             )}
