@@ -109,6 +109,7 @@ const FALLBACK: Record<string, string> = {
   REL_MONTHS_AGO: "{n}개월 전",
 
   // ── 게임 카드 ───────────────────────────────────────────────────────
+  CARD_RELEASE_DATE_LABEL: "Steam 출시일",
   CARD_REVIEWS_LABEL: "리뷰 {n}건",
   CARD_EVENTS_LABEL: "이벤트 {n}건",
   CARD_DAYS_AGO: "{n}일 전 업데이트",

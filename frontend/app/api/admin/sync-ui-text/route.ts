@@ -84,6 +84,7 @@ const FALLBACK: Record<string, string> = {
   GAMES_EMPTY_SUBTITLE: "위 검색창에서 Steam 게임을 검색하고 등록해 보세요.",
 
   // ── 게임 카드 ───────────────────────────────────────────────────────
+  CARD_RELEASE_DATE_LABEL: "Steam 출시일",
   CARD_REVIEWS_LABEL: "리뷰 {n}건",
   CARD_EVENTS_LABEL: "이벤트 {n}건",
   CARD_DAYS_AGO: "{n}일 전 업데이트",

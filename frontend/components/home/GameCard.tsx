@@ -126,7 +126,10 @@ export default function GameCard({ game }: GameCardProps) {
               {t("CARD_REVIEWS_LABEL", { n: Number(game.totalReviews || 0).toLocaleString() })}
             </p>
             {releaseIso && (
-              <p className="text-xs text-text-muted">{releaseIso}</p>
+              <p className="text-xs text-text-muted">
+                <span className="text-text-muted/60">{t("CARD_RELEASE_DATE_LABEL")} </span>
+                {releaseIso}
+              </p>
             )}
           </div>
 
