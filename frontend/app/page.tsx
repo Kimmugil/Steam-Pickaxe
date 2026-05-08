@@ -3,7 +3,6 @@ import PendingGameCard from "@/components/home/PendingGameCard";
 import HomeInsightPanel from "@/components/home/HomeInsightPanel";
 import FloatingNav from "@/components/home/FloatingNav";
 import FloatingRightPanel from "@/components/home/FloatingRightPanel";
-import OnboardingModal from "@/components/home/OnboardingModal";
 import { getAllGames, getUiText } from "@/lib/sheets";
 
 export const revalidate = 60;
@@ -49,14 +48,10 @@ export default async function HomePage() {
         </div>
       ) : (
         <div>
-          {/* ── 섹션 타이틀 + 이용 안내 버튼 ── */}
-          <div className="flex items-center gap-2.5 mb-3">
-            <h2 className="text-sm font-semibold text-text-primary">
-              {t("GAMES_SECTION_TITLE")}
-              <span className="ml-2 font-normal text-text-muted">{activeGames.length}{t("COUNT_SUFFIX")}</span>
-            </h2>
-            <OnboardingModal />
-          </div>
+          <h2 className="text-sm font-semibold text-text-primary mb-3">
+            {t("GAMES_SECTION_TITLE")}
+            <span className="ml-2 font-normal text-text-muted">{activeGames.length}{t("COUNT_SUFFIX")}</span>
+          </h2>
           <GameCardGrid games={activeGames} />
         </div>
       )}
