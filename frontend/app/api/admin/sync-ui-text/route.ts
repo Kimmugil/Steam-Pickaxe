@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getConfig, syncUiText, resetUiText } from "@/lib/sheets";
 
 /**
@@ -860,10 +861,12 @@ export async function POST(req: NextRequest) {
       // force=true: 코드 FALLBACK 값으로 모두 덮어씀 (커스텀 값 무시)
       // force=false: 기존 커스텀 값 보존
       const result = await resetUiText(FALLBACK, force);
+      revalidateTag("ui-text"); // UI Text 캐시 즉시 무효화
       return NextResponse.json({ ok: true, mode: force ? "force" : "reset", ...result });
     } else {
       // 누락 키만 추가 (기존 값 보존)
       const result = await syncUiText(FALLBACK);
+      revalidateTag("ui-text"); // UI Text 캐시 즉시 무효화
       return NextResponse.json({ ok: true, mode: "sync", ...result });
     }
   } catch (e) {

@@ -2,49 +2,47 @@
 import { useState, useEffect } from "react";
 import { useUiText } from "@/contexts/UiTextContext";
 
-const STORAGE_KEY = "onboard_dismissed";
+const STORAGE_KEY = "onboard_seen";
 
 export default function OnboardingModal() {
   const { t } = useUiText();
-  const [dismissed, setDismissed] = useState(true); // 플래시 방지용 초기값
+  const [seen, setSeen] = useState(true); // 플래시 방지용 초기값
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setDismissed(!!localStorage.getItem(STORAGE_KEY));
+    setSeen(!!localStorage.getItem(STORAGE_KEY));
   }, []);
+
+  const handleOpen = () => {
+    setOpen(true);
+    // 처음 클릭 시 레드닷 영구 제거
+    if (!seen) {
+      localStorage.setItem(STORAGE_KEY, "1");
+      setSeen(true);
+    }
+  };
 
   const handleClose = () => setOpen(false);
 
-  const handleDismiss = () => {
-    localStorage.setItem(STORAGE_KEY, "1");
-    setDismissed(true);
-    setOpen(false);
-  };
-
   return (
     <>
-      {/* ── 좌하단 플로팅 트리거 버튼 ──────────────────────────────── */}
-      <div className="fixed bottom-4 left-4 z-40">
-        <button
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-2 bg-bg-card border border-border-default rounded-full
-            pl-2.5 pr-3.5 py-1.5 shadow-lg
-            hover:border-accent-blue hover:bg-bg-hover
-            transition-all duration-200 group"
-        >
-          <span className="relative flex h-2 w-2 flex-shrink-0">
-            {!dismissed && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-red opacity-75" />
-            )}
-            <span className={`relative inline-flex rounded-full h-2 w-2 transition-colors ${
-              dismissed ? "bg-border-hover" : "bg-accent-red"
-            }`} />
-          </span>
-          <span className="text-xs font-medium text-text-secondary group-hover:text-text-primary transition-colors whitespace-nowrap">
-            {t("ONBOARD_TRIGGER_LABEL")}
-          </span>
-        </button>
-      </div>
+      {/* ── 인라인 트리거 버튼 ──────────────────────────────────────── */}
+      <button
+        onClick={handleOpen}
+        className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary
+          border border-border-default hover:border-border-hover
+          rounded-full px-2.5 py-1 transition-all duration-200 whitespace-nowrap"
+      >
+        {t("ONBOARD_TRIGGER_LABEL")}
+        <span className="relative flex h-2 w-2 flex-shrink-0">
+          {!seen && (
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-red opacity-75" />
+          )}
+          <span className={`relative inline-flex rounded-full h-2 w-2 transition-colors ${
+            seen ? "bg-border-hover" : "bg-accent-red"
+          }`} />
+        </span>
+      </button>
 
       {/* ── 모달 ──────────────────────────────────────────────────── */}
       {open && (
@@ -149,13 +147,7 @@ export default function OnboardingModal() {
             </div>
 
             {/* 푸터 */}
-            <div className="flex items-center justify-between px-5 pb-5 pt-1">
-              <button
-                onClick={handleDismiss}
-                className="text-xs text-text-muted hover:text-text-secondary transition-colors"
-              >
-                {t("ONBOARD_BTN_DISMISS")}
-              </button>
+            <div className="flex justify-end px-5 pb-5 pt-1">
               <button
                 onClick={handleClose}
                 className="text-xs bg-accent-blue text-white px-4 py-2 rounded-lg

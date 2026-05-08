@@ -130,7 +130,7 @@ def analyze_bucket(
 {{
   "sentiment_rate": <긍정 리뷰 비율 0~100 숫자>,
   "top_keywords": [<핵심 키워드 최대 5개. 외국어는 "원문 (한국어 번역)" 형식으로>],
-  "ai_reaction_summary": "<유저 반응 요약 및 주요 변동 원인 진단. 2~4문장. 지시적 어조 금지>"{top_reviews_field}
+  "ai_reaction_summary": "<긍정·부정 포인트를 구분하여 서술하고, 변동 원인이 명확하면 구체적으로(버그·기능·이벤트·가격 등) 언급. 2~4문장. 지시적 어조 금지>"{top_reviews_field}
 }}
 
 리뷰 데이터:

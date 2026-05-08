@@ -595,6 +595,7 @@ async function _fetchUiText(): Promise<Record<string, string>> {
 
 export const getUiText = unstable_cache(_fetchUiText, ["ui-text"], {
   revalidate: 60, // 60초마다 Sheets에서 재조회
+  tags: ["ui-text"], // revalidateTag("ui-text") 로 즉시 무효화 가능
 });
 
 /**

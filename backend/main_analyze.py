@@ -737,10 +737,18 @@ def _generate_briefing(name: str, timeline_rows: list[dict]) -> str:
     for r in sorted_rows[:10]:
         try:
             rate = float(r.get("sentiment_rate", 0) or 0)
-            summary_parts.append(
+            try:
+                kws = json.loads(r.get("top_keywords", "[]") or "[]")
+                kw_str = ", ".join(kws[:5]) if kws else ""
+            except Exception:
+                kw_str = ""
+            line = (
                 f"- [{r.get('title')}] 긍정률 {rate:.0f}%, "
                 f"리뷰 {r.get('review_count')}건. {r.get('ai_reaction_summary', '')[:150]}"
             )
+            if kw_str:
+                line += f" 키워드: {kw_str}"
+            summary_parts.append(line)
         except (ValueError, TypeError):
             pass
 
