@@ -7,7 +7,6 @@ import CcuAdminPanel from "@/components/dashboard/CcuAdminPanel";
 import SentimentChart from "@/components/dashboard/SentimentChart";
 import LanguageTab from "@/components/dashboard/LanguageTab";
 import Timeline from "@/components/dashboard/Timeline";
-import { useUiText } from "@/contexts/UiTextContext";
 import type { Game, TimelineRow, CcuRow } from "@/types";
 
 type Tab = "ccu" | "sentiment" | "language";
@@ -27,7 +26,6 @@ export default function DashboardClient({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useUiText();
   const [activeTab, setActiveTab] = useState<Tab>("sentiment");
 
   const [focusYm,  setFocusYm]  = useState<string | undefined>(searchParams.get("ym")  ?? undefined);
@@ -56,10 +54,10 @@ export default function DashboardClient({
     }
   }, [game.language_distribution]);
 
-  const TABS: { key: Tab; labelKey: string }[] = [
-    { key: "sentiment", labelKey: "TAB_SENTIMENT" },
-    { key: "language",  labelKey: "TAB_LANGUAGE" },
-    { key: "ccu",       labelKey: "TAB_CCU" },
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "sentiment", label: "평가 추이" },
+    { key: "language",  label: "언어권 분석" },
+    { key: "ccu",       label: "동접자 현황" },
   ];
 
   return (
@@ -81,7 +79,7 @@ export default function DashboardClient({
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {t(tab.labelKey)}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -124,7 +122,7 @@ export default function DashboardClient({
 
         {/* ── 업데이트 히스토리 ────────────────────────────────────── */}
         <div id="timeline-section" className="bg-bg-card border border-border-default rounded-xl p-6">
-          <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
+          <h2 className="text-base font-semibold text-text-primary mb-6">{"업데이트 히스토리"}</h2>
           <Timeline timelineRows={timelineRows} appid={String(game.appid)} releaseDate={game.release_date} focusYm={focusYm} focusTab={focusTab} />
         </div>
 

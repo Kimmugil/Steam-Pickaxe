@@ -4,18 +4,7 @@ import type { Game } from "@/types";
 
 interface Props {
   games: Game[];
-  uiText: Record<string, string>;
-}
-
-const FALLBACK: Record<string, string> = {
-  INSIGHT_SHIFT_TITLE:    "⚡ 최근 평가 급변 감지",
-  INSIGHT_SHIFT_DECLINE:  "📉 급락",
-  INSIGHT_SHIFT_RECOVERY: "📈 회복",
-  INSIGHT_UPDATE_TITLE:   "🔧 최근 주요 업데이트",
-};
-
-function t(uiText: Record<string, string>, key: string): string {
-  return uiText[key] ?? FALLBACK[key] ?? key;
+  uiText?: Record<string, string>;
 }
 
 function fmtDate(dateStr: string | undefined): string {
@@ -42,7 +31,7 @@ function GameThumb({ game }: { game: Game }) {
   );
 }
 
-export default function InsightSection({ games, uiText }: Props) {
+export default function InsightSection({ games }: Props) {
   // ── 1. 급변 감지 (60일 이내) ────────────────────────────────────────────
   const shiftGames = games
     .filter(g => g.latest_shift_date && daysSince(g.latest_shift_date) <= 60)
@@ -63,7 +52,7 @@ export default function InsightSection({ games, uiText }: Props) {
       {shiftGames.length > 0 && (
         <section>
           <h2 className="text-base font-semibold text-text-primary mb-3">
-            {t(uiText, "INSIGHT_SHIFT_TITLE")}
+            {"⚡ 최근 평가 급변 감지"}
           </h2>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
             {shiftGames.map(game => {
@@ -86,7 +75,7 @@ export default function InsightSection({ games, uiText }: Props) {
                           ? "bg-accent-red/15 text-accent-red"
                           : "bg-accent-green/15 text-accent-green"
                       }`}>
-                        {isDecline ? t(uiText, "INSIGHT_SHIFT_DECLINE") : t(uiText, "INSIGHT_SHIFT_RECOVERY")}
+                        {isDecline ? "📉 급락" : "📈 회복"}
                         {delta !== null && ` ${delta > 0 ? "+" : ""}${delta.toFixed(1)}pp`}
                       </span>
                     </div>
@@ -105,7 +94,7 @@ export default function InsightSection({ games, uiText }: Props) {
       {updateGames.length > 0 && (
         <section>
           <h2 className="text-base font-semibold text-text-primary mb-3">
-            {t(uiText, "INSIGHT_UPDATE_TITLE")}
+            {"🔧 최근 주요 업데이트"}
           </h2>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
             {updateGames.map(game => (

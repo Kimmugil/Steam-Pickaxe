@@ -1,11 +1,9 @@
 "use client";
 import { useState } from "react";
 import SearchModal from "./SearchModal";
-import { useUiText } from "@/contexts/UiTextContext";
 
 export default function FloatingNav() {
   const [open, setOpen] = useState(false);
-  const { t } = useUiText();
 
   return (
     <>
@@ -25,7 +23,7 @@ export default function FloatingNav() {
             shadow-[2px_0_20px_rgba(79,135,255,0.2)]
             hover:bg-accent-blue hover:border-accent-blue hover:shadow-[2px_0_24px_rgba(79,135,255,0.5)]
             transition-all duration-200"
-          title={t("FLOATING_NAV_TITLE")}
+          title={"스팀 게임 검색하고 등록하기"}
         >
           <span className="flex flex-col items-center gap-2">
             {/* 검색 아이콘 */}
@@ -42,7 +40,7 @@ export default function FloatingNav() {
               className="text-[10px] font-semibold text-text-muted group-hover:text-white transition-colors whitespace-nowrap"
               style={{ writingMode: "vertical-lr" }}
             >
-              {t("FLOATING_NAV_BTN")}
+              {"게임 등록하기"}
             </span>
           </span>
         </button>

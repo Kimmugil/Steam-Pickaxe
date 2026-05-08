@@ -52,12 +52,12 @@ export default function SearchBox() {
     setLoading(false);
 
     if (data.error === "already_registered") {
-      show(t("SEARCH_ALREADY_REGISTERED"), "info");
+      show("이미 등록된 게임입니다. 상세 페이지로 이동합니다.", "info");
       setTimeout(() => router.push(`/game/${data.appid}`), 1200);
       return;
     }
     if (data.error === "not_game") {
-      show(t("SEARCH_NOT_GAME"), "warning");
+      show("게임 타입의 앱만 등록 가능합니다.", "warning");
       return;
     }
     if (!data.appid) {
@@ -83,7 +83,7 @@ export default function SearchBox() {
     setRegistering(false);
 
     if (data.ok) {
-      show(t("REGISTER_SUCCESS", { name: result.name }), "success");
+      show(`${result.name} 등록 완료! 분석이 시작됩니다.`, "success");
       setRegisteredName(result.name);
       setResult(null);
       setQuery("");
@@ -91,7 +91,7 @@ export default function SearchBox() {
     } else if (data.quota_exceeded) {
       show(t("REGISTER_QUOTA_EXCEEDED"), "error");
     } else {
-      show(data.error ?? t("REGISTER_ERROR"), "error");
+      show(data.error ?? "등록 중 오류가 발생했습니다.", "error");
     }
   }
 
@@ -103,7 +103,7 @@ export default function SearchBox() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("SEARCH_PLACEHOLDER")}
+          placeholder={"게임명, AppID, 또는 스팀 상점 URL 입력"}
           className="flex-1 bg-bg-card border border-border-default rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue transition-colors"
         />
         <button
@@ -111,13 +111,13 @@ export default function SearchBox() {
           disabled={loading || !query.trim()}
           className="px-5 py-3 bg-accent-blue text-white rounded-lg font-medium hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? t("SEARCH_BTN_LOADING") : t("SEARCH_BTN")}
+          {loading ? "검색 중..." : "검색"}
         </button>
       </form>
 
       {/* 한글 검색 안내 */}
       <p className="mt-2 text-xs text-text-muted">
-        {t("SEARCH_HINT")}
+        {"스팀 특성상 한글 검색 시 결과가 부정확할 수 있습니다. 영문 검색을 권장합니다."}
       </p>
 
       {/* 등록 완료 안내 */}
@@ -134,7 +134,7 @@ export default function SearchBox() {
 
       {notFound && (
         <p className="mt-3 text-text-muted text-sm">
-          {t("SEARCH_NOT_FOUND")}
+          {"검색 결과를 찾을 수 없습니다."}
         </p>
       )}
 
@@ -183,7 +183,7 @@ export default function SearchBox() {
             disabled={registering}
             className="flex-shrink-0 px-3 py-1.5 bg-accent-green/20 border border-accent-green/40 text-accent-green rounded-lg text-xs font-medium hover:bg-accent-green/30 disabled:opacity-40 transition-colors whitespace-nowrap"
           >
-            {registering ? t("REGISTER_BTN_LOADING") : t("REGISTER_BTN")}
+            {registering ? "등록 중..." : "이 게임 분석 등록하기"}
           </button>
         </div>
       )}

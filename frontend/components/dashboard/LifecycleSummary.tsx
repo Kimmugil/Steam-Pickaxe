@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useUiText } from "@/contexts/UiTextContext";
 
 interface LifecycleData {
   early:  string;
@@ -16,7 +15,7 @@ const PHASE_CONFIG = [
   {
     key:     "early"  as const,
     icon:    "🌱",
-    labelKey: "LIFECYCLE_EARLY_LABEL",
+    label:   "출시 초기",
     colorBg:   "bg-accent-green/5",
     colorBorder: "border-accent-green/20",
     colorTitle: "text-accent-green",
@@ -24,7 +23,7 @@ const PHASE_CONFIG = [
   {
     key:     "growth" as const,
     icon:    "🔥",
-    labelKey: "LIFECYCLE_GROWTH_LABEL",
+    label:   "성장기",
     colorBg:   "bg-accent-blue/5",
     colorBorder: "border-accent-blue/20",
     colorTitle: "text-accent-blue",
@@ -32,7 +31,7 @@ const PHASE_CONFIG = [
   {
     key:     "mature" as const,
     icon:    "🏛️",
-    labelKey: "LIFECYCLE_MATURE_LABEL",
+    label:   "성숙기",
     colorBg:   "bg-accent-yellow/5",
     colorBorder: "border-accent-yellow/20",
     colorTitle: "text-accent-yellow",
@@ -40,7 +39,6 @@ const PHASE_CONFIG = [
 ];
 
 export default function LifecycleSummary({ lifecycleComment }: Props) {
-  const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
 
   if (!lifecycleComment) return null;
@@ -66,10 +64,10 @@ export default function LifecycleSummary({ lifecycleComment }: Props) {
         <span className="flex items-center gap-2">
           <span className="text-sm">📈</span>
           <span className="text-sm font-semibold text-text-primary">
-            {t("LIFECYCLE_SECTION_TITLE")}
+            {"게임 수명 주기 분석"}
           </span>
           <span className="text-xs text-text-muted">
-            {t("LIFECYCLE_PHASE_COUNT", { n: String(visiblePhases.length) })}
+            {`${visiblePhases.length}단계`}
           </span>
         </span>
         <span className="text-xs text-text-muted">{expanded ? "▲" : "▼"}</span>
@@ -86,7 +84,7 @@ export default function LifecycleSummary({ lifecycleComment }: Props) {
               <div className="flex items-center gap-1.5 mb-2">
                 <span className="text-base">{phase.icon}</span>
                 <span className={`text-xs font-semibold ${phase.colorTitle}`}>
-                  {t(phase.labelKey)}
+                  {phase.label}
                 </span>
               </div>
               <p className="text-sm text-text-secondary leading-relaxed">

@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import type { TimelineRow, TopReview } from "@/types";
-import { useUiText } from "@/contexts/UiTextContext";
 
 
 
@@ -11,7 +10,6 @@ interface ShiftCardProps {
 }
 
 export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
-  const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
   const [eventsExpanded, setEventsExpanded] = useState(false);
 
@@ -33,9 +31,9 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
   })();
 
   const CONFIDENCE_LABEL: Record<string, string> = {
-    high:   t("SHIFT_CONFIDENCE_HIGH"),
-    medium: t("SHIFT_CONFIDENCE_MEDIUM"),
-    low:    t("SHIFT_CONFIDENCE_LOW"),
+    high:   "높음",
+    medium: "보통",
+    low:    "낮음",
   };
   const CONFIDENCE_COLOR: Record<string, string> = {
     high:   "text-accent-green border-accent-green/30 bg-accent-green/10",
@@ -63,7 +61,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
             ? "text-accent-red border-accent-red/40 bg-accent-red/10"
             : "text-accent-green border-accent-green/40 bg-accent-green/10"
         }`}>
-          {isDecline ? t("SHIFT_TYPE_DECLINE") : t("SHIFT_TYPE_RISE")}
+          {isDecline ? "급락" : "회복"}
         </span>
 
         {/* 날짜 범위 */}
@@ -82,12 +80,12 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
           </span>
           {isConfirmed && (
             <span className="text-[10px] px-1.5 py-0.5 rounded border text-accent-blue border-accent-blue/30 bg-accent-blue/10">
-              {t("SHIFT_CONFIRMED")}
+              {"공식 확인됨"}
             </span>
           )}
           {isRefuted && (
             <span className="text-[10px] px-1.5 py-0.5 rounded border text-text-muted border-border-default bg-bg-secondary">
-              {t("SHIFT_REFUTED")}
+              {"공식 미확인"}
             </span>
           )}
           <span className="text-text-muted text-xs">{expanded ? "▲" : "▼"}</span>
@@ -99,13 +97,13 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
         <div className="border-t border-border-default/30 px-4 py-4 space-y-4 bg-bg-primary/60">
           {/* 리뷰 수 */}
           <p className="text-xs text-text-muted">
-            {t("SHIFT_REVIEW_COUNT", { count: reviewCount.toLocaleString() })}
+            {`리뷰 ${reviewCount.toLocaleString()}건`}
           </p>
 
           {/* AI 원인 추정 */}
           {shift.ai_reaction_summary && (
             <div>
-              <p className="text-xs font-medium mb-1 text-text-muted">{t("SHIFT_AI_CAUSE_LABEL")}</p>
+              <p className="text-xs font-medium mb-1 text-text-muted">{"AI 원인 분석"}</p>
               <p className="text-sm text-text-secondary leading-relaxed">
                 {shift.ai_reaction_summary}
               </p>
@@ -115,7 +113,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
           {/* 이슈 관련 주요 리뷰 */}
           {reviews.length > 0 && (
             <div>
-              <p className="text-xs font-medium mb-2 text-text-muted">{t("SHIFT_TOP_REVIEWS_LABEL")}</p>
+              <p className="text-xs font-medium mb-2 text-text-muted">{"대표 리뷰"}</p>
               <div className="space-y-2">
                 {reviews.slice(0, 3).map((rv, ri) => (
                   <div
@@ -126,7 +124,7 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
-                        {rv.voted_up ? t("SHIFT_REVIEW_POSITIVE") : t("SHIFT_REVIEW_NEGATIVE")}
+                        {rv.voted_up ? "긍정" : "부정"}
                       </span>
                       <span className="text-xs text-text-muted">[{rv.language}]</span>
                     </div>
@@ -147,10 +145,10 @@ export default function ShiftCard({ shift, linkedEvents }: ShiftCardProps) {
                 onClick={() => setEventsExpanded((v) => !v)}
                 className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-bg-secondary/40 transition-colors"
               >
-                <span className="text-xs font-medium text-text-muted">{t("SHIFT_LINKED_EVENTS_LABEL")}</span>
+                <span className="text-xs font-medium text-text-muted">{"연관 공식 이벤트"}</span>
                 <span className="flex items-center gap-1.5 text-xs text-text-muted">
                   <span className="text-text-primary font-semibold">
-                    {t("SHIFT_LINKED_EVENTS_COUNT", { n: String(linkedEvents.length) })}
+                    {`${linkedEvents.length}건`}
                   </span>
                   <span className="text-[10px]">{eventsExpanded ? "▲" : "▼"}</span>
                 </span>

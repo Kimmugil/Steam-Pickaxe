@@ -2,7 +2,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Game } from "@/types";
-import { useUiText } from "@/contexts/UiTextContext";
 
 type RateSort = "desc" | "asc";
 
@@ -11,7 +10,6 @@ const LIMIT = 5;
 export default function RateSection({ games }: { games: Game[] }) {
   const [order, setOrder]       = useState<RateSort>("desc");
   const [showAll, setShowAll]   = useState(false);
-  const { t } = useUiText();
 
   const sorted = [...games].sort((a, b) =>
     order === "desc"
@@ -26,7 +24,7 @@ export default function RateSection({ games }: { games: Game[] }) {
     <>
       {/* 섹션 헤더 */}
       <div className="px-4 py-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">{t("INSIGHT_RATE_TITLE")}</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{"📊 긍정률"}</h3>
         <div className="flex gap-1">
           {(["desc", "asc"] as RateSort[]).map((o) => (
             <button
@@ -38,7 +36,7 @@ export default function RateSection({ games }: { games: Game[] }) {
                   : "border-border-default text-text-muted hover:border-border-hover hover:text-text-secondary"
               }`}
             >
-              {o === "desc" ? t("RATE_SORT_DESC") : t("RATE_SORT_ASC")}
+              {o === "desc" ? "높은순" : "낮은순"}
             </button>
           ))}
         </div>
@@ -77,8 +75,8 @@ export default function RateSection({ games }: { games: Game[] }) {
             className="w-full pt-1 text-[11px] text-text-muted hover:text-accent-blue transition-colors text-center"
           >
             {showAll
-              ? t("RATE_COLLAPSE")
-              : t("RATE_SHOW_MORE", { n: String(sorted.length - LIMIT) })}
+              ? "접기 ▲"
+              : `+${sorted.length - LIMIT}개 더보기 ▼`}
           </button>
         )}
       </div>

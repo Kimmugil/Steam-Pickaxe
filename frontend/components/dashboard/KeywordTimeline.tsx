@@ -1,7 +1,6 @@
 "use client";
 import { useMemo } from "react";
 import type { TimelineRow } from "@/types";
-import { useUiText } from "@/contexts/UiTextContext";
 
 interface Props {
   timelineRows: TimelineRow[];
@@ -9,7 +8,6 @@ interface Props {
 }
 
 export default function KeywordTimeline({ timelineRows, shiftMonths = new Set() }: Props) {
-  const { t } = useUiText();
 
   // monthly_summary, language_scope=all, 키워드 있는 것만 추출
   const monthlyRows = useMemo(() => {
@@ -58,7 +56,7 @@ export default function KeywordTimeline({ timelineRows, shiftMonths = new Set() 
   return (
     <div className="mt-6">
       <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
-        {t("KEYWORD_TIMELINE_TITLE")}
+        {"키워드 타임라인"}
       </h4>
       <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
         {parsed.map((row) => (

@@ -58,26 +58,40 @@ function ToggleSwitch({ on, loading, onClick, onTitle = "", offTitle = "" }: {
   );
 }
 
+const WORKFLOWS = [
+  { name: "ccu.yml",            schedule: "매 시간 정각",        desc: "현재 동접자 수 수집" },
+  { name: "collect.yml",        schedule: "매일 20:00 UTC",      desc: "리뷰·이벤트·뉴스·메타데이터 수집" },
+  { name: "analyze.yml",        schedule: "매월 1일 00:00 UTC",  desc: "월별 AI 분석 (승인 게임만)" },
+  { name: "detect-shifts.yml",  schedule: "매주 월요일",          desc: "평가 급변 감지 + AI 원인 분석" },
+  { name: "reanalyze.yml",      schedule: "온디맨드",             desc: "뉴스·패치 재수집 후 AI 재분석 (게임 페이지 새로고침 버튼)" },
+  { name: "core-analyze.yml",   schedule: "온디맨드",             desc: "종합 분석 4종 즉시 갱신 (수집 없음)" },
+  { name: "collect-month.yml",  schedule: "온디맨드",             desc: "이번 달 수집 + AI 분석" },
+  { name: "collect-game.yml",   schedule: "온디맨드",             desc: "단일 게임 이벤트/뉴스 수집" },
+  { name: "recalc-lang-dist.yml", schedule: "온디맨드",           desc: "언어 분포 강제 재계산" },
+  { name: "dedup-timelines.yml",  schedule: "온디맨드",           desc: "타임라인 중복 정리" },
+  { name: "reselect-top-reviews.yml", schedule: "온디맨드",       desc: "대표 리뷰 재선별" },
+];
+
 export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const router = useRouter();
   const { t } = useUiText();
 
   const COLUMN_HELP: Record<string, { title: string; lines: string[] }> = {
     status: {
-      title: t("HELP_STATUS_TITLE"),
-      lines: [t("HELP_STATUS_L1"), t("HELP_STATUS_L2"), t("HELP_STATUS_L3")],
+      title: "수집 상태",
+      lines: ["active: 정상 수집 중", "collecting: 초기 수집 진행 중", "archived: 수집 중단 (숨김)"],
     },
     ai_approved: {
-      title: t("HELP_AI_TITLE"),
-      lines: [t("HELP_AI_L1"), t("HELP_AI_L2"), t("HELP_AI_L3")],
+      title: "AI 분석 승인",
+      lines: ["ON: 월별 자동 AI 분석 포함", "OFF: 수집만 하고 AI 분석 제외", "승인 전 리뷰 수집이 충분한지 확인 권장"],
     },
     reviews: {
-      title: t("HELP_REVIEWS_TITLE"),
-      lines: [t("HELP_REVIEWS_L1"), t("HELP_REVIEWS_L2"), t("HELP_REVIEWS_L4")],
+      title: "리뷰 수집 현황",
+      lines: ["수집: 실제 DB에 저장된 리뷰 수", "Steam 총계: Steam API 기준 전체 리뷰 수", "수집률이 낮으면 AI 분석 품질이 저하될 수 있음"],
     },
     dates: {
-      title: t("HELP_DATES_TITLE"),
-      lines: [t("HELP_DATES_L1"), t("HELP_DATES_L2"), t("HELP_DATES_L3")],
+      title: "날짜 정보",
+      lines: ["마지막 수집: 이벤트/뉴스 최신 수집 날짜", "마지막 AI 분석: 브리핑 생성 날짜", "모두 KST 기준"],
     },
   };
 
@@ -89,10 +103,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const { toast, show, clear } = useToast();
 
   const STATUS_LABELS: Record<GameStatus, string> = {
-    active: t("ADMIN_STATUS_ACTIVE"),
-    collecting: t("ADMIN_STATUS_COLLECTING"),
-    archived: t("ADMIN_STATUS_ARCHIVED"),
-    error_pool_empty: t("ADMIN_STATUS_ERROR"),
+    active: "수집 중",
+    collecting: "초기 수집",
+    archived: "보관됨",
+    error_pool_empty: "오류",
   };
 
   // ── UI 상태 ───────────────────────────────────────────────────────────────
@@ -147,10 +161,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         setAuthed(true);
       } else {
         sessionStorage.removeItem(SESSION_KEY);
-        if (!silent) setError(t("AUTH_WRONG_PASSWORD"));
+        if (!silent) setError("비밀번호가 틀렸습니다.");
       }
     } catch {
-      if (!silent) setError(t("SERVER_CONNECT_ERROR"));
+      if (!silent) setError("서버 연결 오류");
     } finally {
       setLoading(false);
     }
@@ -174,13 +188,13 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(isCurrentlyActive ? t("ADMIN_TOAST_HIDE") : t("ADMIN_TOAST_RESTORE"), "success");
+        show(isCurrentlyActive ? "게임을 숨겼습니다." : "게임을 복원했습니다.", "success");
         router.refresh();
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setTogglingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -199,13 +213,13 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_APPROVE"), "success");
+        show("AI 분석을 승인했습니다.", "success");
         router.refresh();
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setApprovingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -235,14 +249,14 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_APPROVE_ONLY"), "success");
+        show("승인만 처리했습니다. 수집 완료 후 분석하세요.", "success");
         setApproveConfirmGame(null);
         router.refresh();
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setApproveOnlyIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -260,13 +274,13 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_UNAPPROVE"), "success");
+        show("AI 분석 승인을 취소했습니다.", "success");
         router.refresh();
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setUnapprovingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -285,12 +299,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_CORE_ANALYZE"), "success");
+        show("대표 AI 분석이 시작되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setCoreAnalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -309,12 +323,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_TIMELINE_ANALYZE"), "success");
+        show("타임라인 AI 분석이 시작되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setTimelineAnalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -323,7 +337,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   // ── 특정 구간 재분석 ──────────────────────────────────────────────────────
   async function handleAnalyzeMonth(appid: string, yearMonth: string) {
     if (!/^\d{4}-\d{2}$/.test(yearMonth)) {
-      show(t("ADMIN_MONTH_FORMAT_ERROR"), "error");
+      show("YYYY-MM 형식으로 입력하세요.", "error");
       return;
     }
     const savedPw = getSavedPw();
@@ -339,12 +353,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_MONTH_REANALYZE", { ym: yearMonth }), "success");
+        show(`${yearMonth} 구간 재분석이 시작되었습니다.`, "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setMonthAnalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -363,12 +377,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_EARLY_LAUNCH"), "success");
+        show("출시 초기 주간 재분석이 시작되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setEarlyLaunchAnalyzingIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -387,12 +401,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_COLLECT_NEWS"), "success");
+        show("이벤트/뉴스 수집이 시작되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setCollectNewsIds((prev) => { const s = new Set(prev); s.delete(appid); return s; });
     }
@@ -412,12 +426,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_RETRIGGER"), "success");
+        show("수집 워크플로우를 재시작했습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setRetriggering(false);
     }
@@ -436,12 +450,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_RECALC_LANG"), "success");
+        show("언어 분포 재집계가 완료되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setRecalcingLangDist(false);
     }
@@ -460,12 +474,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_DEDUP_TIMELINES"), "success");
+        show("타임라인 중복 정리가 완료되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setDedupingTimelines(false);
     }
@@ -486,10 +500,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       if (data.ok) {
         show(`이벤트 URL 백필 완료 — 업데이트 ${data.updated}건 / 스킵 ${data.skipped}건`, "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setBackfillingEventUrls(false);
     }
@@ -508,12 +522,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_CORE_ALL"), "success");
+        show("전체 종합 AI 분석이 시작되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setCoreAnalyzingAll(false);
     }
@@ -532,12 +546,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_ANALYZE_PENDING"), "success");
+        show("미분석 게임 AI 분석이 시작되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setAnalyzingPending(false);
     }
@@ -556,12 +570,12 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       });
       const data = await res.json();
       if (data.ok) {
-        show(t("ADMIN_TOAST_DETECT_SHIFTS"), "success");
+        show("평가 급변 감지가 시작되었습니다.", "success");
       } else {
-        show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+        show(data.error ?? "오류가 발생했습니다.", "error");
       }
     } catch {
-      show(t("SERVER_CONNECT_ERROR"), "error");
+      show("서버 연결 오류", "error");
     } finally {
       setDetectingShifts(false);
     }
@@ -573,15 +587,15 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       <div className="max-w-sm mx-auto mt-20">
         <div className="bg-bg-card border border-border-default rounded-xl p-8 text-center">
           <p className="text-2xl mb-2">🔒</p>
-          <h1 className="text-lg font-semibold text-text-primary mb-1">{t("ADMIN_LOGIN_TITLE")}</h1>
-          <p className="text-xs text-text-muted mb-6">{t("ADMIN_LOGIN_DESC")}</p>
+          <h1 className="text-lg font-semibold text-text-primary mb-1">{"관리자 로그인"}</h1>
+          <p className="text-xs text-text-muted mb-6">{"Steam Pickaxe 관리자 전용 페이지입니다."}</p>
           {error && <p className="text-xs text-accent-red mb-3">{error}</p>}
           <input
             type="password"
             value={pw}
             onChange={(e) => setPw(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && pw && attemptAuth(pw)}
-            placeholder={t("ADMIN_BTN_PW_PLACEHOLDER")}
+            placeholder={"비밀번호 입력"}
             className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
             autoFocus
           />
@@ -590,7 +604,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
             disabled={loading || !pw}
             className="w-full py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40"
           >
-            {loading ? t("ADMIN_LOGIN_LOADING") : t("ADMIN_LOGIN_BTN")}
+            {loading ? "확인 중..." : "입장"}
           </button>
         </div>
       </div>
@@ -611,22 +625,22 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
       {/* ── 헤더 ─────────────────────────────────────────────────────────── */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">{t("ADMIN_PAGE_TITLE")}</h1>
-        <p className="text-sm text-text-muted mt-1">{t("ADMIN_PAGE_SUBTITLE")}</p>
+        <h1 className="text-2xl font-bold text-text-primary">{"관리자 패널"}</h1>
+        <p className="text-sm text-text-muted mt-1">{"게임 수집 및 AI 분석 관리"}</p>
       </div>
 
       {/* ── 게임 현황 테이블 ──────────────────────────────────────────────── */}
       <section className="mb-10">
         <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
           <span className="w-2 h-2 bg-accent-blue rounded-full" />
-          {t("ADMIN_SECTION_GAMES")}
+          {"등록 게임 현황"}
           <span className="text-xs font-normal text-text-muted">({allGames.length}개)</span>
         </h2>
 
         {allGames.length === 0 ? (
           <div className="text-center py-16 text-text-muted border border-dashed border-border-default rounded-xl">
             <p className="text-3xl mb-3">🎮</p>
-            <p>{t("ADMIN_GAMES_EMPTY")}</p>
+            <p>{"등록된 게임이 없습니다."}</p>
           </div>
         ) : (
           <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden overflow-x-auto">
@@ -635,39 +649,39 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 <tr className="border-b border-border-default bg-bg-secondary">
                   {/* 게임 */}
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
-                    {t("ADMIN_COL_GAME")}
+                    {"게임"}
                   </th>
                   {/* 수집 상태 */}
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
                     <span className="inline-flex items-center gap-0.5">
-                      {t("ADMIN_COL_STATUS")}
+                      {"수집 상태"}
                       <HelpBtn col="status" onClick={setActiveHelp} />
                     </span>
                   </th>
                   {/* AI 승인 */}
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
                     <span className="inline-flex items-center gap-0.5">
-                      {t("ADMIN_COL_AI_APPROVED")}
+                      {"AI 승인"}
                       <HelpBtn col="ai_approved" onClick={setActiveHelp} />
                     </span>
                   </th>
                   {/* 리뷰 */}
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
                     <span className="inline-flex items-center gap-0.5">
-                      {t("ADMIN_COL_REVIEWS_TH")}
+                      {"리뷰 수"}
                       <HelpBtn col="reviews" onClick={setActiveHelp} />
                     </span>
                   </th>
                   {/* 수집/분석 날짜 */}
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
                     <span className="inline-flex items-center gap-0.5">
-                      {t("ADMIN_COL_LAST_ANALYSIS")}
+                      {"수집/분석 날짜"}
                       <HelpBtn col="dates" onClick={setActiveHelp} />
                     </span>
                   </th>
                   {/* 액션 */}
                   <th className="text-right px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">
-                    {t("ADMIN_COL_ACTION")}
+                    {"액션"}
                   </th>
                 </tr>
               </thead>
@@ -706,11 +720,11 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                               on={isActive}
                               loading={togglingIds.has(appid)}
                               onClick={() => handleToggleActive(appid, isActive)}
-                              onTitle={t("ADMIN_TOGGLE_ON_TITLE")}
-                              offTitle={t("ADMIN_TOGGLE_OFF_TITLE")}
+                              onTitle={"클릭하면 수집 중단"}
+                              offTitle={"클릭하면 수집 재개"}
                             />
                             <span className={`text-[10px] ${isActive ? "text-accent-green" : "text-text-muted"}`}>
-                              {togglingIds.has(appid) ? t("PROCESSING") : isActive ? "ON" : "OFF"}
+                              {togglingIds.has(appid) ? "처리 중..." : isActive ? "ON" : "OFF"}
                             </span>
                           </div>
                         ) : (
@@ -731,19 +745,19 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             <button
                               onClick={() => handleUnapproveGame(appid)}
                               disabled={unapprovingIds.has(appid)}
-                              title={t("ADMIN_APPROVE_CANCEL_TITLE")}
+                              title={"클릭하면 AI 분석 승인 취소"}
                               className="text-xs text-accent-green hover:text-accent-red hover:line-through transition-colors disabled:opacity-40 cursor-pointer"
                             >
-                              {unapprovingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_APPROVED")}
+                              {unapprovingIds.has(appid) ? "처리 중..." : "승인됨"}
                             </button>
                           ) : (
                             <button
                               onClick={() => handleApproveGameWithCheck(appid)}
                               disabled={approvingIds.has(appid)}
-                              title={t("ADMIN_APPROVE_TITLE")}
+                              title={"클릭하면 AI 분석 승인"}
                               className="text-xs text-accent-orange hover:text-accent-green transition-colors disabled:opacity-40 cursor-pointer"
                             >
-                              {approvingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_UNAPPROVED")}
+                              {approvingIds.has(appid) ? "처리 중..." : "미승인"}
                             </button>
                           )
                         ) : (
@@ -754,13 +768,13 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                       {/* 리뷰 수집 / Steam 총계 */}
                       <td className="px-4 py-3 text-xs">
                         <div>
-                          <span className="text-[10px] text-text-muted">{t("ADMIN_LABEL_COLLECTED")} </span>
+                          <span className="text-[10px] text-text-muted">{"수집: "}</span>
                           <span className="text-text-primary font-medium">
                             {Number(game.collected_reviews_count ?? 0).toLocaleString()}
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-text-muted">{t("ADMIN_LABEL_STEAM_TOTAL")} </span>
+                          <span className="text-[10px] text-text-muted">{"Steam: "}</span>
                           <span className="text-text-secondary">
                             {Number(game.totalReviews ?? 0).toLocaleString()}
                           </span>
@@ -773,13 +787,9 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             return (
                               <span
                                 className="block mt-0.5 text-[10px] text-accent-green font-medium"
-                                title={t("ADMIN_BADGE_AUTO_REANALYZE_TITLE", {
-                                  last: lastCount.toLocaleString(),
-                                  cur: curCount.toLocaleString(),
-                                  pct: String(Math.round((curCount / lastCount - 1) * 100)),
-                                })}
+                                title={`분석 시점(${lastCount.toLocaleString()})보다 현재(${curCount.toLocaleString()}) ${Math.round((curCount / lastCount - 1) * 100)}% 증가. 재분석 권장`}
                               >
-                                {t("ADMIN_BADGE_AUTO_REANALYZE")}
+                                {"↑ 자동 재분석 필요"}
                               </span>
                             );
                           }
@@ -791,11 +801,11 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                       <td className="px-4 py-3 text-xs">
                         <div className="space-y-0.5">
                           <div>
-                            <span className="text-text-muted text-[10px]">{t("ADMIN_COL_COLLECT_DATE")}</span>
+                            <span className="text-text-muted text-[10px]">{"수집: "}</span>
                             <span className="text-text-secondary">{game.last_event_date || "—"}</span>
                           </div>
                           <div>
-                            <span className="text-text-muted text-[10px]">{t("ADMIN_COL_ANALYZE_DATE")}</span>
+                            <span className="text-text-muted text-[10px]">{"분석: "}</span>
                             <span className="text-text-secondary">{game.ai_briefing_date || "—"}</span>
                             {game.ai_briefing_date && (
                               <span className="ml-1 text-[9px] text-text-muted">KST</span>
@@ -813,30 +823,30 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                               <button
                                 onClick={() => handleCoreAnalyze(appid)}
                                 disabled={coreAnalyzingIds.has(appid)}
-                                title={t("ADMIN_BTN_CORE_ANALYZE_TITLE")}
+                                title={"종합 분석 4종 즉시 갱신"}
                                 className="px-2.5 py-1 text-[11px] bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded hover:bg-accent-blue/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                               >
-                                {coreAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_CORE_ANALYZE")}
+                                {coreAnalyzingIds.has(appid) ? "처리 중..." : "대표분석"}
                               </button>
 
                               {/* 타임라인 AI 분석 */}
                               <button
                                 onClick={() => handleTimelineAnalyze(appid)}
                                 disabled={timelineAnalyzingIds.has(appid)}
-                                title={t("ADMIN_BTN_TIMELINE_ANALYZE_TITLE")}
+                                title={"타임라인 AI 분석 실행"}
                                 className="px-2.5 py-1 text-[11px] bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded hover:bg-accent-blue/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                               >
-                                {timelineAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_TIMELINE_ANALYZE")}
+                                {timelineAnalyzingIds.has(appid) ? "처리 중..." : "타임라인분석"}
                               </button>
 
                               {/* 구간 재분석 */}
                               <button
                                 onClick={() => { setMonthInputGame(appid); setMonthInputVal(""); }}
                                 disabled={monthAnalyzingIds.has(appid)}
-                                title={t("ADMIN_BTN_MONTH_REANALYZE_TITLE")}
+                                title={"특정 구간 재분석"}
                                 className="px-2.5 py-1 text-[11px] bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow rounded hover:bg-accent-yellow/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                               >
-                                {monthAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_MONTH_REANALYZE")}
+                                {monthAnalyzingIds.has(appid) ? "처리 중..." : "구간재분석"}
                               </button>
 
                               {/* 출시 초기 주간 재분석 */}
@@ -844,10 +854,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                                 <button
                                   onClick={() => handleEarlyLaunchAnalyze(appid)}
                                   disabled={earlyLaunchAnalyzingIds.has(appid)}
-                                  title={t("ADMIN_BTN_EARLY_LAUNCH_TITLE")}
+                                  title={"출시 초기 주간 분석"}
                                   className="px-2.5 py-1 text-[11px] bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow rounded hover:bg-accent-yellow/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                                 >
-                                  {earlyLaunchAnalyzingIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_EARLY_LAUNCH")}
+                                  {earlyLaunchAnalyzingIds.has(appid) ? "처리 중..." : "초기분석"}
                                 </button>
                               )}
                             </>
@@ -858,10 +868,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                             <button
                               onClick={() => handleCollectNews(appid)}
                               disabled={collectNewsIds.has(appid)}
-                              title={t("ADMIN_BTN_COLLECT_NEWS_TITLE")}
+                              title={"이벤트/뉴스 수집"}
                               className="px-2.5 py-1 text-[11px] bg-accent-green/10 border border-accent-green/30 text-accent-green rounded hover:bg-accent-green/20 transition-colors disabled:opacity-40 whitespace-nowrap"
                             >
-                              {collectNewsIds.has(appid) ? t("PROCESSING") : t("ADMIN_BTN_COLLECT_NEWS")}
+                              {collectNewsIds.has(appid) ? "처리 중..." : "뉴스수집"}
                             </button>
                           )}
                         </div>
@@ -876,7 +886,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
 
         {pendingAiGames.length > 0 && (
           <p className="mt-3 text-xs text-accent-orange">
-            {t("ADMIN_PENDING_WARNING", { n: pendingAiGames.length })}
+            {`AI 미승인 게임 ${pendingAiGames.length}개 — 승인 후 분석을 실행하세요.`}
           </p>
         )}
       </section>
@@ -889,25 +899,25 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
             <span className="w-2 h-2 bg-accent-orange rounded-full" />
-            {t("ADMIN_SECTION_TOOLS")}
+            {"시스템 도구"}
           </h2>
           {/* 버튼 색상 범례 */}
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-accent-blue inline-block flex-shrink-0" />
-              {t("ADMIN_LEGEND_AI")}
+              {"AI 분석"}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-accent-green inline-block flex-shrink-0" />
-              {t("ADMIN_LEGEND_COLLECT")}
+              {"수집"}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-accent-yellow inline-block flex-shrink-0" />
-              {t("ADMIN_LEGEND_DETECT")}
+              {"감지·주의"}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-border-default inline-block flex-shrink-0" />
-              {t("ADMIN_LEGEND_MAINTAIN")}
+              {"유지보수"}
             </span>
           </div>
         </div>
@@ -915,38 +925,38 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden">
           {[
             {
-              icon: "🧠", title: t("ADMIN_TOOL_CORE_ALL_TITLE"), desc: t("ADMIN_TOOL_CORE_ALL_DESC"),
-              btnLabel: t("ADMIN_BTN_CORE_ALL_EXEC"), loading: coreAnalyzingAll,
+              icon: "🧠", title: "전체 종합 AI 분석", desc: "승인된 전체 게임의 종합 분석 4종을 즉시 갱신합니다.",
+              btnLabel: "전체 실행", loading: coreAnalyzingAll,
               onClick: handleCoreAnalyzeAll,
               btnClass: "border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10",
             },
             {
-              icon: "⚡", title: t("ADMIN_TOOL_PENDING_TITLE"), desc: t("ADMIN_TOOL_PENDING_DESC"),
-              btnLabel: t("ADMIN_BTN_ANALYZE_PENDING_EXEC"), loading: analyzingPending,
+              icon: "⚡", title: "미분석 AI 분석", desc: "브리핑이 없는 승인 게임을 일괄 분석합니다.",
+              btnLabel: "미분석 실행", loading: analyzingPending,
               onClick: handleAnalyzePending,
               btnClass: "border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10",
             },
             {
-              icon: "🔍", title: t("ADMIN_TOOL_SHIFTS_TITLE"), desc: t("ADMIN_TOOL_SHIFTS_DESC"),
-              btnLabel: t("ADMIN_BTN_DETECT_SHIFTS_EXEC"), loading: detectingShifts,
+              icon: "🔍", title: "평가 급변 감지", desc: "전체 게임의 최근 평가 급변을 감지하고 AI 원인 분석을 실행합니다.",
+              btnLabel: "급변 감지 실행", loading: detectingShifts,
               onClick: handleDetectShifts,
               btnClass: "border-accent-yellow/40 text-accent-yellow hover:bg-accent-yellow/10",
             },
             {
-              icon: "🔄", title: t("ADMIN_TOOL_RETRIGGER_TITLE"), desc: t("ADMIN_TOOL_RETRIGGER_DESC"),
-              btnLabel: t("ADMIN_BTN_RETRIGGER_EXEC"), loading: retriggering,
+              icon: "🔄", title: "수집 재시작", desc: "수집 대기열에 게임이 있는데 Action이 오류로 멈춘 경우 사용합니다.",
+              btnLabel: "재시작", loading: retriggering,
               onClick: () => setShowRetriggerConfirm(true),
               btnClass: "border-accent-green/40 text-accent-green hover:bg-accent-green/10",
             },
             {
-              icon: "📊", title: t("ADMIN_TOOL_RECALC_TITLE"), desc: t("ADMIN_TOOL_RECALC_DESC"),
-              btnLabel: t("ADMIN_BTN_RECALC_EXEC"), loading: recalcingLangDist,
+              icon: "📊", title: "언어 분포 재집계", desc: "전체 게임의 언어별 리뷰 분포를 강제로 재계산합니다.",
+              btnLabel: "재집계 실행", loading: recalcingLangDist,
               onClick: handleRecalcLangDist,
               btnClass: "border-border-default text-text-secondary hover:border-text-muted/50 hover:text-text-primary",
             },
             {
-              icon: "🧹", title: t("ADMIN_TOOL_DEDUP_TITLE"), desc: t("ADMIN_TOOL_DEDUP_DESC"),
-              btnLabel: t("ADMIN_BTN_DEDUP_EXEC"), loading: dedupingTimelines,
+              icon: "🧹", title: "타임라인 중복 정리", desc: "중복된 타임라인 이벤트를 정리합니다.",
+              btnLabel: "중복 정리 실행", loading: dedupingTimelines,
               onClick: handleDedupTimelines,
               btnClass: "border-border-default text-text-secondary hover:border-accent-orange/50 hover:text-accent-orange",
             },
@@ -971,7 +981,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 disabled={tool.loading}
                 className={`flex-shrink-0 px-3 py-1.5 text-xs border rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap ${tool.btnClass}`}
               >
-                {tool.loading ? t("PROCESSING") : tool.btnLabel}
+                {tool.loading ? "처리 중..." : tool.btnLabel}
               </button>
             </div>
           ))}
@@ -982,7 +992,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       <section className="mb-10">
         <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
           <span className="w-2 h-2 bg-accent-green rounded-full" />
-          {t("ADMIN_SECTION_WORKFLOW")}
+          {"워크플로우 현황"}
         </h2>
         <div className="bg-bg-card border border-border-default rounded-xl overflow-hidden overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">
@@ -994,20 +1004,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
               </tr>
             </thead>
             <tbody>
-              {([
-                { name: t("ADMIN_WF_CCU_NAME"),       schedule: t("ADMIN_WF_CCU_SCHEDULE"),       desc: t("ADMIN_WF_CCU_DESC") },
-                { name: t("ADMIN_WF_COLLECT_NAME"),   schedule: t("ADMIN_WF_COLLECT_SCHEDULE"),   desc: t("ADMIN_WF_COLLECT_DESC") },
-                { name: t("ADMIN_WF_ANALYZE_NAME"),   schedule: t("ADMIN_WF_ANALYZE_SCHEDULE"),   desc: t("ADMIN_WF_ANALYZE_DESC") },
-                { name: t("ADMIN_WF_SHIFTS_NAME"),    schedule: t("ADMIN_WF_SHIFTS_SCHEDULE"),    desc: t("ADMIN_WF_SHIFTS_DESC") },
-                { name: t("ADMIN_WF_CORE_NAME"),      schedule: t("ADMIN_WF_CORE_SCHEDULE"),      desc: t("ADMIN_WF_CORE_DESC") },
-                { name: t("ADMIN_WF_TIMELINE_NAME"),  schedule: t("ADMIN_WF_TIMELINE_SCHEDULE"),  desc: t("ADMIN_WF_TIMELINE_DESC") },
-                { name: t("ADMIN_WF_MONTH_NAME"),     schedule: t("ADMIN_WF_MONTH_SCHEDULE"),     desc: t("ADMIN_WF_MONTH_DESC") },
-                { name: t("ADMIN_WF_NEWS_NAME"),      schedule: t("ADMIN_WF_NEWS_SCHEDULE"),      desc: t("ADMIN_WF_NEWS_DESC") },
-                { name: t("ADMIN_WF_PENDING_NAME"),   schedule: t("ADMIN_WF_PENDING_SCHEDULE"),   desc: t("ADMIN_WF_PENDING_DESC") },
-                { name: t("ADMIN_WF_RETRIGGER_NAME"), schedule: t("ADMIN_WF_RETRIGGER_SCHEDULE"), desc: t("ADMIN_WF_RETRIGGER_DESC") },
-                { name: t("ADMIN_WF_RECALC_NAME"),    schedule: t("ADMIN_WF_RECALC_SCHEDULE"),    desc: t("ADMIN_WF_RECALC_DESC") },
-                { name: t("ADMIN_WF_DEDUP_NAME"),     schedule: t("ADMIN_WF_DEDUP_SCHEDULE"),     desc: t("ADMIN_WF_DEDUP_DESC") },
-              ]).map((row, i) => (
+              {WORKFLOWS.map((row, i) => (
                 <tr
                   key={row.name}
                   className={`border-b border-border-default last:border-b-0 ${i % 2 === 0 ? "" : "bg-bg-secondary/20"}`}
@@ -1045,7 +1042,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
               onClick={() => setActiveHelp(null)}
               className="mt-5 w-full py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover transition-colors"
             >
-              {t("ADMIN_CLOSE_BTN")}
+              {"닫기"}
             </button>
           </div>
         </div>
@@ -1061,8 +1058,8 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
             className="bg-bg-card border border-border-default rounded-xl p-6 w-[360px] max-w-[calc(100vw-2rem)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="font-semibold text-text-primary mb-1">{t("ADMIN_MODAL_MONTH_INPUT_TITLE")}</p>
-            <p className="text-xs text-text-muted mb-4 leading-relaxed">{t("ADMIN_MODAL_MONTH_INPUT_DESC")}</p>
+            <p className="font-semibold text-text-primary mb-1">{"구간 재분석"}</p>
+            <p className="text-xs text-text-muted mb-4 leading-relaxed">{"분석할 연월을 YYYY-MM 형식으로 입력하세요."}</p>
             <input
               type="text"
               value={monthInputVal}
@@ -1071,7 +1068,7 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 if (e.key === "Enter" && monthInputVal) handleAnalyzeMonth(monthInputGame, monthInputVal);
                 if (e.key === "Escape") setMonthInputGame(null);
               }}
-              placeholder={t("ADMIN_MODAL_MONTH_PLACEHOLDER")}
+              placeholder={"예: 2024-03"}
               maxLength={7}
               className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-yellow mb-4 font-mono tracking-wider"
               autoFocus
@@ -1082,13 +1079,13 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 disabled={!monthInputVal || !/^\d{4}-\d{2}$/.test(monthInputVal)}
                 className="flex-1 py-2 bg-accent-yellow/20 border border-accent-yellow/40 text-accent-yellow rounded-lg text-sm disabled:opacity-40 hover:bg-accent-yellow/30 transition-colors"
               >
-                {t("ADMIN_BTN_REANALYZE_EXEC")}
+                {"재분석 실행"}
               </button>
               <button
                 onClick={() => setMonthInputGame(null)}
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover transition-colors"
               >
-                {t("ADMIN_BTN_CANCEL")}
+                {"취소"}
               </button>
             </div>
           </div>
@@ -1099,21 +1096,21 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       {showRetriggerConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-80">
-            <p className="font-semibold text-text-primary mb-1">{t("ADMIN_TOOL_RETRIGGER_TITLE")}</p>
-            <p className="text-xs text-text-muted mb-5 leading-relaxed">{t("ADMIN_RETRIGGER_CONFIRM_DESC")}</p>
+            <p className="font-semibold text-text-primary mb-1">{"수집 재시작"}</p>
+            <p className="text-xs text-text-muted mb-5 leading-relaxed">{"수집 대기열의 GitHub Action을 다시 트리거합니다. 정말 실행할까요?"}</p>
             <div className="flex gap-2">
               <button
                 onClick={handleRetriggerCollect}
                 disabled={retriggering}
                 className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40"
               >
-                {retriggering ? t("PROCESSING") : t("ADMIN_BTN_CONFIRM")}
+                {retriggering ? "처리 중..." : "확인"}
               </button>
               <button
                 onClick={() => setShowRetriggerConfirm(false)}
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover"
               >
-                {t("ADMIN_BTN_CANCEL")}
+                {"취소"}
               </button>
             </div>
           </div>
@@ -1124,16 +1121,13 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
       {approveConfirmGame && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-[420px] max-w-[calc(100vw-2rem)]">
-            <p className="font-semibold text-text-primary mb-1">{t("ADMIN_MODAL_INCOMPLETE_REVIEWS_TITLE")}</p>
+            <p className="font-semibold text-text-primary mb-1">{"리뷰 수집 미완료 경고"}</p>
             <p className="text-xs text-text-muted mb-5 leading-relaxed">
-              {t("ADMIN_MODAL_INCOMPLETE_REVIEWS_DESC", { name: approveConfirmGame.name_kr || approveConfirmGame.name })}<br />
+              {`${approveConfirmGame.name_kr || approveConfirmGame.name}의 리뷰 수집이 아직 완료되지 않았습니다.`}<br />
               <span className="text-accent-orange font-medium">
-                {t("ADMIN_MODAL_INCOMPLETE_REVIEWS_COUNTS", {
-                  collected: Number(approveConfirmGame.collected_reviews_count || 0).toLocaleString(),
-                  total: Number(approveConfirmGame.totalReviews || 0).toLocaleString(),
-                })}
+                {`수집: ${Number(approveConfirmGame.collected_reviews_count || 0).toLocaleString()}건 / Steam 총계: ${Number(approveConfirmGame.totalReviews || 0).toLocaleString()}건`}
               </span><br />
-              {t("ADMIN_MODAL_INCOMPLETE_REVIEWS_WARN")}
+              {"수집이 완료되기 전에 분석하면 품질이 저하될 수 있습니다."}
             </p>
             <div className="space-y-2">
               <button
@@ -1144,20 +1138,20 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                 disabled={approvingIds.has(String(approveConfirmGame.appid))}
                 className="w-full py-2.5 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40 hover:bg-accent-blue/30 transition-colors"
               >
-                {approvingIds.has(String(approveConfirmGame.appid)) ? t("PROCESSING") : t("ADMIN_BTN_APPROVE_NOW")}
+                {approvingIds.has(String(approveConfirmGame.appid)) ? "처리 중..." : "지금 승인 + 분석 실행"}
               </button>
               <button
                 onClick={() => handleApproveOnly(String(approveConfirmGame.appid))}
                 disabled={approveOnlyIds.has(String(approveConfirmGame.appid))}
                 className="w-full py-2.5 bg-bg-secondary border border-border-default text-text-secondary rounded-lg text-sm disabled:opacity-40 hover:border-accent-blue/40 transition-colors"
               >
-                {approveOnlyIds.has(String(approveConfirmGame.appid)) ? t("PROCESSING") : t("ADMIN_BTN_APPROVE_WAIT")}
+                {approveOnlyIds.has(String(approveConfirmGame.appid)) ? "처리 중..." : "승인만 (분석은 나중에)"}
               </button>
               <button
                 onClick={() => setApproveConfirmGame(null)}
                 className="w-full py-2 text-text-muted text-sm hover:text-text-secondary transition-colors"
               >
-                {t("ADMIN_BTN_CANCEL")}
+                {"취소"}
               </button>
             </div>
           </div>

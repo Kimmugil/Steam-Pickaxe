@@ -33,7 +33,7 @@ export default function Navbar() {
                 : "text-text-muted hover:text-text-secondary"
             }`}
           >
-            {t("NAV_ADMIN")}
+            {"🔒 관계자외 출입금지"}
           </Link>
         </div>
       </div>

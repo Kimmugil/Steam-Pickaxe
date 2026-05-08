@@ -1,7 +1,6 @@
 "use client";
 import { useState, ReactNode } from "react";
 import SearchModal from "./SearchModal";
-import { useUiText } from "@/contexts/UiTextContext";
 
 interface Props {
   children: ReactNode;
@@ -9,7 +8,6 @@ interface Props {
 
 export default function FloatingRightPanel({ children }: Props) {
   const [open, setOpen] = useState(false);
-  const { t } = useUiText();
 
   return (
     <>
@@ -25,7 +23,7 @@ export default function FloatingRightPanel({ children }: Props) {
           </span>
           <button
             onClick={() => setOpen(true)}
-            title={t("FLOATING_NAV_TITLE")}
+            title={"스팀 게임 검색하고 등록하기"}
             className="group w-full flex items-center justify-center gap-2
               bg-bg-card border border-border-default
               rounded-xl px-4 py-3
@@ -43,7 +41,7 @@ export default function FloatingRightPanel({ children }: Props) {
               <path d="m21 21-4.35-4.35" strokeLinecap="round" />
             </svg>
             <span className="text-sm font-semibold text-text-primary group-hover:text-white transition-colors">
-              {t("FLOATING_NAV_BTN")}
+              {"게임 등록하기"}
             </span>
           </button>
         </div>

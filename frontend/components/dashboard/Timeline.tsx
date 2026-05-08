@@ -3,7 +3,6 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Badge from "@/components/shared/Badge";
 import Toast, { useToast } from "@/components/shared/Toast";
 import ShiftCard from "@/components/dashboard/ShiftCard";
-import { useUiText } from "@/contexts/UiTextContext";
 import type { TimelineRow, TopReview } from "@/types";
 
 interface TimelineProps {
@@ -20,7 +19,6 @@ function EditEventModal({
 }: {
   row: TimelineRow; appid: string; onClose: () => void; onSaved: () => void;
 }) {
-  const { t } = useUiText();
   const [titleKr, setTitleKr]   = useState(row.title_kr ?? "");
   const [eventType, setEventType] = useState<string>(row.event_type ?? "official");
   const [date, setDate]           = useState(row.date ?? "");
@@ -43,53 +41,53 @@ function EditEventModal({
         }),
       });
       const data = await res.json();
-      if (data.ok) { show(t("TIMELINE_EDIT_SUCCESS"), "success"); setTimeout(onSaved, 1200); }
-      else show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      if (data.ok) { show("이벤트가 수정되었습니다.", "success"); setTimeout(onSaved, 1200); }
+      else show(data.error ?? "오류가 발생했습니다.", "error");
     } finally { setLoading(false); }
   }
 
   const EVENT_TYPE_OPTIONS = [
-    { value: "official", label: t("TIMELINE_TYPE_OFFICIAL") },
-    { value: "manual",   label: t("TIMELINE_TYPE_MANUAL") },
-    { value: "news",     label: t("TIMELINE_TYPE_NEWS") },
+    { value: "official", label: "공식 이벤트" },
+    { value: "manual",   label: "직접 등록" },
+    { value: "news",     label: "뉴스" },
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-bg-card border border-border-default rounded-xl p-6 w-96 max-w-[calc(100vw-2rem)]">
-        <p className="font-semibold mb-1">{t("TIMELINE_EDIT_TITLE")}</p>
+        <p className="font-semibold mb-1">{"이벤트 수정"}</p>
         <p className="text-xs text-text-muted mb-4">
-          {t("TIMELINE_EDIT_ORIGINAL_TITLE_LABEL")}{" "}
+          {"원본 제목:"}{" "}
           <span className="text-text-secondary">{row.title}</span>
         </p>
-        <label className="block text-xs text-text-muted mb-1">{t("TIMELINE_EDIT_TITLE_KR_LABEL")}</label>
+        <label className="block text-xs text-text-muted mb-1">{"한국어 제목"}</label>
         <input type="text" value={titleKr} onChange={(e) => setTitleKr(e.target.value)}
-          placeholder={t("TIMELINE_EDIT_TITLE_KR_PLACEHOLDER")}
+          placeholder={"한국어 제목 입력"}
           className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3" />
-        <label className="block text-xs text-text-muted mb-1">{t("TIMELINE_EDIT_TYPE_LABEL")}</label>
+        <label className="block text-xs text-text-muted mb-1">{"이벤트 유형"}</label>
         <select value={eventType} onChange={(e) => setEventType(e.target.value)}
           className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3">
           {EVENT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <label className="block text-xs text-text-muted mb-1">{t("TIMELINE_EDIT_DATE_LABEL")}</label>
+        <label className="block text-xs text-text-muted mb-1">{"날짜"}</label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
           className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3" />
         <label className="flex items-center gap-2 text-xs text-text-secondary mb-4 cursor-pointer select-none">
           <input type="checkbox" checked={triggerReanalyze} onChange={(e) => setTriggerReanalyze(e.target.checked)} className="accent-accent-blue" />
-          {t("TIMELINE_EDIT_REANALYZE_LABEL")}
+          {"저장 후 AI 재분석 트리거"}
         </label>
-        <label className="block text-xs text-text-muted mb-1">{t("ADMIN_PW_TITLE")}</label>
+        <label className="block text-xs text-text-muted mb-1">{"관리자 비밀번호"}</label>
         <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
-          placeholder={t("ADMIN_PW_PLACEHOLDER")}
+          placeholder={"비밀번호 입력"}
           className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
           onKeyDown={(e) => e.key === "Enter" && !loading && pw && handleSave()} autoFocus />
         <div className="flex gap-2">
           <button onClick={handleSave} disabled={loading || !pw}
             className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40">
-            {loading ? t("TIMELINE_EDIT_SAVING") : t("TIMELINE_EDIT_SAVE_BTN")}
+            {loading ? "저장 중..." : "저장"}
           </button>
           <button onClick={onClose} className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover">
-            {t("ADMIN_CLOSE_BTN")}
+            {"닫기"}
           </button>
         </div>
       </div>
@@ -102,7 +100,6 @@ function EditEventModal({
 function EventItem({
   row, appid, onEdit,
 }: { row: TimelineRow; appid: string; onEdit: (r: TimelineRow) => void; }) {
-  const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
 
   const isNews       = row.event_type === "news";
@@ -119,10 +116,10 @@ function EventItem({
   const typeColor = TYPE_COLORS[row.event_type] ?? "text-text-muted border-border-default bg-bg-secondary";
 
   const TYPE_LABELS: Record<string, string> = {
-    official:     t("TIMELINE_TYPE_OFFICIAL"),
-    manual:       t("TIMELINE_TYPE_MANUAL"),
-    news:         t("TIMELINE_TYPE_NEWS"),
-    free_weekend: t("TIMELINE_TYPE_FREE_WEEKEND"),
+    official:     "공식 이벤트",
+    manual:       "직접 등록",
+    news:         "뉴스",
+    free_weekend: "무료 주말",
   };
 
   return (
@@ -165,13 +162,14 @@ function EventItem({
         {!isNews && (
           <button onClick={() => onEdit(row)}
             className="text-[10px] text-text-muted opacity-0 group-hover/item:opacity-100 hover:text-accent-blue transition-all mt-0.5">
-            {t("TIMELINE_EDIT_BTN")}
+            {"수정"}
+
           </button>
         )}
         {/* 개별 patch summary 펼침 */}
         {expanded && hasPatch && (
           <div className="mt-2 border-l-2 border-accent-blue/20 pl-3">
-            <p className="text-xs text-accent-blue mb-1 font-medium">{t("TIMELINE_PATCH_SUMMARY")}</p>
+            <p className="text-xs text-accent-blue mb-1 font-medium">{"패치 요약"}</p>
             <p className="text-xs text-text-secondary leading-relaxed">{row.ai_patch_summary}</p>
           </div>
         )}
@@ -182,7 +180,6 @@ function EventItem({
 
 // ── 주간 카드 (출시 초기 세분화 분석) ──────────────────────────────────────
 function WeeklyCard({ row }: { row: TimelineRow }) {
-  const { t } = useUiText();
   const [expanded, setExpanded] = useState(false);
 
   const isSparse  = String(row.sentiment_rate) === "sparse";
@@ -208,18 +205,18 @@ function WeeklyCard({ row }: { row: TimelineRow }) {
         className="w-full flex items-center gap-2 px-3 py-2 bg-bg-card hover:bg-bg-secondary transition-colors text-left"
       >
         <span className="text-[10px] px-1.5 py-0.5 rounded border font-semibold shrink-0 text-accent-blue border-accent-blue/40 bg-accent-blue/10">
-          {t("TIMELINE_WEEKLY_BADGE")}
+          {"주간 분석"}
         </span>
         <span className="text-xs font-medium text-text-primary shrink-0">{row.title}</span>
         <span className="text-[10px] text-text-muted shrink-0">{dateLabel}</span>
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {isPending ? (
             <span className="text-[10px] text-text-muted px-1.5 py-0.5 bg-bg-secondary border border-border-default rounded">
-              {t("TIMELINE_PENDING")}
+              {"분석 대기"}
             </span>
           ) : isSparse ? (
             <span className="text-[10px] text-text-muted px-1.5 py-0.5 bg-bg-secondary border border-border-default rounded">
-              {t("TIMELINE_SPARSE_LABEL")}
+              {"리뷰 부족"}
             </span>
           ) : rate !== null ? (
             <Badge rate={rate} reviewCount={reviewCount} size="sm" labelOnly />
@@ -232,12 +229,12 @@ function WeeklyCard({ row }: { row: TimelineRow }) {
         <div className="border-t border-border-default/30 px-3 py-3 space-y-3 bg-bg-primary/60">
           {reviewCount > 0 && (
             <p className="text-xs text-text-muted">
-              {t("SHIFT_REVIEW_COUNT", { count: reviewCount.toLocaleString() })}
+              {`리뷰 ${reviewCount.toLocaleString()}건`}
             </p>
           )}
           {row.ai_reaction_summary && (
             <div>
-              <p className="text-xs font-medium mb-1 text-text-muted">{t("TIMELINE_REACTION")}</p>
+              <p className="text-xs font-medium mb-1 text-text-muted">{"유저 반응"}</p>
               <p className="text-sm text-text-secondary leading-relaxed">{row.ai_reaction_summary}</p>
             </div>
           )}
@@ -252,13 +249,13 @@ function WeeklyCard({ row }: { row: TimelineRow }) {
           )}
           {reviews.length > 0 && (
             <div>
-              <p className="text-xs font-medium mb-1.5 text-text-muted">{t("SHIFT_TOP_REVIEWS_LABEL")}</p>
+              <p className="text-xs font-medium mb-1.5 text-text-muted">{"대표 리뷰"}</p>
               <div className="space-y-2">
                 {reviews.slice(0, 3).map((rv, ri) => (
                   <div key={ri} className={`bg-bg-card border rounded-lg p-2.5 ${rv.voted_up ? "border-accent-green/20" : "border-accent-red/20"}`}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
-                        {rv.voted_up ? t("REVIEW_POSITIVE") : t("REVIEW_NEGATIVE")}
+                        {rv.voted_up ? "긍정" : "부정"}
                       </span>
                       <span className="text-xs text-text-muted">[{rv.language}]</span>
                     </div>
@@ -295,8 +292,6 @@ function MonthCard({
   focusYm?: string;
   focusTab?: string;
 }) {
-  const { t } = useUiText();
-
   // 제목은 summaryRow가 없으면 eventRows의 첫 날짜로부터 추정 (ym 계산을 state 초기값 이전에)
   const firstDateEarly = eventRows[0]?.date ?? "";
   const ymEarly = (summaryRow?.date ?? firstDateEarly).slice(0, 7);
@@ -384,29 +379,29 @@ function MonthCard({
         {/* 이벤트 수 뱃지 */}
         <span className="text-xs text-text-muted">
           {[
-            officialCount > 0 && t("TIMELINE_OFFICIAL_EVENTS", { count: officialCount }),
-            externalCount > 0 && t("TIMELINE_EXTERNAL_EVENTS", { count: externalCount }),
-          ].filter(Boolean).join(" · ") || t("TIMELINE_NO_EVENTS_LABEL")}
+            officialCount > 0 && `공식 ${officialCount}건`,
+            externalCount > 0 && `외부 ${externalCount}건`,
+          ].filter(Boolean).join(" · ") || "이벤트 없음"}
         </span>
 
         {/* 출시 마커 */}
         {releaseYm && ym === releaseYm && (
           <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-green border-accent-green/40 bg-accent-green/10 shrink-0">
-            {t("TIMELINE_RELEASE_MARKER")}
+            {"출시"}
           </span>
         )}
 
         {/* 주간 분석 배지 */}
         {weeklyRows && weeklyRows.length > 0 && (
           <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-blue border-accent-blue/30 bg-accent-blue/10 shrink-0">
-            {t("TIMELINE_HAS_WEEKLY")}
+            {"주간 분석 있음"}
           </span>
         )}
 
         {/* 급변 감지 배지 */}
         {hasShift && (
           <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium text-accent-yellow border-accent-yellow/40 bg-accent-yellow/10 shrink-0">
-            {t("TIMELINE_SHIFT_DETECTED")}
+            {"급변 감지"}
           </span>
         )}
 
@@ -414,11 +409,11 @@ function MonthCard({
         <div className="ml-auto flex items-center gap-2 shrink-0">
           {isPending ? (
             <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
-              {t("TIMELINE_PENDING")}
+              {"분석 대기"}
             </span>
           ) : isSparse ? (
             <span className="text-xs text-text-muted px-2 py-0.5 bg-bg-secondary border border-border-default rounded">
-              {t("TIMELINE_SPARSE_LABEL")}
+              {"리뷰 부족"}
             </span>
           ) : rate !== null ? (
             <Badge rate={rate} reviewCount={reviewCount} size="sm" labelOnly />
@@ -473,7 +468,7 @@ function MonthCard({
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                     {reviewCount > 0 && (
                       <span className="text-xs text-text-muted shrink-0">
-                        {t("TIMELINE_REVIEW_COUNT", { n: reviewCount.toLocaleString() })}
+                        {`리뷰 ${reviewCount.toLocaleString()}건`}
                       </span>
                     )}
                     {keywords.length > 0 && (
@@ -491,13 +486,13 @@ function MonthCard({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {summaryRow.ai_patch_summary && (
                     <div className="bg-bg-card border border-border-default rounded-lg p-4">
-                      <p className="text-xs font-semibold text-accent-blue mb-2">{t("TIMELINE_PATCH_SUMMARY")}</p>
+                      <p className="text-xs font-semibold text-accent-blue mb-2">{"패치 요약"}</p>
                       <p className="text-sm text-text-secondary leading-relaxed">{summaryRow.ai_patch_summary}</p>
                     </div>
                   )}
                   {summaryRow.ai_reaction_summary && (
                     <div className="bg-bg-card border border-border-default rounded-lg p-4">
-                      <p className="text-xs font-semibold text-accent-blue mb-2">{t("TIMELINE_REACTION")}</p>
+                      <p className="text-xs font-semibold text-accent-blue mb-2">{"유저 반응"}</p>
                       <p className="text-sm text-text-secondary leading-relaxed">{summaryRow.ai_reaction_summary}</p>
                     </div>
                   )}
@@ -517,7 +512,7 @@ function MonthCard({
                   >
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-medium ${rv.voted_up ? "text-accent-green" : "text-accent-red"}`}>
-                        {rv.voted_up ? t("REVIEW_POSITIVE") : t("REVIEW_NEGATIVE")}
+                        {rv.voted_up ? "긍정" : "부정"}
                       </span>
                       <span className="text-xs text-text-muted">[{rv.language}]</span>
                     </div>
@@ -534,7 +529,7 @@ function MonthCard({
             {currentTab === "events" && (
               <div className="space-y-0">
                 {sortedEvents.length === 0 ? (
-                  <p className="text-xs text-text-muted py-2">{t("TIMELINE_MONTH_NO_EVENTS")}</p>
+                  <p className="text-xs text-text-muted py-2">{"이번 달 이벤트 없음"}</p>
                 ) : (
                   sortedEvents.map((row) => (
                     <EventItem key={row.event_id} row={row} appid={appid} onEdit={onEdit} />
@@ -578,7 +573,6 @@ function MonthCard({
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 export default function Timeline({ timelineRows, appid, releaseDate, focusYm, focusTab }: TimelineProps) {
-  const { t } = useUiText();
   const [sortAsc, setSortAsc]     = useState(false);
   const [editingRow, setEditingRow] = useState<TimelineRow | null>(null);
   const { toast, show, clear }    = useToast();
@@ -671,7 +665,7 @@ export default function Timeline({ timelineRows, appid, releaseDate, focusYm, fo
   if (allYms.length === 0) {
     return (
       <div className="text-center py-10 text-text-muted text-sm">
-        {t("TIMELINE_EMPTY")}
+        {"타임라인 데이터 없음"}
       </div>
     );
   }
@@ -684,7 +678,7 @@ export default function Timeline({ timelineRows, appid, releaseDate, focusYm, fo
           onClick={() => setSortAsc(!sortAsc)}
           className="text-xs px-3 py-1.5 bg-bg-card border border-border-default rounded-lg text-text-secondary hover:text-text-primary hover:border-border-hover transition-colors"
         >
-          {sortAsc ? t("TIMELINE_SORT_ASC") : t("TIMELINE_SORT_DESC")}
+          {sortAsc ? "오래된 순" : "최신 순"}
         </button>
       </div>
 
@@ -719,7 +713,7 @@ export default function Timeline({ timelineRows, appid, releaseDate, focusYm, fo
           onClose={() => setEditingRow(null)}
           onSaved={() => {
             setEditingRow(null);
-            show(t("TIMELINE_EDIT_SAVED_NOTICE"), "success");
+            show("저장되었습니다.", "success");
           }}
         />
       )}

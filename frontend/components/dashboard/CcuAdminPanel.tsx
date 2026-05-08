@@ -3,7 +3,6 @@ import { useState, useRef } from "react";
 import { Upload, ExternalLink } from "lucide-react";
 import AdminPasswordModal from "@/components/shared/AdminPasswordModal";
 import Toast, { useToast } from "@/components/shared/Toast";
-import { useUiText } from "@/contexts/UiTextContext";
 
 interface CcuAdminPanelProps {
   currentAppId: string;
@@ -15,7 +14,6 @@ export default function CcuAdminPanel({
   currentAppId, gameName, onCsvUploaded,
 }: CcuAdminPanelProps) {
   const { toast, show, clear } = useToast();
-  const { t } = useUiText();
 
   // CSV 업로드
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -51,10 +49,10 @@ export default function CcuAdminPanel({
     setShowFileModal(false);
     if (csvRef.current) csvRef.current.value = "";
     if (data.ok) {
-      show(t("CSV_SUCCESS", { count: data.added }), "success");
+      show(`CCU 데이터 ${data.added}건이 업로드되었습니다.`, "success");
       onCsvUploaded();
     } else {
-      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      show(data.error ?? "오류가 발생했습니다.", "error");
     }
   }
 
@@ -78,7 +76,7 @@ export default function CcuAdminPanel({
         className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border border-border-default text-text-muted rounded-lg text-xs hover:bg-bg-hover hover:text-text-secondary transition-colors disabled:opacity-40"
       >
         <Upload className="w-3 h-3" />
-        {uploadingCsv ? t("CSV_UPLOADING") : t("CSV_UPLOAD_BTN")}
+        {uploadingCsv ? "업로드 중..." : "CSV 업로드"}
       </button>
 
       {/* 숨겨진 파일 입력 */}
@@ -94,25 +92,25 @@ export default function CcuAdminPanel({
       {showFileModal && csvFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl">
-            <h3 className="text-sm font-semibold text-text-primary mb-2">{t("CSV_MODAL_TITLE")}</h3>
-            <p className="text-xs text-text-muted mb-1">{t("CSV_SELECTED_FILE")}</p>
+            <h3 className="text-sm font-semibold text-text-primary mb-2">{"CSV 파일 확인"}</h3>
+            <p className="text-xs text-text-muted mb-1">{"선택한 파일:"}</p>
             <p className="text-xs text-text-secondary bg-bg-secondary rounded px-3 py-2 mb-4 truncate">
               {csvFile.name}
             </p>
-            <p className="text-xs text-text-muted mb-4">{t("CSV_GAME_ONLY", { name: gameName })}</p>
+            <p className="text-xs text-text-muted mb-4">{`${gameName} 게임 전용 CCU 데이터만 포함해야 합니다.`}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowCsvModal(true)}
                 className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm hover:bg-accent-blue/30 transition-colors flex items-center justify-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
-                {t("CSV_UPLOAD_CONFIRM")}
+                {"업로드 확인"}
               </button>
               <button
                 onClick={() => { setShowFileModal(false); setCsvFile(null); if (csvRef.current) csvRef.current.value = ""; }}
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover transition-colors"
               >
-                {t("CSV_CANCEL")}
+                {"취소"}
               </button>
             </div>
           </div>
@@ -122,8 +120,8 @@ export default function CcuAdminPanel({
       {/* 비밀번호 모달 */}
       <AdminPasswordModal
         isOpen={showCsvModal}
-        title={t("CSV_AUTH_TITLE")}
-        description={t("CSV_AUTH_DESC")}
+        title={"CSV 업로드 인증"}
+        description={"CCU 데이터를 업로드하려면 관리자 비밀번호를 입력하세요."}
         loading={uploadingCsv}
         onConfirm={handleUploadCsv}
         onClose={() => setShowCsvModal(false)}

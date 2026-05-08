@@ -5,7 +5,6 @@ import {
 } from "recharts";
 import { useState, useMemo, useRef } from "react";
 import type { TimelineRow } from "@/types";
-import { useUiText } from "@/contexts/UiTextContext";
 import { useChartTheme } from "@/lib/useChartTheme";
 import LifecycleSummary from "@/components/dashboard/LifecycleSummary";
 
@@ -76,7 +75,6 @@ export default function SentimentChart({
   timelineRows, topLanguages, sentimentTrendComment,
   shiftRows, onShiftClick, onPointClick, lifecycleComment,
 }: SentimentChartProps) {
-  const { t } = useUiText();
   const chart = useChartTheme();
   const bandScrollRef = useRef<HTMLDivElement>(null);
   const langOptions = ["all", ...topLanguages.filter((l) => l !== "all")];
@@ -306,7 +304,7 @@ export default function SentimentChart({
   if (chartData.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-        {t("CHART_NO_DATA")}
+        {"데이터 없음"}
       </div>
     );
   }
@@ -315,7 +313,7 @@ export default function SentimentChart({
     <div>
       {/* 언어 토글 버튼 + 볼륨 토글 + 마커 범례 */}
       <div className="flex gap-1 flex-wrap mb-4 items-center">
-        <span className="text-xs text-text-muted mr-1">{t("CHART_LANG_FILTER")}</span>
+        <span className="text-xs text-text-muted mr-1">{"언어 필터"}</span>
         {langOptions.map((lang) => {
           const active = selectedLangs.has(lang);
           const color = LANG_COLORS[lang] ?? "#8b91a8";
@@ -365,7 +363,7 @@ export default function SentimentChart({
               <circle cx="8" cy="8" r="6" fill="none" stroke="#f5c842" strokeWidth="2" opacity="0.8" />
               <circle cx="8" cy="8" r="3" fill="#4f87ff" />
             </svg>
-            {t("CHART_SHIFT_LEGEND")}
+            {"급변 감지"}
           </span>
         )}
       </div>
@@ -471,8 +469,8 @@ export default function SentimentChart({
               wrapperStyle={{ fontSize: 11, color: "rgb(var(--text-secondary-rgb))" }}
             />
           )}
-          <ReferenceLine yAxisId="left" y={80} stroke="#5db86540" strokeDasharray="4 4" label={{ value: t("CHART_VERY_POSITIVE"), fill: "#5db865", fontSize: 10 }} />
-          <ReferenceLine yAxisId="left" y={40} stroke="#e05c5c40" strokeDasharray="4 4" label={{ value: t("CHART_MIXED"), fill: "#e05c5c", fontSize: 10 }} />
+          <ReferenceLine yAxisId="left" y={80} stroke="#5db86540" strokeDasharray="4 4" label={{ value: "매우 긍정", fill: "#5db865", fontSize: 10 }} />
+          <ReferenceLine yAxisId="left" y={40} stroke="#e05c5c40" strokeDasharray="4 4" label={{ value: "복합 평가", fill: "#e05c5c", fontSize: 10 }} />
 
           {showVolume && (
             <Bar
@@ -563,7 +561,7 @@ export default function SentimentChart({
         <div className="mt-5">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-              {t("KEYWORD_TIMELINE_TITLE")}
+              {"키워드 타임라인"}
             </p>
             {keywordBandData.length > 8 && (
               <span className="text-[10px] text-text-muted">← 스크롤</span>

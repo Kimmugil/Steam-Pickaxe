@@ -4,7 +4,6 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from "recharts";
 import Badge from "@/components/shared/Badge";
-import { useUiText } from "@/contexts/UiTextContext";
 import type { TimelineRow } from "@/types";
 import { useChartTheme } from "@/lib/useChartTheme";
 
@@ -37,7 +36,6 @@ const PIE_COLORS = ["#4f87ff", "#5db865", "#8b6fe8", "#e08c45", "#e05c5c", "#888
 const PIE_TOP_N = 5; // 개별 표시할 최대 언어 수 (나머지 → 기타)
 
 export default function LanguageTab({ timelineRows, crossAnalysisComment, languageDistribution }: LanguageTabProps) {
-  const { t } = useUiText();
   const chart = useChartTheme();
 
   // ── 1. 리스트 스탯 (전체 언어) ────────────────────────────────────
@@ -100,9 +98,9 @@ export default function LanguageTab({ timelineRows, crossAnalysisComment, langua
     const otherReviews = rest.reduce((sum, s) => sum + s.reviews, 0);
     return [
       ...top.map((s) => ({ name: s.name, value: s.reviews })),
-      { name: t("LANG_OTHER"), value: otherReviews },
+      { name: "기타", value: otherReviews },
     ];
-  }, [stats, t]);
+  }, [stats]);
 
   if (stats.length === 0) {
     return (

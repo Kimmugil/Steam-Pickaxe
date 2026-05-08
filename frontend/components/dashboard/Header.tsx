@@ -1,7 +1,6 @@
 "use client";
 import Image from "next/image";
 import Badge from "@/components/shared/Badge";
-import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
 function parseBool(v: boolean | string | undefined): boolean {
@@ -59,7 +58,6 @@ interface HeaderProps {
 
 
 export default function Header({ game, currentCcu, topSentimentRate }: HeaderProps) {
-  const { t } = useUiText();
 
   const peakCcu = Number(game.peak_ccu) || 0;
   const ccuPct = peakCcu > 0 && currentCcu != null
@@ -84,17 +82,17 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
               <h1 className="text-2xl font-bold text-text-primary">{game.name_kr || game.name}</h1>
               {parseBool(game.is_free) && (
                 <span className="text-xs bg-accent-green/20 text-accent-green border border-accent-green/30 px-2 py-0.5 rounded font-medium">
-                  {t("BADGE_F2P")}
+                  {"F2P"}
                 </span>
               )}
               {parseBool(game.is_early_access) && (
                 <span className="text-xs bg-accent-yellow/20 text-accent-yellow border border-accent-yellow/30 px-2 py-0.5 rounded font-medium">
-                  {t("BADGE_EARLY_ACCESS")}
+                  {"Early Access"}
                 </span>
               )}
               {!game.ai_briefing && game.ai_approved !== "true" && (
                 <span className="text-xs bg-accent-orange/10 text-accent-orange border border-accent-orange/40 px-2 py-0.5 rounded font-medium">
-                  {t("BADGE_AI_UNAPPROVED")}
+                  {"AI 미승인"}
                 </span>
               )}
             </div>
@@ -103,14 +101,14 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
             )}
 
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              <span className="text-xs text-text-muted">{t("HEADER_APPID_LABEL")} {game.appid}</span>
+              <span className="text-xs text-text-muted">{"AppID:"} {game.appid}</span>
               <a
                 href={`https://store.steampowered.com/app/${game.appid}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-accent-blue hover:underline"
               >
-                {t("HEADER_STEAM_LINK")}
+                {"Steam 상점 바로가기 ↗"}
               </a>
             </div>
 
@@ -122,7 +120,7 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                     ? Number(game.steam_positive_rate)
                     : undefined;
                 const displayRate = steamRate ?? topSentimentRate;
-                const rateLabel   = steamRate !== undefined ? t("HEADER_RATE_LABEL_STEAM") : t("HEADER_RATE_LABEL_RECENT");
+                const rateLabel   = steamRate !== undefined ? "Steam 전체 누적 평가 기준" : "최근 이벤트 구간 기준";
                 return displayRate !== undefined ? (
                   <div className="flex flex-col gap-1">
                     <Badge rate={displayRate} reviewCount={Number(game.totalReviews || 0)} size="lg" labelOnly />
@@ -135,9 +133,9 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
               <div className="flex flex-col gap-1">
                 <span className="text-lg font-bold text-text-primary tabular-nums">
                   {Number(game.totalReviews || 0).toLocaleString()}
-                  <span className="text-sm font-normal text-text-secondary ml-0.5">{t("HEADER_REVIEWS_UNIT")}</span>
+                  <span className="text-sm font-normal text-text-secondary ml-0.5">{"건"}</span>
                 </span>
-                <span className="text-[10px] text-text-muted">{t("HEADER_REVIEWS_LABEL")}</span>
+                <span className="text-[10px] text-text-muted">{"리뷰"}</span>
               </div>
 
               {/* Metacritic 점수 */}
@@ -164,13 +162,13 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                     <span className="text-lg font-bold text-text-primary tabular-nums">
                       {currentCcu.toLocaleString()}
                     </span>
-                    <span className="text-sm font-normal text-text-secondary">{t("HEADER_CCU_UNIT")}</span>
+                    <span className="text-sm font-normal text-text-secondary">{"명"}</span>
                   </div>
                   <span className="text-[10px] text-text-muted">
-                    {t("HEADER_CCU_LABEL")}
+                    {"현재 CCU"}
                     {ccuPct !== null && (
                       <span className="ml-1 opacity-70">
-                        · {t("HEADER_CCU_PEAK_LABEL")} {Number(game.peak_ccu).toLocaleString()}{t("HEADER_CCU_UNIT")} 대비 {ccuPct}%
+                        · {"역대 최고"} {Number(game.peak_ccu).toLocaleString()}{"명"} {"대비"} {ccuPct}%
                       </span>
                     )}
                   </span>

@@ -2,7 +2,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import Badge from "@/components/shared/Badge";
-import { useUiText } from "@/contexts/UiTextContext";
 import type { Game } from "@/types";
 
 const MONTHS: Record<string, string> = {
@@ -31,13 +30,12 @@ interface GameCardProps {
 }
 
 export default function GameCard({ game }: GameCardProps) {
-  const { t } = useUiText();
 
   function fmtAgo(n: number): string {
-    if (n === 0) return t("REL_TODAY");
-    if (n <= 7)  return t("REL_DAYS_AGO",   { n });
-    if (n <= 30) return t("REL_WEEKS_AGO",  { n: Math.ceil(n / 7) });
-    return              t("REL_MONTHS_AGO", { n: Math.ceil(n / 30) });
+    if (n === 0) return "오늘";
+    if (n <= 7)  return `${n}일 전`;
+    if (n <= 30) return `${Math.ceil(n / 7)}주 전`;
+    return              `${Math.ceil(n / 30)}개월 전`;
   }
 
   const sentimentRate =
@@ -87,7 +85,7 @@ export default function GameCard({ game }: GameCardProps) {
         {!game.ai_briefing && game.ai_approved !== "true" && (
           <div className="absolute top-2 left-2">
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm border border-accent-orange/50 text-accent-orange">
-              {t("BADGE_AI_UNAPPROVED")}
+              {"AI 미승인"}
             </span>
           </div>
         )}
@@ -123,11 +121,11 @@ export default function GameCard({ game }: GameCardProps) {
           {/* 좌측 — 보조 정보 */}
           <div className="space-y-0.5 min-w-0">
             <p className="text-xs text-text-secondary leading-tight">
-              {t("CARD_REVIEWS_LABEL", { n: Number(game.totalReviews || 0).toLocaleString() })}
+              {`리뷰 ${Number(game.totalReviews || 0).toLocaleString()}건`}
             </p>
             {releaseIso && (
               <p className="text-xs text-text-muted">
-                <span className="text-text-muted/60">{t("CARD_RELEASE_DATE_LABEL")} </span>
+                <span className="text-text-muted/60">{"Steam 출시일"} </span>
                 {releaseIso}
               </p>
             )}
@@ -136,7 +134,7 @@ export default function GameCard({ game }: GameCardProps) {
           {/* 우측 — 핵심 지표 */}
           {sentimentRate !== null && sentimentRate > 0 && (
             <div className="text-right flex-shrink-0">
-              <p className="text-[9px] text-text-muted mb-0.5">{t("CARD_POSITIVE_RATE_LABEL")}</p>
+              <p className="text-[9px] text-text-muted mb-0.5">{"긍정률"}</p>
               <p className={`text-2xl font-bold tabular-nums leading-none ${rateColor}`}>
                 {sentimentRate.toFixed(0)}%
               </p>
@@ -154,7 +152,7 @@ export default function GameCard({ game }: GameCardProps) {
           <div className="mt-2">
             <div className="flex items-center gap-1">
               <span className="text-[10px] flex-shrink-0">🔔</span>
-              <span className="text-[10px] font-medium text-text-muted">{t("CARD_RECENT_EVENT_LABEL")}</span>
+              <span className="text-[10px] font-medium text-text-muted">{"공식 이벤트"}</span>
               <span className="text-[10px] text-text-muted/60 flex-shrink-0 ml-auto">{fmtAgo(eventDays)}</span>
             </div>
             {game.latest_official_event_title && (

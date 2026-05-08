@@ -40,7 +40,7 @@ function PoolEmptyCard({
       show(t("POOL_EMPTY_RETRY_SUCCESS"), "success");
       setTimeout(onRetried, 1500);
     } else {
-      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      show(data.error ?? "오류가 발생했습니다.", "error");
     }
   }
 
@@ -58,7 +58,7 @@ function PoolEmptyCard({
           />
           {/* 오류 뱃지 */}
           <span className="absolute top-2 left-2 text-[10px] bg-accent-red/90 text-white px-2 py-0.5 rounded font-medium">
-            {t("QUEUE_COLLECTING_ERROR")}
+            {"수집 오류"}
           </span>
         </div>
       )}
@@ -88,7 +88,7 @@ function PoolEmptyCard({
       {showPwModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-80">
-            <p className="font-semibold mb-1">{t("ADMIN_PW_TITLE")}</p>
+            <p className="font-semibold mb-1">{"관리자 비밀번호 확인"}</p>
             <p className="text-xs text-text-muted mb-3">
               {t("POOL_EMPTY_SHEET_HINT")}
             </p>
@@ -96,7 +96,7 @@ function PoolEmptyCard({
               type="password"
               value={pw}
               onChange={(e) => setPw(e.target.value)}
-              placeholder={t("ADMIN_PW_PLACEHOLDER")}
+              placeholder={"비밀번호 입력"}
               className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
               onKeyDown={(e) => e.key === "Enter" && handleRetry()}
             />
@@ -106,13 +106,13 @@ function PoolEmptyCard({
                 disabled={loading || !pw}
                 className="flex-1 py-2 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue rounded-lg text-sm disabled:opacity-40"
               >
-                {loading ? t("PROCESSING") : t("POOL_EMPTY_RETRY_BTN")}
+                {loading ? "처리 중..." : t("POOL_EMPTY_RETRY_BTN")}
               </button>
               <button
                 onClick={() => { setShowPwModal(false); setPw(""); }}
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover"
               >
-                {t("ADMIN_CLOSE_BTN")}
+                {"닫기"}
               </button>
             </div>
           </div>
@@ -139,10 +139,10 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
   const etaMin = remaining > 0 ? Math.round(remaining / 800) : 0;
   const etaStr =
     etaMin > 60
-      ? t("QUEUE_ETA_HOURS", { hours: Math.round(etaMin / 60) })
+      ? `약 ${Math.round(etaMin / 60)}시간`
       : etaMin > 0
-      ? t("QUEUE_ETA_MINS", { mins: etaMin })
-      : t("QUEUE_ETA_SOON");
+      ? `약 ${etaMin}분`
+      : "잠시 후 완료";
 
   // cursor가 진행 중(* 아님)이면 초기화 버튼 표시
   const isCursorStuck = !!game.last_cursor && game.last_cursor !== "*";
@@ -174,10 +174,10 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
     setShowPwModal(false);
     setPw("");
     if (data.ok) {
-      show(t("QUEUE_CANCEL_SUCCESS"), "success");
+      show("등록이 취소되었습니다.", "success");
       setTimeout(onCancelled, 1000);
     } else {
-      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      show(data.error ?? "오류가 발생했습니다.", "error");
     }
   }
 
@@ -193,10 +193,10 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
     setShowPwModal(false);
     setPw("");
     if (data.ok) {
-      show(t("QUEUE_CURSOR_RESET_SUCCESS"), "success");
+      show("커서 초기화 완료. 다음 수집 시 처음부터 재시작됩니다.", "success");
       setTimeout(onCancelled, 1200);
     } else {
-      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      show(data.error ?? "오류가 발생했습니다.", "error");
     }
   }
 
@@ -212,10 +212,10 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
     setShowPwModal(false);
     setPw("");
     if (data.ok) {
-      show(t("QUEUE_FORCE_ACTIVATE_SUCCESS"), "success");
+      show("분석을 시작합니다. 잠시 후 분석 목록에서 확인하세요.", "success");
       setTimeout(onCancelled, 1500);
     } else {
-      show(data.error ?? t("ADMIN_GENERIC_ERROR"), "error");
+      show(data.error ?? "오류가 발생했습니다.", "error");
     }
   }
 
@@ -232,7 +232,7 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
           <span className="absolute top-2 left-2 text-[10px] bg-accent-blue/90 text-white px-2 py-0.5 rounded font-medium animate-pulse">
-            {t("QUEUE_COLLECTING")}
+            {"수집 중..."}
           </span>
         </div>
       )}
@@ -249,15 +249,12 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
         <div className="mt-3 space-y-1">
           {total > 0 && (
             <p className="text-xs text-text-secondary">
-              {t("QUEUE_REVIEWS_PROGRESS", {
-                collected: collected.toLocaleString(),
-                total: total.toLocaleString(),
-              })}
+              {`리뷰 ${collected.toLocaleString()} / ${total.toLocaleString()}건`}
             </p>
           )}
           <p className="text-xs text-text-muted">
-            {t("QUEUE_ETA_LABEL")}: {etaStr}
-            <span className="ml-1 text-[10px] opacity-60">{t("QUEUE_ETA_SUFFIX")}</span>
+            {"예상 잔여 시간"}: {etaStr}
+            <span className="ml-1 text-[10px] opacity-60">{"(Steam API 상태에 따라 변동)"}</span>
           </p>
         </div>
 
@@ -267,7 +264,7 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
             onClick={() => openModal("activate")}
             className="mt-3 w-full py-2 text-xs bg-accent-green/10 border border-accent-green/30 text-accent-green rounded-lg hover:bg-accent-green/20 transition-colors font-medium"
           >
-            {t("QUEUE_FORCE_ACTIVATE_BTN")}
+            {"⚡ 지금 분석 바로 시작"}
           </button>
         )}
 
@@ -275,13 +272,13 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
         {isCursorStuck && (
           <div className="mt-2 p-2 bg-accent-orange/10 border border-accent-orange/30 rounded-lg">
             <p className="text-[11px] text-accent-orange leading-relaxed">
-              {t("QUEUE_CURSOR_STUCK_MSG")}
+              {"수집이 중단된 것 같습니다. 초기화 후 처음부터 재수집할 수 있습니다."}
             </p>
             <button
               onClick={() => openModal("reset")}
               className="mt-1.5 text-[11px] text-accent-orange border border-accent-orange/40 rounded px-2 py-0.5 hover:bg-accent-orange/10 transition-colors"
             >
-              {t("QUEUE_CURSOR_RESET_BTN")}
+              {"cursor 초기화 (처음부터 재수집)"}
             </button>
           </div>
         )}
@@ -290,7 +287,7 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
           onClick={() => openModal("cancel")}
           className="mt-3 text-xs text-accent-red/70 hover:text-accent-red transition-colors"
         >
-          {t("QUEUE_CANCEL_BTN")}
+          {"등록 취소"}
         </button>
       </div>
 
@@ -300,21 +297,21 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
           <div className="bg-bg-card border border-border-default rounded-xl p-6 w-80">
             <p className="font-semibold mb-1">
               {modalMode === "activate"
-                ? t("QUEUE_FORCE_ACTIVATE_MODAL_TITLE")
-                : t("ADMIN_PW_TITLE")}
+                ? "⚡ 지금 분석 바로 시작"
+                : "관리자 비밀번호 확인"}
             </p>
             <p className="text-xs text-text-muted mb-3">
               {modalMode === "activate"
-                ? t("QUEUE_FORCE_ACTIVATE_MODAL_DESC", { collected: collected.toLocaleString() })
+                ? `현재 수집된 리뷰 ${collected.toLocaleString()}건으로 즉시 분석을 시작합니다. 이후 새 리뷰는 다음 정기 수집에서 추가됩니다.`
                 : modalMode === "reset"
-                ? t("QUEUE_CURSOR_RESET_MODAL_DESC")
+                ? "cursor를 초기화하고 처음부터 다시 수집합니다."
                 : ""}
             </p>
             <input
               type="password"
               value={pw}
               onChange={(e) => setPw(e.target.value)}
-              placeholder={t("ADMIN_PW_PLACEHOLDER")}
+              placeholder={"비밀번호 입력"}
               className="w-full bg-bg-secondary border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-blue mb-3"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -344,18 +341,18 @@ export default function QueueCard({ game, onCancelled }: QueueCardProps) {
                 }`}
               >
                 {loading
-                  ? t("PROCESSING")
+                  ? "처리 중..."
                   : modalMode === "activate"
-                  ? t("QUEUE_FORCE_ACTIVATE_CONFIRM_BTN")
+                  ? "분석 시작"
                   : modalMode === "reset"
-                  ? t("QUEUE_CURSOR_RESET_CONFIRM_BTN")
-                  : t("QUEUE_CANCEL_CONFIRM_BTN")}
+                  ? "cursor 초기화"
+                  : "등록 취소 확인"}
               </button>
               <button
                 onClick={() => { setShowPwModal(false); setPw(""); }}
                 className="flex-1 py-2 bg-bg-secondary text-text-secondary rounded-lg text-sm hover:bg-bg-hover"
               >
-                {t("ADMIN_CLOSE_BTN")}
+                {"닫기"}
               </button>
             </div>
           </div>

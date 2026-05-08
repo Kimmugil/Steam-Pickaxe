@@ -5,7 +5,6 @@ import {
 } from "recharts";
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { CcuRow } from "@/types";
-import { useUiText } from "@/contexts/UiTextContext";
 import { useChartTheme } from "@/lib/useChartTheme";
 
 interface CcuChartProps {
@@ -114,14 +113,13 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
   const [containerW, setContainerW] = useState(800);
   const [viewRange, setViewRange] = useState<ViewRange>("30d");
   const [viewMode, setViewMode] = useState<ViewMode>("line");
-  const { t } = useUiText();
   const chart = useChartTheme();
   const VIEW_LABELS: Record<ViewRange, string> = {
-    all: t("CCU_VIEW_ALL"),
-    "90d": t("CCU_VIEW_90D"),
-    "30d": t("CCU_VIEW_30D"),
+    all: "전체",
+    "90d": "90일",
+    "30d": "30일",
   };
-  const hourSuffix = t("CCU_HOUR_SUFFIX");
+  const hourSuffix = "시";
 
   const cutoffMs = useMemo(() => {
     const now = Date.now();
@@ -207,7 +205,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-        {t("CCU_NO_DATA")}
+        {"데이터 없음"}
       </div>
     );
   }
@@ -228,7 +226,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
                   : "bg-bg-secondary border border-border-default text-text-muted hover:text-text-secondary"
               }`}
             >
-              {mode === "line" ? t("CCU_VIEW_LINE") : t("CCU_VIEW_HEATMAP")}
+              {mode === "line" ? "꺾은선" : "히트맵"}
             </button>
           ))}
 
@@ -253,7 +251,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
         </div>
         <div className="flex items-center gap-2">
           {viewMode === "line" && viewRange === "all" && (
-            <span className="text-xs text-text-muted">{t("CCU_SCROLL_HINT")}</span>
+            <span className="text-xs text-text-muted">{"← 스크롤하여 전체 기간 확인 →"}</span>
           )}
           <span className="text-[10px] px-1.5 py-0.5 rounded border text-text-muted border-border-default bg-bg-secondary">
             KST
@@ -267,29 +265,29 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
           {/* 가이드 — 읽는 법 안내 */}
           <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg bg-bg-secondary border border-border-default px-3 py-2">
             <p className="text-xs text-text-muted leading-relaxed">
-              <span className="text-text-secondary font-medium">{t("CCU_HEATMAP_HOW_TO_READ")}</span>
-              &nbsp;· {t("CCU_HEATMAP_GUIDE")}
+              <span className="text-text-secondary font-medium">{"읽는 법"}</span>
+              &nbsp;· {"가로축: 시간(KST) / 세로축: 요일. 색이 진할수록 평균 동접자 수가 많습니다."}
             </p>
             <div className="flex items-center gap-2 shrink-0 text-xs text-text-muted">
               {/* 데이터 없음 범례 */}
               <span className="flex items-center gap-1">
                 <span className="inline-block w-4 h-4 rounded-sm bg-bg-card border border-border-default" />
-                {t("CCU_HEATMAP_NO_DATA_LEGEND")}
+                {"데이터 없음"}
               </span>
               {/* 색 농도 그라디언트 범례 */}
-              <span className="ml-1">{t("CCU_HEATMAP_LOW")}</span>
+              <span className="ml-1">{"낮음"}</span>
               <div
                 className="w-16 h-3 rounded-sm shrink-0"
                 style={{ background: "linear-gradient(to right, rgba(79,135,255,0.08), rgba(79,135,255,1))" }}
               />
-              <span>{t("CCU_HEATMAP_HIGH")}</span>
+              <span>{"높음"}</span>
               {/* 피크 마커 범례 */}
               <span className="flex items-center gap-1 ml-1">
                 <span
                   className="inline-block w-4 h-4 rounded-sm border border-accent-blue/70"
                   style={{ backgroundColor: "rgba(79,135,255,1)" }}
                 />
-                {t("CCU_HEATMAP_PEAK")}
+                {"피크"}
               </span>
             </div>
           </div>
@@ -331,7 +329,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
                                 cell.count === 0 ? "bg-bg-secondary" : ""
                               } ${isMax ? "border border-accent-blue/60" : ""}`}
                               style={bg ? { backgroundColor: bg } : undefined}
-                              title={cell.count > 0 ? `${t("CCU_HEATMAP_TOOLTIP_AVG")} ${cell.avg.toLocaleString()}` : t("CCU_HEATMAP_TOOLTIP_NO_DATA")}
+                              title={cell.count > 0 ? `평균 ${cell.avg.toLocaleString()}` : "데이터 없음"}
                             />
                           </td>
                         );
@@ -343,14 +341,14 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
             </table>
           </div>
           <p className="text-xs text-text-muted text-center mt-3">
-            {t("CCU_HEATMAP_FOOTER")}{heatmapMax > 0 ? ` ${heatmapMax.toLocaleString()}${t("CCU_TOOLTIP_UNIT")}` : ""} {t("CCU_HEATMAP_FOOTER_SUFFIX")}
+            {"전체 기간 데이터 기준. 피크:"}{heatmapMax > 0 ? ` ${heatmapMax.toLocaleString()}명` : ""} {"(KST)"}
           </p>
         </div>
       ) : (
         /* 꺾은선 뷰 */
         !resampled.length ? (
           <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-            {t("CCU_NO_DATA_PERIOD")}
+            {"해당 기간 데이터 없음"}
           </div>
         ) : (
           <div
@@ -378,7 +376,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
                   />
                   <Tooltip
                     contentStyle={{ background: "rgb(var(--bg-card-rgb))", border: "1px solid rgb(var(--border-default-rgb))", borderRadius: 8, color: "rgb(var(--text-primary-rgb))" }}
-                    formatter={(v: number) => [`${v.toLocaleString()}${t("CCU_TOOLTIP_UNIT")}`, "CCU"]}
+                    formatter={(v: number) => [`${v.toLocaleString()}명`, "CCU"]}
                     labelFormatter={(label) => String(label)}
                   />
                   <Line
@@ -399,7 +397,7 @@ export default function CcuChart({ data, peaktimeComment }: CcuChartProps) {
 
       {peaktimeComment && (
         <div className="mt-4 bg-bg-card border border-accent-blue/20 rounded-lg px-4 py-3">
-          <p className="text-xs text-accent-blue mb-1">{t("CCU_PEAKTIME_LABEL")}</p>
+          <p className="text-xs text-accent-blue mb-1">{"AI 피크타임 분석"}</p>
           <p className="text-sm text-text-secondary leading-relaxed">{peaktimeComment}</p>
         </div>
       )}
