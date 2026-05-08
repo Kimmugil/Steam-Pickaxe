@@ -64,7 +64,7 @@ export default async function HomeInsightPanel({ games }: Props) {
 
       {/* ── ⚡ 평가 급변 ─────────────────────────────────────────────── */}
       <div className="px-4 py-3">
-        <h3 className="text-sm font-semibold text-text-primary border-l-2 border-accent-yellow pl-2.5">{t("INSIGHT_SHIFT_TITLE")}</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{t("INSIGHT_SHIFT_TITLE")}</h3>
       </div>
       <div>
         {shiftGames.length === 0 ? (

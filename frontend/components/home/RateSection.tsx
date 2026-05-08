@@ -26,7 +26,7 @@ export default function RateSection({ games }: { games: Game[] }) {
     <>
       {/* 섹션 헤더 */}
       <div className="px-4 py-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary border-l-2 border-accent-green pl-2.5">{t("INSIGHT_RATE_TITLE")}</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{t("INSIGHT_RATE_TITLE")}</h3>
         <div className="flex gap-1">
           {(["desc", "asc"] as RateSort[]).map((o) => (
             <button

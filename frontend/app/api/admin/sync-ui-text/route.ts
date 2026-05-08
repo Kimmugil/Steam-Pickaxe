@@ -99,6 +99,7 @@ const FALLBACK: Record<string, string> = {
   ONBOARD_MODAL_TITLE:   "이용 안내",
   ONBOARD_BTN_CLOSE:     "닫기",
   ONBOARD_BTN_DISMISS:   "다시 보지 않기",
+  ONBOARD_HOW_TITLE:     "사용 방법",
   ONBOARD_STEP1_TITLE:   "이 서비스는?",
   ONBOARD_STEP1_DESC:    "Steam 게임의 리뷰·평가 데이터를 수집해 트렌드와 이상 징후를 자동 분석하는 인텔리전스 대시보드입니다.",
   ONBOARD_STEP2_TITLE:   "게임 등록",

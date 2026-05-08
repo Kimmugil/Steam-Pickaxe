@@ -4,45 +4,9 @@ import { useUiText } from "@/contexts/UiTextContext";
 
 const STORAGE_KEY = "onboard_dismissed";
 
-const STEPS = [
-  {
-    icon: "🔍",
-    titleKey: "ONBOARD_STEP1_TITLE",
-    descKey:  "ONBOARD_STEP1_DESC",
-    noteKey:  null as string | null,
-    border:   "border-accent-blue",
-    iconBg:   "bg-accent-blue/10",
-  },
-  {
-    icon: "🎮",
-    titleKey: "ONBOARD_STEP2_TITLE",
-    descKey:  "ONBOARD_STEP2_DESC",
-    noteKey:  null as string | null,
-    border:   "border-accent-purple",
-    iconBg:   "bg-accent-purple/10",
-  },
-  {
-    icon: "🤖",
-    titleKey: "ONBOARD_STEP3_TITLE",
-    descKey:  "ONBOARD_STEP3_DESC",
-    noteKey:  "ONBOARD_STEP3_NOTE",
-    border:   "border-accent-green",
-    iconBg:   "bg-accent-green/10",
-  },
-  {
-    icon: "📊",
-    titleKey: "ONBOARD_STEP4_TITLE",
-    descKey:  "ONBOARD_STEP4_DESC",
-    noteKey:  null as string | null,
-    border:   "border-accent-orange",
-    iconBg:   "bg-accent-orange/10",
-  },
-];
-
 export default function OnboardingModal() {
   const { t } = useUiText();
-  // 플래시 방지: 초기값 true로 시작 → useEffect에서 localStorage 확인 후 갱신
-  const [dismissed, setDismissed] = useState(true);
+  const [dismissed, setDismissed] = useState(true); // 플래시 방지용 초기값
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -65,15 +29,16 @@ export default function OnboardingModal() {
           onClick={() => setOpen(true)}
           className="flex items-center gap-2 bg-bg-card border border-border-default rounded-full
             pl-2.5 pr-3.5 py-1.5 shadow-lg
-            hover:border-accent-blue hover:bg-accent-blue/5
+            hover:border-accent-blue hover:bg-bg-hover
             transition-all duration-200 group"
         >
-          {/* 레드닷 — 처음 방문자에게만 표시 */}
           <span className="relative flex h-2 w-2 flex-shrink-0">
             {!dismissed && (
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-red opacity-75" />
             )}
-            <span className={`relative inline-flex rounded-full h-2 w-2 ${dismissed ? "bg-border-hover" : "bg-accent-red"}`} />
+            <span className={`relative inline-flex rounded-full h-2 w-2 transition-colors ${
+              dismissed ? "bg-border-hover" : "bg-accent-red"
+            }`} />
           </span>
           <span className="text-xs font-medium text-text-secondary group-hover:text-text-primary transition-colors whitespace-nowrap">
             {t("ONBOARD_TRIGGER_LABEL")}
@@ -93,7 +58,7 @@ export default function OnboardingModal() {
           {/* 모달 본체 */}
           <div
             className="relative bg-bg-card border border-border-default rounded-2xl shadow-2xl
-              w-full max-w-xl max-h-[90vh] overflow-y-auto"
+              w-full max-w-md max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
@@ -103,47 +68,84 @@ export default function OnboardingModal() {
               </h2>
               <button
                 onClick={handleClose}
-                className="text-text-muted hover:text-text-primary transition-colors text-xl leading-none w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-secondary"
+                className="text-text-muted hover:text-text-primary transition-colors text-xl leading-none
+                  w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-secondary"
               >
                 ✕
               </button>
             </div>
 
-            {/* 스텝 카드 그리드 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5">
-              {STEPS.map((step, idx) => (
-                <div
-                  key={idx}
-                  className={`bg-bg-secondary rounded-xl border-l-[3px] border border-border-default p-4 flex flex-col gap-2.5 ${step.border}`}
-                >
-                  {/* 아이콘 + 제목 */}
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${step.iconBg}`}>
-                      <span className="text-lg">{step.icon}</span>
-                    </div>
+            {/* 카드 목록 */}
+            <div className="flex flex-col gap-3 p-5">
+
+              {/* ── 카드 1: 이 서비스는? ── */}
+              <div className="bg-bg-secondary border border-border-default rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-2.5">
+                  <span className="text-xl">🔍</span>
+                  <p className="text-sm font-semibold text-text-primary">
+                    {t("ONBOARD_STEP1_TITLE")}
+                  </p>
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {t("ONBOARD_STEP1_DESC")}
+                </p>
+              </div>
+
+              {/* ── 카드 2: 사용 방법 (3스텝) ── */}
+              <div className="bg-bg-secondary border border-border-default rounded-xl p-4">
+                <p className="text-sm font-semibold text-text-primary mb-3">
+                  {t("ONBOARD_HOW_TITLE")}
+                </p>
+                <div className="flex flex-col gap-3">
+
+                  {/* STEP 1 */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-base mt-0.5 flex-shrink-0">🎮</span>
                     <div>
-                      <p className="text-[9px] text-text-muted font-mono tracking-widest uppercase">
-                        STEP {idx + 1}
+                      <p className="text-xs font-semibold text-text-primary leading-tight">
+                        {t("ONBOARD_STEP2_TITLE")}
                       </p>
-                      <p className="text-sm font-semibold text-text-primary leading-tight">
-                        {t(step.titleKey)}
+                      <p className="text-xs text-text-secondary leading-relaxed mt-0.5">
+                        {t("ONBOARD_STEP2_DESC")}
                       </p>
                     </div>
                   </div>
 
-                  {/* 설명 */}
-                  <p className="text-xs text-text-secondary leading-relaxed">
-                    {t(step.descKey)}
-                  </p>
+                  <div className="border-t border-border-default/60" />
 
-                  {/* 주의사항 노트 */}
-                  {step.noteKey && (
-                    <p className="text-[10px] text-text-muted border-t border-border-default pt-2 mt-auto">
-                      * {t(step.noteKey)}
-                    </p>
-                  )}
+                  {/* STEP 2 */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-base mt-0.5 flex-shrink-0">🤖</span>
+                    <div>
+                      <p className="text-xs font-semibold text-text-primary leading-tight">
+                        {t("ONBOARD_STEP3_TITLE")}
+                      </p>
+                      <p className="text-xs text-text-secondary leading-relaxed mt-0.5">
+                        {t("ONBOARD_STEP3_DESC")}
+                      </p>
+                      <p className="text-[10px] text-text-muted mt-1">
+                        * {t("ONBOARD_STEP3_NOTE")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border-default/60" />
+
+                  {/* STEP 3 */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-base mt-0.5 flex-shrink-0">📊</span>
+                    <div>
+                      <p className="text-xs font-semibold text-text-primary leading-tight">
+                        {t("ONBOARD_STEP4_TITLE")}
+                      </p>
+                      <p className="text-xs text-text-secondary leading-relaxed mt-0.5">
+                        {t("ONBOARD_STEP4_DESC")}
+                      </p>
+                    </div>
+                  </div>
+
                 </div>
-              ))}
+              </div>
             </div>
 
             {/* 푸터 */}

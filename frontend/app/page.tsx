@@ -39,7 +39,9 @@ export default async function HomePage() {
 
   return (
     <>
-    <div className="max-w-screen-xl mx-auto px-6 lg:pr-[316px] xl:pr-[348px] py-10 space-y-8">
+    {/* lg 이상에서 우측 플로팅 패널 영역만큼 margin-right — mx-auto 중앙정렬 유지를 위해 pr 대신 mr 사용 */}
+    <div className="lg:mr-[320px] xl:mr-[352px]">
+    <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8">
 
       {activeGames.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
@@ -75,6 +77,7 @@ export default async function HomePage() {
       {/* ── 모바일 전용 좌측 플로팅 버튼 ────────────────────────────── */}
       <FloatingNav />
 
+    </div>
     </div>
 
     {/* ── 데스크탑 우측 플로팅 패널 (등록 버튼 + 인사이트) ──────────── */}
