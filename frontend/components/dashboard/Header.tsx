@@ -114,10 +114,9 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
               </a>
             </div>
 
-            {/* 핵심 지표 */}
-            <div className="flex items-center gap-4 mt-3 flex-wrap">
+            {/* 핵심 지표 — items-start로 상단 정렬해 높이 불일치 방지 */}
+            <div className="flex items-start gap-5 mt-3 flex-wrap">
               {(() => {
-                // Steam 상점 전체 누적 긍정률 우선, 없으면 최근 이벤트 구간 긍정률로 fallback
                 const steamRate =
                   game.steam_positive_rate !== undefined && game.steam_positive_rate !== ""
                     ? Number(game.steam_positive_rate)
@@ -125,24 +124,27 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                 const displayRate = steamRate ?? topSentimentRate;
                 const rateLabel   = steamRate !== undefined ? t("HEADER_RATE_LABEL_STEAM") : t("HEADER_RATE_LABEL_RECENT");
                 return displayRate !== undefined ? (
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1">
                     <Badge rate={displayRate} reviewCount={Number(game.totalReviews || 0)} size="lg" labelOnly />
                     <span className="text-[10px] text-text-muted pl-0.5">{rateLabel}</span>
                   </div>
                 ) : null;
               })()}
-              <div className="text-sm text-text-secondary">
-                {t("HEADER_REVIEWS_LABEL")}{" "}
-                <span className="text-text-primary font-medium">
-                  {Number(game.totalReviews || 0).toLocaleString()}{t("HEADER_REVIEWS_UNIT")}
+
+              {/* 리뷰 수 */}
+              <div className="flex flex-col gap-1">
+                <span className="text-lg font-bold text-text-primary tabular-nums">
+                  {Number(game.totalReviews || 0).toLocaleString()}
+                  <span className="text-sm font-normal text-text-secondary ml-0.5">{t("HEADER_REVIEWS_UNIT")}</span>
                 </span>
+                <span className="text-[10px] text-text-muted">{t("HEADER_REVIEWS_LABEL")}</span>
               </div>
+
               {/* Metacritic 점수 */}
               {game.metacritic_score && Number(game.metacritic_score) > 0 && (
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-text-muted font-medium uppercase tracking-wide">Metacritic</span>
-                    <span className={`text-xl font-bold tabular-nums ${
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-lg font-bold tabular-nums ${
                       Number(game.metacritic_score) >= 75 ? "text-accent-green" :
                       Number(game.metacritic_score) >= 50 ? "text-accent-yellow" :
                       "text-accent-red"
@@ -151,20 +153,27 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
                     </span>
                     <span className="text-xs text-text-muted">/ 100</span>
                   </div>
-                  <span className="text-[10px] text-text-muted pl-0.5">{t("HEADER_METACRITIC_LABEL")}</span>
+                  <span className="text-[10px] text-text-muted">Metacritic</span>
                 </div>
               )}
+
+              {/* 현재 CCU */}
               {currentCcu !== undefined && (
-                <div className="text-sm text-text-secondary">
-                  {t("HEADER_CCU_LABEL")}{" "}
-                  <span className="text-text-primary font-medium">
-                    {currentCcu.toLocaleString()}{t("HEADER_CCU_UNIT")}
-                  </span>
-                  {ccuPct !== null && (
-                    <span className="ml-1 text-xs text-text-muted">
-                      ({t("HEADER_CCU_PEAK_LABEL")} {Number(game.peak_ccu).toLocaleString()}{t("HEADER_CCU_UNIT")} {t("HEADER_CCU_PEAK_SUFFIX")} {ccuPct}%)
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-bold text-text-primary tabular-nums">
+                      {currentCcu.toLocaleString()}
                     </span>
-                  )}
+                    <span className="text-sm font-normal text-text-secondary">{t("HEADER_CCU_UNIT")}</span>
+                  </div>
+                  <span className="text-[10px] text-text-muted">
+                    {t("HEADER_CCU_LABEL")}
+                    {ccuPct !== null && (
+                      <span className="ml-1 opacity-70">
+                        · {t("HEADER_CCU_PEAK_LABEL")} {Number(game.peak_ccu).toLocaleString()}{t("HEADER_CCU_UNIT")} 대비 {ccuPct}%
+                      </span>
+                    )}
+                  </span>
                 </div>
               )}
             </div>

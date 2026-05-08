@@ -7,8 +7,6 @@ import CcuAdminPanel from "@/components/dashboard/CcuAdminPanel";
 import SentimentChart from "@/components/dashboard/SentimentChart";
 import LanguageTab from "@/components/dashboard/LanguageTab";
 import Timeline from "@/components/dashboard/Timeline";
-import EventForm from "@/components/dashboard/EventForm";
-import { Lock } from "lucide-react";
 import { useUiText } from "@/contexts/UiTextContext";
 import type { Game, TimelineRow, CcuRow } from "@/types";
 
@@ -49,7 +47,6 @@ export default function DashboardClient({
       document.getElementById("timeline-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   }, []);
-  const [showEventModal, setShowEventModal] = useState(false);
 
   const languageDistribution = useMemo<Record<string, number>>(() => {
     try {
@@ -129,42 +126,9 @@ export default function DashboardClient({
         <div id="timeline-section" className="bg-bg-card border border-border-default rounded-xl p-6">
           <h2 className="text-base font-semibold text-text-primary mb-6">{t("HISTORY_TITLE")}</h2>
           <Timeline timelineRows={timelineRows} appid={String(game.appid)} releaseDate={game.release_date} focusYm={focusYm} focusTab={focusTab} />
-
-          {/* 수동 이벤트 등록 버튼 */}
-          <div className="mt-6 pt-4 border-t border-border-default">
-            <button
-              onClick={() => setShowEventModal(true)}
-              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors"
-            >
-              <Lock className="w-3 h-3" />
-              수동 이슈/이벤트 등록 (관리자)
-            </button>
-          </div>
         </div>
 
       </div>
-
-      {/* 수동 이벤트 등록 모달 */}
-      {showEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-bg-card border border-border-default rounded-xl p-6 w-[520px] max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-text-primary text-sm">{t("EVENT_FORM_TOGGLE")}</h3>
-              <button
-                onClick={() => setShowEventModal(false)}
-                className="text-text-muted hover:text-text-primary text-lg leading-none"
-              >
-                ✕
-              </button>
-            </div>
-            <EventForm
-              appid={String(game.appid)}
-              onEventAdded={() => { router.refresh(); setShowEventModal(false); }}
-              inModal
-            />
-          </div>
-        </div>
-      )}
 
     </div>
   );

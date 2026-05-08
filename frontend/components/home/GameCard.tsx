@@ -68,7 +68,7 @@ export default function GameCard({ game }: GameCardProps) {
   return (
     <Link
       href={`/game/${game.appid}`}
-      className="group bg-bg-card border border-border-default hover:border-border-hover rounded-xl overflow-hidden transition-all hover:shadow-lg hover:shadow-black/30 hover:-translate-y-0.5"
+      className="group bg-bg-card border border-border-default hover:border-border-hover rounded-xl overflow-hidden transition-all hover:shadow-lg hover:shadow-black/25 hover:-translate-y-0.5"
     >
       {/* 썸네일 */}
       <div className="relative aspect-[460/215] w-full overflow-hidden">

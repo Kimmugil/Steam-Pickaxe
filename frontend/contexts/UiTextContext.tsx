@@ -102,6 +102,21 @@ const FALLBACK: Record<string, string> = {
   RATE_SHOW_MORE:       "+{n}개 더보기 ▼",
   RATE_COLLAPSE:        "접기 ▲",
 
+  // ── 온보딩 안내 모달 ─────────────────────────────────────────────────
+  ONBOARD_TRIGGER_LABEL: "처음 오셨나요?",
+  ONBOARD_MODAL_TITLE:   "이용 안내",
+  ONBOARD_BTN_CLOSE:     "닫기",
+  ONBOARD_BTN_DISMISS:   "다시 보지 않기",
+  ONBOARD_STEP1_TITLE:   "이 서비스는?",
+  ONBOARD_STEP1_DESC:    "Steam 게임의 리뷰·평가 데이터를 수집해 트렌드와 이상 징후를 자동 분석하는 인텔리전스 대시보드입니다.",
+  ONBOARD_STEP2_TITLE:   "게임 등록",
+  ONBOARD_STEP2_DESC:    "우측 버튼으로 Steam 게임을 검색해 등록하면, 리뷰·CCU·공식 이벤트 데이터가 자동으로 수집됩니다.",
+  ONBOARD_STEP3_TITLE:   "AI 분석",
+  ONBOARD_STEP3_DESC:    "수집 데이터를 기반으로 평가 추이·급변 감지·언어별 반응·수명 주기 분석이 자동 진행됩니다.",
+  ONBOARD_STEP3_NOTE:    "AI 브리핑은 관리자 승인 후 게시됩니다.",
+  ONBOARD_STEP4_TITLE:   "대시보드 활용",
+  ONBOARD_STEP4_DESC:    "게임 카드를 클릭하면 상세 차트, 키워드 타임라인, 이벤트 히스토리를 한눈에 확인할 수 있습니다.",
+
   // ── 상대 시간 표현 ────────────────────────────────────────────────────
   REL_TODAY:      "오늘",
   REL_DAYS_AGO:   "{n}일 전",

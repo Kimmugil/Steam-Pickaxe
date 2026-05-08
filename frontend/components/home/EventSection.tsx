@@ -24,7 +24,7 @@ export default function EventSection({ games }: { games: Game[] }) {
         onClick={() => setExpanded((v) => !v)}
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-bg-secondary/40 transition-colors text-left"
       >
-        <h3 className="text-sm font-semibold text-text-primary">{t("INSIGHT_EVENT_TITLE")}</h3>
+        <h3 className="text-sm font-semibold text-text-primary border-l-2 border-accent-blue pl-2.5">{t("INSIGHT_EVENT_TITLE")}</h3>
         <span className="flex items-center gap-1.5 text-xs text-text-muted">
           {t("INSIGHT_EVENT_RECENT")} <span className="text-text-primary font-semibold">{games.length}{t("COUNT_SUFFIX")}</span>
           <span className="text-[10px]">{expanded ? "▲" : "▼"}</span>

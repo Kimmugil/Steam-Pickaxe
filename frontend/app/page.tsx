@@ -3,6 +3,7 @@ import PendingGameCard from "@/components/home/PendingGameCard";
 import HomeInsightPanel from "@/components/home/HomeInsightPanel";
 import FloatingNav from "@/components/home/FloatingNav";
 import FloatingRightPanel from "@/components/home/FloatingRightPanel";
+import OnboardingModal from "@/components/home/OnboardingModal";
 import { getAllGames, getUiText } from "@/lib/sheets";
 
 export const revalidate = 60;
@@ -38,7 +39,7 @@ export default async function HomePage() {
 
   return (
     <>
-    <div className="max-w-screen-xl mx-auto px-6 py-10 space-y-8">
+    <div className="max-w-screen-xl mx-auto px-6 lg:pr-[316px] xl:pr-[348px] py-10 space-y-8">
 
       {activeGames.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
@@ -82,6 +83,9 @@ export default async function HomePage() {
         <HomeInsightPanel games={activeGames} />
       </FloatingRightPanel>
     )}
+
+    {/* ── 처음 방문자 온보딩 배너 ───────────────────────────────────── */}
+    <OnboardingModal />
     </>
   );
 }
