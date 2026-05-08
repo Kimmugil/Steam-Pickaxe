@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Toast, { useToast } from "@/components/shared/Toast";
 import AnomalySection from "./AnomalySection";
+import UiTextSyncButton from "@/components/home/UiTextSyncButton";
 import type { Game, GameStatus } from "@/types";
-import { useUiText } from "@/contexts/UiTextContext";
 
 const SESSION_KEY = "steam_admin_pw";
 
@@ -59,22 +59,21 @@ function ToggleSwitch({ on, loading, onClick, onTitle = "", offTitle = "" }: {
 }
 
 const WORKFLOWS = [
-  { name: "ccu.yml",            schedule: "매 시간 정각",        desc: "현재 동접자 수 수집" },
-  { name: "collect.yml",        schedule: "매일 20:00 UTC",      desc: "리뷰·이벤트·뉴스·메타데이터 수집" },
-  { name: "analyze.yml",        schedule: "매월 1일 00:00 UTC",  desc: "월별 AI 분석 (승인 게임만)" },
-  { name: "detect-shifts.yml",  schedule: "매주 월요일",          desc: "평가 급변 감지 + AI 원인 분석" },
-  { name: "reanalyze.yml",      schedule: "온디맨드",             desc: "뉴스·패치 재수집 후 AI 재분석 (게임 페이지 새로고침 버튼)" },
-  { name: "core-analyze.yml",   schedule: "온디맨드",             desc: "종합 분석 4종 즉시 갱신 (수집 없음)" },
-  { name: "collect-month.yml",  schedule: "온디맨드",             desc: "이번 달 수집 + AI 분석" },
-  { name: "collect-game.yml",   schedule: "온디맨드",             desc: "단일 게임 이벤트/뉴스 수집" },
-  { name: "recalc-lang-dist.yml", schedule: "온디맨드",           desc: "언어 분포 강제 재계산" },
-  { name: "dedup-timelines.yml",  schedule: "온디맨드",           desc: "타임라인 중복 정리" },
-  { name: "reselect-top-reviews.yml", schedule: "온디맨드",       desc: "대표 리뷰 재선별" },
+  { name: "ccu.yml",                   actionName: "CCU 수집 (1시간 주기)",                       schedule: "매 시간 정각",       desc: "현재 동접자 수 수집" },
+  { name: "collect.yml",               actionName: "일일 리뷰+뉴스 수집",                          schedule: "매일 20:00 UTC",     desc: "리뷰·이벤트·뉴스·메타데이터 수집" },
+  { name: "analyze.yml",               actionName: "AI 분석 (월 단위)",                            schedule: "매월 1일 00:00 UTC", desc: "월별 AI 분석 (승인 게임만)" },
+  { name: "detect-shifts.yml",         actionName: "평가 급변 감지 (주간)",                        schedule: "매주 월요일",         desc: "평가 급변 감지 + AI 원인 분석" },
+  { name: "reanalyze.yml",             actionName: "AI 분석 새로고침 (특정 게임)",                  schedule: "온디맨드",            desc: "뉴스·패치 재수집 후 AI 재분석 (게임 페이지 새로고침 버튼)" },
+  { name: "core-analyze.yml",          actionName: "종합 분석 (AI 브리핑·CCU·언어·추이)",           schedule: "온디맨드",            desc: "종합 분석 4종 즉시 갱신 (수집 없음)" },
+  { name: "collect-month.yml",         actionName: "현재 월 수집 + AI 분석 (관리자 온디맨드)",       schedule: "온디맨드",            desc: "이번 달 수집 + AI 분석" },
+  { name: "collect-game.yml",          actionName: "게임별 이벤트/뉴스 수집 (온디맨드)",             schedule: "온디맨드",            desc: "단일 게임 이벤트/뉴스 수집" },
+  { name: "recalc-lang-dist.yml",      actionName: "언어 분포 재집계 (온디맨드)",                   schedule: "온디맨드",            desc: "언어 분포 강제 재계산" },
+  { name: "dedup-timelines.yml",       actionName: "타임라인 중복 이벤트 정리 (온디맨드)",           schedule: "온디맨드",            desc: "타임라인 중복 정리" },
+  { name: "reselect-top-reviews.yml",  actionName: "top_reviews 재선별",                          schedule: "온디맨드",            desc: "대표 리뷰 재선별" },
 ];
 
 export default function AdminPanel({ allGames }: { allGames: Game[] }) {
   const router = useRouter();
-  const { t } = useUiText();
 
   const COLUMN_HELP: Record<string, { title: string; lines: string[] }> = {
     status: {
@@ -988,6 +987,23 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
         </div>
       </section>
 
+      {/* ── UI 텍스트 관리 ──────────────────────────────────────────────── */}
+      <section className="mb-10">
+        <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-accent-yellow rounded-full" />
+          {"UI 텍스트 관리"}
+        </h2>
+        <div className="bg-bg-card border border-border-default rounded-xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-text-primary">{"Google Sheets 동기화"}</p>
+            <p className="text-xs text-text-muted mt-0.5 leading-relaxed">
+              {"동기화: 누락 키만 추가 · 재설정: 미사용 키 제거 후 현행화"}
+            </p>
+          </div>
+          <UiTextSyncButton />
+        </div>
+      </section>
+
       {/* ── 워크플로우 현황 ──────────────────────────────────────────────── */}
       <section className="mb-10">
         <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
@@ -998,9 +1014,9 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
           <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-border-default bg-bg-secondary">
-                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">{t("TH_WORKFLOW")}</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">{t("TH_WORKFLOW_SCHEDULE")}</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">{t("TH_FUNC_DESC")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">{"파일명 / 액션 이름"}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted whitespace-nowrap">{"스케줄"}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-text-muted">{"설명"}</th>
               </tr>
             </thead>
             <tbody>
@@ -1009,7 +1025,10 @@ export default function AdminPanel({ allGames }: { allGames: Game[] }) {
                   key={row.name}
                   className={`border-b border-border-default last:border-b-0 ${i % 2 === 0 ? "" : "bg-bg-secondary/20"}`}
                 >
-                  <td className="px-4 py-3 text-xs font-medium text-text-primary whitespace-nowrap">{row.name}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <p className="text-xs font-medium text-text-primary font-mono">{row.name}</p>
+                    <p className="text-[11px] text-text-muted mt-0.5">{row.actionName}</p>
+                  </td>
                   <td className="px-4 py-3 text-xs text-accent-blue whitespace-nowrap">{row.schedule}</td>
                   <td className="px-4 py-3 text-xs text-text-muted leading-relaxed">{row.desc}</td>
                 </tr>

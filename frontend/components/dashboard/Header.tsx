@@ -180,23 +180,23 @@ export default function Header({ game, currentCcu, topSentimentRate }: HeaderPro
 
         {/* 게임 기본 정보 바 */}
         <div className="mt-5 pt-4 border-t border-border-default grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <MetaItem label={t("META_GENRES")}       value={genres.length > 0 ? genres.join(" · ") : "-"} />
-          <MetaItem label={t("META_RELEASE_DATE")} value={formatReleaseDateKr(game.release_date)} />
-          <MetaItem label={t("META_DEVELOPER")}    value={game.developer || "-"} />
-          <MetaItem label={t("META_PUBLISHER")}    value={game.publisher || "-"} />
-          <MetaItem label={t("META_PRICE")}        value={game.price || (parseBool(game.is_free) ? t("META_FREE") : "-")} />
+          <MetaItem label={"장르"}    value={genres.length > 0 ? genres.join(" · ") : "-"} />
+          <MetaItem label={"출시일"}  value={formatReleaseDateKr(game.release_date)} />
+          <MetaItem label={"개발사"}  value={game.developer || "-"} />
+          <MetaItem label={"퍼블리셔"} value={game.publisher || "-"} />
+          <MetaItem label={"가격"}    value={game.price || (parseBool(game.is_free) ? "무료" : "-")} />
         </div>
 
         {/* AI 브리핑 */}
         {game.ai_briefing && (
           <div className="mt-4 bg-bg-card border border-accent-blue/20 rounded-xl p-4">
             <div className="flex items-start gap-2">
-              <span className="text-accent-blue text-sm mt-0.5 shrink-0">{t("HEADER_AI_BRIEFING_TITLE")}</span>
+              <span className="text-accent-blue text-sm mt-0.5 shrink-0">{"🤖 AI 현황 진단"}</span>
               <p className="text-text-secondary text-sm leading-relaxed">{game.ai_briefing}</p>
             </div>
             {game.ai_briefing_date && (
               <p className="text-xs text-text-muted mt-2 text-right">
-                {t("HEADER_AI_BRIEFING_DATE")} {game.ai_briefing_date}
+                {"기준일:"} {game.ai_briefing_date}
               </p>
             )}
           </div>
