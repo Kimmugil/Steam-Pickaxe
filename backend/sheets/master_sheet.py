@@ -16,7 +16,7 @@ SCOPES = [
 ]
 
 def _retry_on_quota(fn):
-    """Google Sheets 429 쿼터 초과 시 지수 백오프 재시도 데코레이터."""
+    """Google Sheets API 일시 오류(429 쿼터 초과, 503 서비스 불가) 시 지수 백오프 재시도 데코레이터."""
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         waits = [10, 20, 40, 60, 120]
@@ -24,8 +24,12 @@ def _retry_on_quota(fn):
             try:
                 return fn(*args, **kwargs)
             except gspread.exceptions.APIError as e:
-                if "429" in str(e):
-                    print(f"[sheets_limit] 429 — {wait}초 대기 후 재시도 ({attempt+1}/5)")
+                err = str(e)
+                if "429" in err:
+                    print(f"[sheets_limit] 429 쿼터 초과 — {wait}초 대기 후 재시도 ({attempt+1}/5)")
+                    time.sleep(wait)
+                elif "503" in err or "502" in err or "500" in err:
+                    print(f"[sheets_limit] Google API 일시 오류 — {wait}초 대기 후 재시도 ({attempt+1}/5): {e}")
                     time.sleep(wait)
                 else:
                     raise
@@ -36,6 +40,7 @@ def get_client() -> gspread.Client:
     creds = Credentials.from_service_account_info(get_google_creds(), scopes=SCOPES)
     return gspread.authorize(creds)
 
+@_retry_on_quota
 def get_spreadsheet() -> gspread.Spreadsheet:
     return get_client().open_by_key(MASTER_SPREADSHEET_ID)
 
