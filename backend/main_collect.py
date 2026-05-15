@@ -220,6 +220,18 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
                 final_status = "active"
 
     # 3. 뉴스/패치노트 수집 (active 상태에서만, game_sheet_id 보장 후)
+    # NEWS_ONLY 모드·리뷰 없는 신규 게임 등 모든 경로에서 game_sheet_id 누락 방지
+    if final_status == "active" and not game_sheet_id:
+        try:
+            raw_ss = get_or_create_raw_spreadsheet(
+                GDRIVE_FOLDER_ID, appid, game.get("name", appid)
+            )
+            game_sheet_id = raw_ss.id
+            update_game(ss, appid, {"game_sheet_id": game_sheet_id})
+            print(f"[INFO] 게임 시트 생성 완료: {game_sheet_id}")
+        except Exception as e:
+            print(f"[WARN] 게임 시트 생성 실패 — 뉴스 수집 건너뜀: {e}")
+
     if final_status == "active":
         _collect_news(ss, appid, name, game_sheet_id, positive_rate=positive_rate)
 
