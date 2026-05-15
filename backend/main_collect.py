@@ -202,6 +202,18 @@ def _process_game(ss, game: dict, appid: str, status: str) -> bool:
         else:
             # 리뷰 없음 = 이미 최신
             if status == "collecting":
+                # 리뷰가 없어도 game_sheet_id가 없으면 게임 시트를 먼저 생성한다.
+                # (뉴스/CCU 수집에 game_sheet_id 필수 — 없으면 이후 모든 수집이 영구 스킵됨)
+                if not game_sheet_id:
+                    try:
+                        raw_ss = get_or_create_raw_spreadsheet(
+                            GDRIVE_FOLDER_ID, appid, game.get("name", appid)
+                        )
+                        game_sheet_id = raw_ss.id
+                        update_game(ss, appid, {"game_sheet_id": game_sheet_id})
+                        print(f"[INFO] 게임 시트 생성 완료 (리뷰 없음): {game_sheet_id}")
+                    except Exception as e:
+                        print(f"[WARN] 게임 시트 생성 실패 — 뉴스 수집 건너뜀: {e}")
                 update_game(ss, appid, {"status": "active", "last_cursor": ""})
                 print("수집 완료 (신규 없음) → active 전환")
                 newly_activated = True
