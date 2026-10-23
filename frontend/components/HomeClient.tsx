@@ -15,7 +15,7 @@ export default function HomeClient({ texts: t, data }: { texts: Texts; data: any
   const [diag, setDiag] = useState<string>("all");
   const [sort, setSort] = useState<"attn" | "pos" | "vel">("attn");
   const [tab, setTab] = useState<"w4" | "m">("w4");
-  const [deskOpen, setDeskOpen] = useState(true);
+  const [deskOpen, setDeskOpen] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
   const [wide, setWide] = useState(true);
   const [reqOpen, setReqOpen] = useState(false);
