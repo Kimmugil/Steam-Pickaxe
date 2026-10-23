@@ -1,31 +1,43 @@
-name: CCU 수집 (1시간 주기)
+name: 동접 수집 (매시간)
+# 진행 중인 게임의 현재 접속자 수를 한 줄씩 쌓습니다. 정각 실행은 GitHub 사정으로 몇 분 늦을 수 있습니다.
 
 on:
   schedule:
-    - cron: "0 * * * *"    # 매 정시
+    - cron: "5 * * * *"    # 매시 5분
   workflow_dispatch:
+
+concurrency:
+  group: ccu
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   ccu:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+      PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
-      - name: 의존성 설치
+      - name: 필요한 프로그램 설치
         run: pip install -r backend/requirements.txt
 
-      - name: CCU 수집
-        env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          MASTER_SPREADSHEET_ID: ${{ secrets.MASTER_SPREADSHEET_ID }}
-          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+      - name: 동접 수집
+        working-directory: backend
+        run: python collect_ccu.py
+
+      - name: 실패 알림 (알림 주소를 등록한 경우에만)
+        if: failure() && env.ALERT_WEBHOOK_URL != ''
         run: |
-          cd backend
-          python main_ccu.py
+          curl -s -X POST -H "Content-Type: application/json"             -d "{\"content\":\"[Steam Pickaxe] ${{ github.workflow }} 실패 → ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"             "$ALERT_WEBHOOK_URL" || true

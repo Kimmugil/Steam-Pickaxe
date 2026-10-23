@@ -1,8 +1,5 @@
-gspread==6.1.2
-google-auth==2.29.0
-google-auth-oauthlib==1.2.0
-google-api-python-client==2.126.0
-requests==2.31.0
-google-genai>=1.0.0
-python-dotenv==1.0.1
-beautifulsoup4==4.12.3
+psycopg[binary]>=3.2
+requests>=2.32
+python-dotenv>=1.0
+google-genai>=1.0
+truststore>=0.9; platform_system == "Windows"

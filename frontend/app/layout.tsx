@@ -1,63 +1,36 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
-import GlobalSyncButton from "@/components/layout/GlobalSyncButton";
-import { UiTextProvider } from "@/contexts/UiTextContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
-import { getUiText, getCachedConfig } from "@/lib/sheets";
+import { getTexts } from "@/lib/texts";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const config = await getCachedConfig();
-  const title = config.site_title || "스팀 탈곡기 Pro";
-  const description = config.site_description || "Steam 게임 마켓 인텔리전스 대시보드";
-  const ogImage = config.og_image || undefined;
-  const siteUrl = config.site_url || "https://steam-pickaxe.vercel.app";
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: siteUrl,
-      siteName: title,
-      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
-      locale: "ko_KR",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      ...(ogImage ? { images: [ogImage] } : {}),
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: "Steam Pickaxe",
+  description: "추적 중인 Steam 게임의 평가와 접속 흐름, 달라진 점을 한눈에 봅니다.",
+};
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const uiText = await getUiText();
-
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const t = await getTexts();
   return (
     <html lang="ko">
       <head>
-        {/* 테마 플래시 방지: 페이지 로드 직후 data-theme 즉시 적용 */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
-          }}
-        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" />
       </head>
-      <body className="min-h-screen bg-bg-primary text-text-primary">
-        <UiTextProvider initialText={uiText}>
-          <ThemeProvider>
-            <Navbar />
-            <main className="pt-14">{children}</main>
-            <GlobalSyncButton />
-          </ThemeProvider>
-        </UiTextProvider>
+      <body>
+        <div className="wrap">
+          <div className="appbar">
+            <Link href="/" className="brand"><i /><span>{t.site_title}</span></Link>
+            <nav className="appnav">
+              <Link href="/">홈</Link>
+            </nav>
+            {/* 로그인 여부를 읽지 않아야 공개 화면을 미리 만들어 두고(캐시) 빠르게 보여 줄 수 있습니다 */}
+            <div className="right"><Link href="/admin" className="muted">관리자</Link></div>
+          </div>
+          {children}
+          <div className="appfoot">{t.foot}</div>
+        </div>
       </body>
     </html>
   );
