@@ -1,0 +1,30 @@
+name: 자동 실행 유지 (매월)
+# GitHub는 저장소에 60일 넘게 활동이 없으면 예약 실행을 멈춥니다.
+# 한 달에 한 번 별도 가지(keepalive)에 작은 기록을 남겨 활동이 이어지게 합니다. (본 코드 가지는 건드리지 않음)
+# 이 방법이 멈춤을 확실히 막는지는 GitHub가 규칙을 바꿀 수 있어 보장할 수 없습니다.
+# 그래서 관리자 현황판이 "자동 작업이 오래 멈춰 있습니다"로 따로 알려 줍니다.
+
+on:
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: keepalive 가지에 기록 남기기
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan keepalive
+          git rm -rf . > /dev/null 2>&1 || true
+          date -u +"last keepalive: %Y-%m-%dT%H:%M:%SZ" > keepalive.txt
+          git add keepalive.txt
+          git commit -m "keepalive $(date -u +%F)"
+          git push --force origin keepalive
