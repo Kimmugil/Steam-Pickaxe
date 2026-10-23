@@ -10,6 +10,8 @@ export async function GET() {
     ADMIN_PASSWORD_HASH: !!process.env.ADMIN_PASSWORD_HASH,
     SESSION_SECRET: (process.env.SESSION_SECRET?.length ?? 0) >= 24,
   };
+  // 어느 배포가 응답했는지(환경: production/preview, 코드 번호)도 알려 줍니다. 오래된 배포를 보고 있는지 구분하기 위해서입니다.
+  const vercel = { env: process.env.VERCEL_ENV ?? "local", commit: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7) || null, branch: process.env.VERCEL_GIT_COMMIT_REF ?? null };
   let db: { ok: boolean; games?: number; error?: string } = { ok: false };
   try {
     const [r] = await sql`select count(*)::int as n from games`;
@@ -18,5 +20,5 @@ export async function GET() {
     const err = e as { code?: string; message?: string };
     db = { ok: false, error: `${err.code ?? "ERROR"}: ${String(err.message ?? "").slice(0, 120).replace(/postgres(ql)?:\/\/\S+/g, "***")}` };
   }
-  return NextResponse.json({ env, db }, { status: db.ok ? 200 : 500, headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ vercel, env, db }, { status: db.ok ? 200 : 500, headers: { "cache-control": "no-store" } });
 }
