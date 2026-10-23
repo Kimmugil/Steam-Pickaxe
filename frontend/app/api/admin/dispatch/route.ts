@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { guard } from "@/lib/admin-actions";
 
-const ALLOWED = ["collect.yml", "analyze.yml"];
+const ALLOWED = ["collect-reviews.yml", "analyze-daily.yml"];
 
 /** GitHub Actions 작업을 지금 실행하도록 요청합니다. (토큰과 저장소 이름 환경변수가 있어야 동작) */
 export async function POST(req: NextRequest) {

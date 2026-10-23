@@ -102,7 +102,7 @@ export default function AdminClient({ data, githubConnected }: { data: any; gith
       </div>
 
       <div className="row" style={{ marginTop: 14 }}>
-        <button className="btn primary" onClick={() => say(call("/api/admin/dispatch", { workflow: "analyze.yml" }), false)}>지금 점검·복구</button>
+        <button className="btn primary" onClick={() => say(call("/api/admin/dispatch", { workflow: "analyze-daily.yml" }), false)}>지금 점검·복구</button>
         <button className="btn" onClick={() => setAddOpen(true)}>게임 추가·보관</button>
         <button className="btn" onClick={() => setEvOpen("pick")}>이벤트 수동 등록</button>
         <Link className="btn" href="/admin/texts">화면 문구 관리</Link>
@@ -210,7 +210,7 @@ export default function AdminClient({ data, githubConnected }: { data: any; gith
       <details className="card adv">
         <summary>평소에는 쓰지 않는 기능 (펼치기)</summary>
         <div className="list">
-          <button className="btn" onClick={() => say(call("/api/admin/dispatch", { workflow: "collect.yml" }), false)}>수집 지금 실행</button>
+          <button className="btn" onClick={() => say(call("/api/admin/dispatch", { workflow: "collect-reviews.yml" }), false)}>수집 지금 실행</button>
           <Link className="btn" href="/admin/texts">화면 문구 관리 열기</Link>
         </div>
         <p className="help">수집 단계 고정, 보관·복원, AI 분석 켜기·끄기는 위 "게임별 상태"에서 게임 줄을 열어 바꿀 수 있습니다. 전체 재수집·재분석, 알림 설정, 내보내기는 컴퓨터에서 명령으로 실행합니다. (README 참고)</p>
