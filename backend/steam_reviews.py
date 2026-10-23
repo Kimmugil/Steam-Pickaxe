@@ -1,17 +1,25 @@
 """Steam 리뷰 요청과 변환. 계정 ID·닉네임 같은 개인정보는 읽지도 저장하지도 않습니다."""
+import json
 from datetime import datetime
 
 from common import UTC, get_json
 
-REVIEWS_URL = "https://store.steampowered.com/appreviews/{appid}"
+# 옛 주소(store.steampowered.com/appreviews)는 2026-10-22에 중단됐고, 같은 자료를 주는 공식 WebAPI로 바뀌었습니다.
+# 이 주소는 키 없이도 쓸 수 있습니다. (키가 있으면 호출 한도만 더 높음) 요청 값은 input_json 한 덩어리로 보냅니다.
+REVIEWS_URL = "https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/"
 PAGE_SIZE = 100  # Steam이 허용하는 최대값
 
 
 def fetch_page(appid: int, cursor: str = "*", per_page: int = PAGE_SIZE) -> dict | None:
-    params = {"json": 1, "filter": "recent", "language": "all", "purchase_type": "all",
-              "num_per_page": per_page, "cursor": cursor}
-    d = get_json(REVIEWS_URL.format(appid=appid), params)
-    return d if d and d.get("success") == 1 else None
+    # filter 1 = 최신순, purchase_type 1 = 구매 방식 상관없이 전부 (옛 주소의 recent / all 과 같은 뜻)
+    req = {"appid": appid, "filter": 1, "languages": ["all"], "purchase_type": 1,
+           "num_per_page": per_page, "cursor": cursor}
+    d = get_json(REVIEWS_URL, {"input_json": json.dumps(req, separators=(",", ":"))})
+    r = (d or {}).get("response")
+    if not isinstance(r, dict) or "reviews" not in r:
+        return None
+    r.setdefault("success", 1)  # 옛 응답 형태와 맞춤 (새 주소에는 success 항목이 없음)
+    return r
 
 
 def fetch_summary(appid: int) -> dict | None:
