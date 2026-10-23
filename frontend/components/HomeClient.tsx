@@ -40,6 +40,7 @@ export default function HomeClient({ texts: t, data }: { texts: Texts; data: any
 
   return (
     <>
+      {data.error && <div className="notice">데이터를 불러오지 못했습니다. 관리자라면 /api/health 에서 데이터베이스 연결 상태를 확인해 주세요.</div>}
       <div className={`home-grid${wide && deskOpen ? " with-brief" : ""}`}>
         <div>
           <div className="sec-title" style={{ marginTop: 0 }}><h2>{t.hl_title}</h2><span>{t.hl_sub}</span></div>

@@ -40,7 +40,11 @@ def main():
     if os.path.exists(OUT):
         force_remove(OUT)
     run("git", "clone", "--quiet", REPO, OUT, cwd=tempfile.gettempdir())
-    run("git", "checkout", "-q", "-b", BRANCH)
+    if run("git", "ls-remote", "--heads", "origin", BRANCH):             # 이미 올라간 v2 가 있으면 그 위에 이어서
+        run("git", "fetch", "-q", "origin", BRANCH)
+        run("git", "checkout", "-q", "-B", BRANCH, f"origin/{BRANCH}")
+    else:
+        run("git", "checkout", "-q", "-b", BRANCH)
     run("git", "config", "user.name", AUTHOR[0])
     run("git", "config", "user.email", AUTHOR[1])
     run("git", "rm", "-r", "-q", "--ignore-unmatch", ".")                  # 예전 파일 전부 제거 (기록은 남음)
@@ -66,6 +70,8 @@ def main():
     msg = ("Steam Pickaxe v2: Supabase 이전, 새 수집·분석 파이프라인, 새 화면\n\n"
            "- 구글 시트 → Supabase(PostgreSQL)\n- 적응형 수집·AI 분석·자동 복구, GitHub Actions 3개\n- 홈·게임 상세·관리자 현황판·문구 관리\n\n"
            "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>")
+    if not run("git", "status", "--porcelain"):
+        sys.exit("올릴 변경이 없습니다. (이미 최신 상태)")
     run("git", "commit", "-q", "-m", msg)
     print("\n커밋 작성자:", run("git", "log", "-1", "--format=%an <%ae>"))
     print(run("git", "show", "--stat", "--format=", "HEAD").splitlines()[-1])

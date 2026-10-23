@@ -8,7 +8,7 @@ export const maxDuration = 30; // 무료 요금제 기본 10초보다 여유 있
 export default async function HomePage() {
   const [texts, data] = await Promise.all([
     getTexts(),
-    getHomeData().catch(() => ({ cards: [], w4: null, month: null, highlights: [] })),
+    getHomeData().catch(() => ({ cards: [], w4: null, month: null, highlights: [], error: true })),
   ]);
   return <HomeClient texts={texts} data={data} />;
 }
