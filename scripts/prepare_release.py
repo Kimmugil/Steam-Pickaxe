@@ -67,9 +67,7 @@ def main():
         sys.exit("개인정보 검사에 걸려서 커밋하지 않았습니다. 위 항목을 고친 뒤 다시 실행하세요.")
 
     run("git", "add", "-A")
-    msg = ("Steam Pickaxe v2: Supabase 이전, 새 수집·분석 파이프라인, 새 화면\n\n"
-           "- 구글 시트 → Supabase(PostgreSQL)\n- 적응형 수집·AI 분석·자동 복구, GitHub Actions 3개\n- 홈·게임 상세·관리자 현황판·문구 관리\n\n"
-           "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>")
+    msg = (os.environ.get("RELEASE_MESSAGE") or "Steam Pickaxe v2 갱신") + "\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
     if not run("git", "status", "--porcelain"):
         sys.exit("올릴 변경이 없습니다. (이미 최신 상태)")
     run("git", "commit", "-q", "-m", msg)
