@@ -11,10 +11,7 @@ on:
         required: false
         default: "150"
 
-concurrency:
-  group: analyze
-  cancel-in-progress: false
-
+# 같은 작업이 겹쳐 돌지 않게 하는 일은 프로그램이 DB 잠금으로 합니다. (backend/common.py try_lock)
 permissions:
   contents: read
 

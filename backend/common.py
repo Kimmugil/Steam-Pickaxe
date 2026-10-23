@@ -69,6 +69,11 @@ def get_json(url: str, params: dict | None = None, retries: int = 6, timeout: in
     return None
 
 
+def try_lock(conn, name: str) -> bool:
+    """같은 종류의 작업이 이미 돌고 있으면 False. 연결이 살아 있는 동안만 잠겨 있어, 비정상 종료해도 자동으로 풀립니다."""
+    return bool(conn.execute("select pg_try_advisory_lock(hashtext(%s))", ("steam-pickaxe:" + name,)).fetchone()[0])
+
+
 class JobRun:
     """job_runs 표에 '시작 → 끝(성공/실패)'을 남깁니다. 관리자 현황판의 '마지막 점검 시각'이 여기서 나옵니다.
     작업 중 DB 연결이 끊겨도 기록은 남도록, 시작과 끝에서 각각 따로 접속합니다."""

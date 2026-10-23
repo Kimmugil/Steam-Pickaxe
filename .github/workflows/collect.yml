@@ -15,10 +15,7 @@ on:
         type: boolean
         default: false
 
-concurrency:
-  group: collect          # 같은 작업이 겹쳐 돌지 않게 함 (먼저 도는 것이 끝난 뒤 시작)
-  cancel-in-progress: false
-
+# 같은 작업이 겹쳐 돌지 않게 하는 일은 프로그램이 DB 잠금으로 합니다. (backend/common.py try_lock)
 permissions:
   contents: read
 

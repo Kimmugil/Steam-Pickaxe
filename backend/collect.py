@@ -18,7 +18,7 @@ import sys
 import time
 from datetime import timedelta
 
-from common import THROTTLE, connect, job, now_utc
+from common import THROTTLE, connect, job, now_utc, try_lock
 from steam_meta import fetch_app_details, save_app_details
 from steam_reviews import UPSERT_SQL, fetch_page, fetch_summary, parse_review
 
@@ -213,6 +213,10 @@ def main():
     a = ap.parse_args()
     deadline = time.time() + a.budget_min * 60
     appids = set(a.appid or [])
+    lock_conn = connect()                       # 이 연결을 열어 두는 동안 '수집 중' 잠금이 유지됨
+    if a.command == "run" and not try_lock(lock_conn, "collect"):
+        print("다른 수집이 이미 진행 중이라 이번 실행은 건너뜁니다.", flush=True)
+        return 0
     with job("collect" if a.command == "run" else "probe") as run:
         conn = connect()
         run.summary["probe"] = probe_all(conn, appids or None, a.skip_meta)

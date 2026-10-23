@@ -17,7 +17,7 @@ from datetime import timedelta
 import ai_tasks
 import briefs
 import gemini
-from common import connect, job, now_utc
+from common import connect, job, now_utc, try_lock
 
 
 def blocked(conn, t: dict) -> bool:
@@ -70,6 +70,9 @@ def main() -> int:
         return 0
 
     conn = connect()
+    if a.command == "run" and not try_lock(conn, "analyze"):
+        print("다른 분석이 이미 진행 중이라 이번 실행은 건너뜁니다.", flush=True)
+        return 0
     games, tasks = collect_plan(conn, appids, kinds)
     by = collections.Counter(t["kind"] for t in tasks)
     used, cap = gemini.month_calls(conn), gemini.monthly_cap(conn)

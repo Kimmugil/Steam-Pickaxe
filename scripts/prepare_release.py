@@ -15,7 +15,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.abspath(os.path.join(HERE, ".."))
 REPO = "https://github.com/Kimmugil/Steam-Pickaxe.git"
-BRANCH = "v2"
+BRANCH = os.environ.get("RELEASE_BRANCH", "v2")   # 기본은 v2, 바로 main에 올릴 때는 RELEASE_BRANCH=main
 OUT = os.path.join(tempfile.gettempdir(), "steam_pickaxe_release")
 AUTHOR = ("Kimmugil", "253725816+Kimmugil@users.noreply.github.com")   # GitHub noreply 주소 (회사 이메일 아님)
 SKIP = shutil.ignore_patterns("node_modules", ".next", "__pycache__", "*.pyc", ".env", ".env.*", "data", "*.xlsx", ".git", ".privacy_terms")
