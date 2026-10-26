@@ -16,6 +16,10 @@ def fetch_page(appid: int, cursor: str = "*", per_page: int = PAGE_SIZE) -> dict
            "num_per_page": per_page, "cursor": cursor}
     d = get_json(REVIEWS_URL, {"input_json": json.dumps(req, separators=(",", ":"))})
     r = (d or {}).get("response")
+    if isinstance(r, dict) and "reviews" not in r and "query_summary" in r:
+        # 목록의 끝에 닿으면 새 주소는 'reviews' 항목 없이 요약만 돌려줍니다. 이건 오류가 아니라 '더 없음'입니다.
+        # (예전에는 이걸 Steam 차단으로 오해해서, 끝까지 받은 게임이 매일 20분씩 멈춘 채 새 리뷰를 못 받았음)
+        r["reviews"] = []
     if not isinstance(r, dict) or "reviews" not in r:
         return None
     r.setdefault("success", 1)  # 옛 응답 형태와 맞춤 (새 주소에는 success 항목이 없음)

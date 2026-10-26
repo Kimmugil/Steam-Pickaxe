@@ -65,7 +65,12 @@ def _parse(text: str):
     if t.startswith("```"):
         t = re.sub(r"^```[a-zA-Z]*\n?", "", t)
         t = t.rsplit("```", 1)[0]
-    return json.loads(t)
+    try:
+        # strict=False: 문자열 안에 줄바꿈·탭 같은 제어 문자가 그대로 들어와도 받아들입니다
+        # (Gemini가 가끔 그렇게 내보내서 "Invalid control character" 오류로 분석이 통째로 실패했음)
+        return json.loads(t, strict=False)
+    except json.JSONDecodeError:
+        return json.loads(re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", t), strict=False)
 
 
 def generate_json(conn, prompt: str, retries: int = 3) -> dict:
