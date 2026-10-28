@@ -5,11 +5,23 @@
 """
 import argparse
 import sys
+from datetime import timedelta
 
 from common import connect, job
 import impact
 import metrics
 import shifts
+
+
+def ensure_daily(conn, appid) -> bool:
+    """리뷰 표는 최신인데 일별 집계(review_daily)가 뒤처졌으면 다시 만듭니다.
+    (수집 도중 집계 갱신이 빠지면 '최근 30일 리뷰 0건'으로 보여 진단이 비던 일이 있었음)"""
+    last_day, last_review = conn.execute("""select (select max(day) from review_daily where appid = %s),
+                                           (select max(created_at at time zone 'UTC')::date from reviews where appid = %s)""", (appid, appid)).fetchone()
+    if last_review is not None and (last_day is None or last_day < last_review - timedelta(days=1)):
+        conn.execute("select refresh_review_daily(%s)", (appid,))
+        return True
+    return False
 
 
 def main() -> int:
@@ -24,6 +36,8 @@ def main() -> int:
             if a.appid and appid not in a.appid:
                 continue
             try:
+                if ensure_daily(conn, appid):
+                    print(f"[보정] {name}: 일별 집계가 뒤처져 다시 만들었습니다.", flush=True)
                 found = shifts.detect(shifts.load_daily(conn, appid))
                 added = 0 if a.no_save else shifts.save_new(conn, appid, found)
                 imp = {"candidates": 0, "saved": 0, "unchanged": 0} if a.no_save else impact.run_game(conn, appid)

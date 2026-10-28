@@ -60,6 +60,7 @@ export default function AdminClient({ data, githubConnected }: { data: any; gith
     else if (g.review_cursor) { state = "warn"; note = "과거 리뷰 보충 중"; }
     else if (g.status === "collecting") { state = "warn"; note = "초기 수집 중"; }
     else if (!archived && !ready) { state = "warn"; note = "최신 리뷰 수집 대기"; }
+    else if (!archived && ready && !m.diagnosis) { state = "warn"; note = "진단 없음 (최근 90일 리뷰가 적거나 집계 이상)"; }
     else if (overdue) { state = "warn"; note = "수집이 늦어짐"; }
     else if (!archived && (chips.includes("warn") || ccuMissing)) { state = "warn"; note = ccuMissing ? "동접 과거 데이터 없음" : "분석 대기"; }
     return { g, chips, pct, pt, ccuMissing, archived, tier, state, note, ready };
