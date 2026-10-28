@@ -24,3 +24,26 @@ import gemini  # noqa: E402
 assert gemini._parse('{"a": "줄1\n줄2\t끝"}')["a"].startswith("줄1")
 assert gemini._parse('```json\n{"a": "x\x01y"}\n```')["a"] == "x\x01y"
 print("수정 확인 시험 통과: 목록 끝 처리, 제어 문자 JSON 읽기")
+
+# 3) 진단: 활동 감소는 '이 게임이 평소 줄어들던 만큼'을 뺀 뒤에 판단한다
+import sys as _s, types as _t
+from datetime import date, timedelta
+import metrics
+
+today = date(2026, 10, 28)
+def days_for(monthly):                       # monthly[k] = k+1 번째 직전 30일 창(k=0이 직전 30일)의 하루 평균 (긍정, 부정)
+    d = {}
+    for k, (p, n) in enumerate(monthly):
+        for i in range(1 + 30 * k, 31 + 30 * k):
+            d[today - timedelta(days=i)] = (p, n)
+    return d
+# 평소 매달 40%씩 줄어드는 게임: 옛 창일수록 리뷰가 많다 (가까운 창 5건/일 → 그 전 8.3 → 13.9 ...) (긍정 90%)
+steady = [(round(5 * (1 / 0.6) ** k * 0.9 * 10), round(5 * (1 / 0.6) ** k * 0.1 * 10)) for k in range(7)]
+h = metrics.own_history(days_for(steady), today)
+assert -45 < h["velocity_drift"] < -35, h
+base = {"pos30": 90.0, "steam_positive_rate": 90.0, "ccu_change": None, **h}
+assert metrics.diagnose("mid", dict(base, velocity_change=-40.0))[0] == "healthy", "평소대로 줄어드는 건 감소가 아님"
+assert metrics.diagnose("mid", dict(base, velocity_change=-80.0))[0] == "quiet", "평소보다 훨씬 빠르게 줄면 감소"
+short = {"pos30": 90.0, "steam_positive_rate": 90.0, "ccu_change": None, "velocity_change": -20.0, "velocity_drift": None, "velocity_noise": None}
+assert metrics.diagnose("mid", short)[0] == "quiet", "기록이 짧으면 고정 기준(-15%)"
+print("진단 시험 통과: 평소 흐름 반영")

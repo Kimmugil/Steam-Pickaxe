@@ -1,13 +1,17 @@
 """
 게임별 지표 계산과 진단 배지. AI 없이 숫자 규칙만 씁니다.
 
-진단 규칙 (평가 × 활동)
-  평가가 '나쁨'  : 최근 30일 긍정률이 70% 미만이거나, Steam 누적 긍정률보다 5%p 이상 낮음
-  활동이 '감소'  : 리뷰 속도·동접 피크 변화(직전 대비)의 평균이 -15% 이하
+진단 규칙 (평가 × 활동) — 기준은 게임마다 그 게임 자신의 기록으로 정합니다
+  평가가 '나쁨'  : 최근 30일 긍정률이 70% 미만이거나, Steam 누적 긍정률보다 '그 게임의 평소 흔들림 폭'과 5%p 중 큰 쪽 이상 낮음
+  활동이 '감소'  : 리뷰 속도 변화(직전 30일 대비)에서 '그 게임이 평소 한 달에 줄어들던 만큼'을 뺀 값과 동접 피크 변화의 평균이,
+                   -15% 또는 '그 게임의 평소 변동 폭의 1.5배' 중 큰 쪽 이하
+                   (오래된 게임은 서서히 줄어드는 게 정상이라, 평소 흐름보다 더 빠르게 줄 때만 '감소'로 봄.
+                    과거 기록이 3개월 미만이면 고정 기준 -15%를 씁니다)
   건강 = 좋음+유지 / 조용한 이탈 = 좋음+감소 / 불만 = 나쁨+유지 / 침체 = 나쁨+감소
   수집 단계가 '휴면'인 게임은 활동 판정을 하지 않고 평가만 봅니다.
 """
 import json
+import math
 from datetime import date, timedelta
 
 from common import now_utc
@@ -29,9 +33,51 @@ def _pct(new, old, min_old=1.0):
     return round((new / old - 1) * 100, 1) if old is not None and old >= min_old else None
 
 
+def _median(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    return None if not n else xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+
+
+def _sd(xs):
+    if len(xs) < 2:
+        return 0.0
+    mu = sum(xs) / len(xs)
+    return (sum((x - mu) ** 2 for x in xs) / (len(xs) - 1)) ** 0.5
+
+
+def own_history(days: dict, today: date) -> dict:
+    """그 게임 자신의 과거 30일 단위 기록으로 '평소 흐름'을 구한다.
+    - velocity_drift: 한 달 사이 리뷰 수가 평소 몇 % 바뀌었는지(중앙값). 오래된 게임은 보통 마이너스.
+    - velocity_noise: 그 변화가 달마다 흔들리는 폭(로그 단위, 최소 0.12)
+    - rate_noise: 달마다 긍정률이 흔들리는 폭(%p, 표본 크기만으로 생기는 흔들림보다 작게 잡지 않음)
+    최근 30일 창(k=0)은 빼고 그 이전 최대 6개 창만 씁니다. 리뷰 30건 미만인 창은 건너뜁니다."""
+    def win(k):
+        pos = neg = 0
+        for i in range(1 + 30 * k, 31 + 30 * k):
+            p, n = days.get(today - timedelta(days=i), (0, 0))
+            pos += p; neg += n
+        return pos, neg
+    ws = [win(k) for k in range(1, 8)]                       # k=1..7: 직전 30일, 그 전 30일, ...
+    counts = [p + n for p, n in ws]
+    # 달마다 리뷰 수가 크게 들쭉날쭉(세일·업데이트)해서, 비율의 로그값으로 보고 이상치에 덜 흔들리는 방식(중앙값·MAD)으로 평소 흐름과 흔들림을 구한다
+    changes = [math.log(counts[i] / counts[i + 1]) for i in range(len(counts) - 1) if counts[i] >= 30 and counts[i + 1] >= 30]
+    rates = [(p / (p + n) * 100, p + n) for p, n in ws if p + n >= 30]
+    out = {"velocity_drift": None, "velocity_noise": None, "rate_noise": None, "history_windows": len(changes)}
+    if len(changes) >= 3:
+        med = _median(changes)
+        mad = _median([abs(x - med) for x in changes]) * 1.4826
+        out["velocity_drift"] = round((math.exp(med) - 1) * 100, 1)             # 평소 한 달에 몇 % 바뀌는지
+        out["velocity_noise"] = round(max(mad, 0.12), 3)                         # 로그 단위 흔들림 (0.12 ≈ ±13%)
+    if len(rates) >= 3:
+        binom = sum(((r / 100) * (1 - r / 100) / n) ** 0.5 * 100 for r, n in rates) / len(rates)
+        out["rate_noise"] = round(max(_sd([r for r, _ in rates]), binom), 1)
+    return out
+
+
 def review_windows(conn, appid: int, today: date) -> dict:
     rows = conn.execute("""select day, sum(pos), sum(neg) from review_daily
-                           where appid = %s and day >= %s group by day""", (appid, today - timedelta(days=100))).fetchall()
+                           where appid = %s and day >= %s group by day""", (appid, today - timedelta(days=250))).fetchall()
     days = {d: (int(p), int(n)) for d, p, n in rows}
 
     def win(a, b):  # 오늘 기준 a일 전 ~ b-1일 전 (오늘은 아직 덜 모였으니 제외)
@@ -47,9 +93,11 @@ def review_windows(conn, appid: int, today: date) -> dict:
     if pos30 is None:                      # 리뷰가 적은 게임은 최근 90일로 넓혀서 긍정률을 봅니다
         p9, n9 = win(1, 91)
         pos30, window = _rate(p9, n9), 90
-    return {"pos30": pos30, "pos_window_days": window, "n30": p1 + n1, "pos_prev30": _rate(p0, n0), "n_prev30": p0 + n0,
-            "velocity": round((p1 + n1) / 30, 1), "velocity_prev": round((p0 + n0) / 30, 1),
-            "velocity_change": _pct((p1 + n1) / 30, (p0 + n0) / 30)}
+    out = {"pos30": pos30, "pos_window_days": window, "n30": p1 + n1, "pos_prev30": _rate(p0, n0), "n_prev30": p0 + n0,
+           "velocity": round((p1 + n1) / 30, 1), "velocity_prev": round((p0 + n0) / 30, 1),
+           "velocity_change": _pct((p1 + n1) / 30, (p0 + n0) / 30)}
+    out.update(own_history(days, today))
+    return out
 
 
 def ccu_stats(conn, appid: int) -> dict:
@@ -89,15 +137,27 @@ def diagnose(tier: str, m: dict) -> tuple[str | None, list[str]]:
     pos30, pos_all = m.get("pos30"), m.get("steam_positive_rate")
     if pos30 is None:
         return None, ["최근 90일 리뷰가 적어 긍정률을 판단하지 못했습니다."]
-    low = pos30 < BAD_RATE_ABS or (pos_all is not None and pos30 <= float(pos_all) - BAD_RATE_DROP)
+    # 평가: 누적보다 얼마나 낮아야 '떨어졌다'고 볼지는 그 게임이 평소 흔들리던 폭에 맞춘다 (흔들림이 큰 게임은 더 많이 떨어져야)
+    drop_need = max(BAD_RATE_DROP, 2.0 * (m.get("rate_noise") or 0))
+    low = pos30 < BAD_RATE_ABS or (pos_all is not None and pos30 <= float(pos_all) - drop_need)
     if low:
         reasons.append(f"최근 {m.get('pos_window_days', 30)}일 긍정률 {pos30}%" + (f" (누적 {float(pos_all):.0f}%보다 낮음)" if pos_all is not None else ""))
-    changes = [c for c in (m.get("velocity_change"), m.get("ccu_change")) if c is not None]
+    # 활동: 리뷰 속도는 '이 게임이 평소 줄어들던 만큼'을 뺀 값으로 본다
+    vc, drift, noise = m.get("velocity_change"), m.get("velocity_drift"), m.get("velocity_noise")
+    own = vc is not None and drift is not None and noise is not None and vc > -100
+    # 평소 흐름 대비: (이번 변화) ÷ (평소 변화) 를 % 로. 예) 평소 -40%씩 줄던 게임이 -40% 줄었으면 0%(평소대로)
+    vel = round((math.exp(math.log(1 + vc / 100) - math.log(1 + drift / 100)) - 1) * 100, 1) if own else vc
+    need = max(-ACTIVITY_DOWN, (1 - math.exp(-1.5 * noise)) * 100) if own else -ACTIVITY_DOWN
+    changes = [c for c in (vel, m.get("ccu_change")) if c is not None]
     down = None
     if tier != "idle" and changes:
         avg = sum(changes) / len(changes)
-        down = avg <= ACTIVITY_DOWN
-        reasons.append(f"활동 변화 평균 {avg:+.0f}% (리뷰 속도 {m.get('velocity_change')}, 동접 피크 {m.get('ccu_change')})")
+        down = avg <= -need
+        if own:
+            reasons.append(f"리뷰 속도는 직전 30일보다 {vc:+.0f}% 변했고, 이 게임은 평소 한 달에 {drift:+.0f}% 정도씩 변해 왔습니다 → 평소 흐름보다 {vel:+.0f}%"
+                           f" (동접 피크 변화 {m.get('ccu_change')}, 판단 기준 -{need:.0f}%)")
+        else:
+            reasons.append(f"활동 변화 평균 {avg:+.0f}% (리뷰 속도 {vc}, 동접 피크 {m.get('ccu_change')}; 과거 기록이 짧아 고정 기준 -{need:.0f}% 사용)")
     if down is None:                      # 활동 자료가 없으면 평가만으로 판단
         reasons.append("활동 변화를 알 수 있는 자료가 아직 부족합니다.")
         return ("angry" if low else "healthy"), reasons
