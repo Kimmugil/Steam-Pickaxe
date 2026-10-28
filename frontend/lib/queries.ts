@@ -110,6 +110,7 @@ export async function getGameData(appid: number) {
     weekly: weekly.map((r) => ({ w: r.w, pos: r.pos, neg: r.neg })),
     ccuMonthly,
     heat: heat.length && Math.max(...heat.map((h) => h.days)) >= 4 ? heat : null,
+    langAll: { pos: overallPos, neg: overallNeg },
     langs: langs.slice(0, 10).map((r) => ({ language: r.language, n: r.pos + r.neg, pos_n: r.pos, neg_n: r.neg, share: langTotal ? Math.round(((r.pos + r.neg) / langTotal) * 1000) / 10 : null, pos: rate(r.pos, r.neg, 30), diff: rate(r.pos, r.neg, 30) !== null && rate(overallPos, overallNeg, 30) !== null ? Math.round(((rate(r.pos, r.neg, 30) as number) - (rate(overallPos, overallNeg, 30) as number)) * 10) / 10 : null })),
     langAi: Object.fromEntries(langAi.map((r) => [r.scope, { text: r.reaction_summary, month: r.period_key }])),
     bandRates,

@@ -1,7 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
 
-export interface Mark { i: number; label: string; onClick: () => void }
+/** tone: 급락은 빨강, 회복(급등)은 초록으로 구분해서 그립니다 */
+export interface Mark { i: number; label: string; onClick: () => void; tone?: "good" | "bad" }
 
 interface LineOpts {
   vals: (number | null)[]; min: number; max: number; ticks: number[]; unit?: string; xl: [number, string][]; label: string;
@@ -55,12 +56,79 @@ export function LineChart({ vals, min, max, ticks, unit = "", xl, label, marks =
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") mk.onClick(); }}
             onMouseEnter={() => { H.setHi(mk.i); H.setTip({ x: (X(mk.i) / w) * 100, text: mk.label }); }}>
             <circle className="mhit" cx={X(mk.i)} cy={Y(vals[mk.i] as number)} r="11" />
-            <circle className="mark" cx={X(mk.i)} cy={Y(vals[mk.i] as number)} r="5" />
+            <circle className={`mark ${mk.tone ?? "bad"}`} cx={X(mk.i)} cy={Y(vals[mk.i] as number)} r="5" />
           </g>
         ))}
       </svg>
       {H.tip && <div className="tip" style={{ left: `${Math.min(88, Math.max(12, H.tip.x))}%` }}>{H.tip.text}</div>}
     </div>
+  );
+}
+
+/** 막대(오른쪽 축)와 선(왼쪽 축)을 한 그래프에 겹친 차트. 두 지표가 같은 시기에 같이 움직였는지 보려는 용도입니다. */
+export function ComboChart({ line, bars, lineMin, lineMax, lineTicks, barMax, xl, label, marks = [], pts }: {
+  line: (number | null)[]; bars: number[]; lineMin: number; lineMax: number; lineTicks: number[]; barMax: number;
+  xl: [number, string][]; label: string; marks?: Mark[]; pts?: string[];
+}) {
+  const w = 680, h = 240, m = { l: 40, r: 44, t: 10, b: 24 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
+  const n = line.length;
+  const H = useHover(n, w, m.l, m.r);
+  if (n < 2) return <p className="muted">표시할 자료가 아직 없습니다.</p>;
+  const X = (i: number) => m.l + (iw * i) / (n - 1);
+  const YL = (v: number) => m.t + ih * (1 - (v - lineMin) / (lineMax - lineMin));
+  const YB = (v: number) => m.t + ih * (1 - v / barMax);
+  const bw = Math.max(1, iw / n - 1);
+  const segs: string[][] = [[]];
+  line.forEach((v, i) => { if (v === null) { if (segs[segs.length - 1].length) segs.push([]); } else segs[segs.length - 1].push(`${X(i).toFixed(1)},${YL(v).toFixed(1)}`); });
+  const hv = H.hi != null ? line[H.hi] : null;
+  return (
+    <div className="chartbox" ref={H.box}
+      onMouseMove={(e) => { const i = H.idxAt(e.clientX); if (i == null) return; H.setHi(i); H.setTip({ x: (X(i) / w) * 100, text: pts?.[i] ?? `${line[i] ?? "-"}` }); }}
+      onMouseLeave={() => { H.setHi(null); H.setTip(null); }}>
+      <svg className="chart" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label}>
+        {lineTicks.map((t) => (<g key={t}><line className="grid" x1={m.l} x2={w - m.r} y1={YL(t)} y2={YL(t)} /><text x={m.l - 6} y={YL(t) + 3} textAnchor="end">{t}%</text></g>))}
+        {[0, barMax / 2, barMax].map((t) => (<text key={t} className="rt" x={w - m.r + 6} y={YB(t) + 3} textAnchor="start">{Math.round(t)}</text>))}
+        {xl.map(([i, t]) => (<text key={i} x={X(i)} y={h - 6} textAnchor="middle">{t}</text>))}
+        {bars.map((v, i) => <rect key={i} className={`cbar${H.hi === i ? " on" : ""}`} x={X(i) - bw / 2} y={YB(v)} width={bw} height={Math.max(0, m.t + ih - YB(v))} />)}
+        {segs.filter((s) => s.length > 1).map((s, k) => <polyline key={k} className="l1" points={s.join(" ")} />)}
+        {H.hi != null && <line className="guide" x1={X(H.hi)} x2={X(H.hi)} y1={m.t} y2={m.t + ih} />}
+        {H.hi != null && hv !== null && <circle className="hot" cx={X(H.hi)} cy={YL(hv)} r="4" />}
+        {marks.map((mk) => line[mk.i] !== null && (
+          <g key={mk.i} className="markg" onClick={mk.onClick} role="button" tabIndex={0} aria-label={mk.label}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") mk.onClick(); }}
+            onMouseEnter={() => { H.setHi(mk.i); H.setTip({ x: (X(mk.i) / w) * 100, text: mk.label }); }}>
+            <circle className="mhit" cx={X(mk.i)} cy={YL(line[mk.i] as number)} r="11" />
+            <circle className={`mark ${mk.tone ?? "bad"}`} cx={X(mk.i)} cy={YL(line[mk.i] as number)} r="5" />
+          </g>
+        ))}
+      </svg>
+      {H.tip && <div className="tip" style={{ left: `${Math.min(88, Math.max(12, H.tip.x))}%` }}>{H.tip.text}</div>}
+    </div>
+  );
+}
+
+export interface Slice { key: string; label: string; value: number; color: string }
+
+/** 도넛 차트: 전체에서 각 조각이 차지하는 비중을 보여 줍니다. 조각을 누르면 선택됩니다. */
+export function Donut({ slices, sel, onSel, top, bottom }: { slices: Slice[]; sel: string | null; onSel: (k: string | null) => void; top: string; bottom: string }) {
+  const R = 62, C = 2 * Math.PI * R, tot = slices.reduce((a, s) => a + s.value, 0) || 1;
+  let acc = 0;
+  return (
+    <svg className="donut" viewBox="0 0 180 180" role="img" aria-label="언어별 리뷰 비중">
+      <circle cx="90" cy="90" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="26" />
+      {slices.map((s) => {
+        const len = Math.max(0, (C * s.value) / tot - 1.5), off = -acc;
+        acc += (C * s.value) / tot;
+        return (
+          <circle key={s.key} cx="90" cy="90" r={R} fill="none" stroke={s.color} strokeWidth={sel === s.key ? 32 : 26}
+            strokeDasharray={`${len} ${C - len}`} strokeDashoffset={off} transform="rotate(-90 90 90)"
+            opacity={sel && sel !== s.key ? 0.4 : 1} style={{ cursor: "pointer", transition: "opacity .15s" }}
+            onClick={() => onSel(sel === s.key ? null : s.key)}><title>{`${s.label} ${((100 * s.value) / tot).toFixed(1)}%`}</title></circle>
+        );
+      })}
+      <text x="90" y="86" textAnchor="middle" className="dt1">{top}</text>
+      <text x="90" y="104" textAnchor="middle" className="dt2">{bottom}</text>
+    </svg>
   );
 }
 
