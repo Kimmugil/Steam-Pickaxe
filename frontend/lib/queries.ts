@@ -129,9 +129,14 @@ export async function getAdminData() {
            (select min(day) from review_daily d where d.appid = g.appid) as first_review,
            (select max(period_key) from analyses a where a.appid = g.appid and a.kind = 'monthly' and a.scope = 'all') as last_monthly,
            (select max(generated_at) from game_reports r where r.appid = g.appid and r.kind = 'report') as report_at,
-           (select count(*) from analyses a where a.appid = g.appid and a.kind = 'shift' and coalesce(a.reaction_summary, '') = '')::int as shifts_open,
-           (select count(*) from analyses a where a.appid = g.appid and a.kind = 'event_impact' and coalesce(a.reaction_summary, '') = ''
-              and (a.extra->>'enough_data') = 'true')::int as impacts_open,
+           -- 자동 분석이 실제로 해설을 만드는 범위(급변: 최근 1년 중 최신 6건, 영향: 최신 8건)와 똑같이 센다.
+           -- 범위 밖의 오래된 것까지 세면 '분석 대기'가 영원히 남는다.
+           (select count(*) from (select 1 from analyses a where a.appid = g.appid and a.kind = 'shift' and a.scope = 'all'
+              and coalesce(a.reaction_summary, '') = '' and a.period_start >= current_date - 365
+              order by a.period_start desc limit 6) x)::int as shifts_open,
+           (select count(*) from (select 1 from analyses a where a.appid = g.appid and a.kind = 'event_impact' and a.scope = 'all'
+              and coalesce(a.reaction_summary, '') = '' and (a.extra->>'enough_data') = 'true'
+              order by a.period_start desc limit 8) x)::int as impacts_open,
            (select count(*) from analyses a where a.appid = g.appid and a.kind = 'monthly' and a.scope <> 'all'
               and a.period_key >= to_char(now() - interval '1 month', 'YYYY-MM'))::int as lang_recent
     from games g left join game_metrics m on m.appid = g.appid order by (g.status = 'archived'), g.name`;
