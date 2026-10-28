@@ -44,8 +44,8 @@ export const TEXT_DEFS: TextDef[] = [
   { key: "ccu_missing_notice", group: "game", label: "동접 과거 데이터 없음 안내", where: "상세 분석 > 접속 탭, 출시 이후 기록이 비어 있을 때 맨 위", def: "수집을 시작하기 전의 동접 기록이 없습니다. 과거 기록이 필요하면 관리자에게 문의해 주세요.", multi: true, spot: ["game", 14, 220, 332, 10], tabHint: "접속 탭" },
   { key: "lang_note", group: "game", label: "언어권 탭 안내", where: "상세 분석 > 언어권 탭 맨 위 (AI 해설이 어떤 언어에 붙는지)", def: "AI 해설은 한국어와 리뷰가 가장 많은 상위 3개 언어에만 붙습니다. 나머지 언어는 수치만 보여 주고, 표본이 너무 적으면 해설을 생략합니다.", multi: true, spot: ["game", 14, 233, 332, 8], tabHint: "언어권 탭" },
   { key: "lang_small", group: "game", label: "'표본 부족' 안내", where: "언어권 탭 표에서 리뷰가 너무 적은 언어의 해설 칸", def: "해설을 생략했습니다", spot: ["game", 14, 244, 150, 8], tabHint: "언어권 탭" },
-  { key: "active_help", group: "game", label: "활성 리뷰어 설명", where: "상세 분석 > 활성 리뷰어 탭 아래 설명", def: "리뷰를 수집한 시점에 작성자가 최근 30일 안에 게임을 실행했는지를 봅니다. 마지막 접속 정보는 수집한 때부터 쌓입니다.", multi: true, spot: ["game", 14, 255, 160, 8], tabHint: "활성 리뷰어 탭" },
-  { key: "kw_help", group: "game", label: "키워드 표 설명", where: "상세 분석 > 평가·반응 탭의 '키워드 × 플레이타임' 표 아래", def: "같은 불만이 게임을 얼마나 해 본 사람에게서 나오는지 보여 줍니다. 최근 90일 리뷰 기준이며, 외국어 키워드는 원문으로 찾습니다.", multi: true, spot: ["game", 190, 255, 150, 8], tabHint: "평가·반응 탭" },
+  { key: "active_help", group: "game", label: "활성 리뷰어 설명", where: "상세 분석 > 활성 리뷰어 탭 아래 설명", def: "마지막 접속 정보는 리뷰를 수집한 때부터 쌓입니다.", multi: true, spot: ["game", 14, 255, 160, 8], tabHint: "활성 리뷰어 탭" },
+  { key: "kw_help", group: "game", label: "플레이타임 구간 긍정률 설명", where: "상세 분석 > 평가·반응 탭의 '플레이타임 구간별 긍정률' 아래", def: "리뷰를 쓸 때까지 쌓은 플레이타임으로 나눠, 구간마다 긍정 리뷰가 몇 %인지 보여 줍니다. 오래 한 사람과 막 시작한 사람의 평가가 다른지 볼 수 있어요. 최근 90일 리뷰 기준이고, 20건 미만인 구간은 표시하지 않습니다.", multi: true, spot: ["game", 190, 255, 150, 8], tabHint: "평가·반응 탭" },
   { key: "foot", group: "common", label: "하단 안내문", where: "모든 화면 맨 아래", def: "AI 분석은 리뷰 일부를 뽑아 요약한 결과이며 원인을 단정하지 않습니다. 동접자는 Steam 한 곳의 수치이고 다른 플랫폼은 포함되지 않습니다.", multi: true, spot: ["home", 6, 238, 240, 9] },
 ];
 

@@ -81,29 +81,25 @@ export async function getGameData(appid: number) {
   // 언어권 (최근 30일) + 언어별 AI 해설
   const langs = await sql`
     select language, sum(pos)::int as pos, sum(neg)::int as neg from review_daily
-    where appid = ${appid} and day >= current_date - 30 and language <> '' group by 1 order by sum(pos + neg) desc limit 10`;
+    where appid = ${appid} and day >= current_date - 30 and language <> '' group by 1 order by sum(pos + neg) desc`;
   const langAi = await sql`
     select distinct on (scope) scope, reaction_summary, period_key from analyses
     where appid = ${appid} and kind = 'monthly' and scope <> 'all' and coalesce(reaction_summary, '') <> ''
     order by scope, period_key desc`;
 
-  // 키워드 × 플레이타임 구간 (최근 90일, 플레이타임이 채워진 게임만)
-  let keywordBands: Row[] = [];
-  if (Number(g.reviews_with_playtime) > 2000 && monthly[0]?.keywords?.length) {
-    const terms: string[] = (monthly[0].keywords as string[])
-      .map((k) => k.split("(")[0].trim()).filter((k) => k.length >= 2).slice(0, 5);
-    for (const term of terms) {
-      const like = "%" + term.replace(/[%_\\]/g, "\\$&") + "%";
-      const rows = await sql`
-        select ${BAND_CASE} as band, count(*)::int as total, count(*) filter (where review ilike ${like})::int as hit
-        from reviews where appid = ${appid} and created_at >= now() - interval '90 days' and playtime_at_review is not null group by 1`;
-      keywordBands.push({ term, bands: Object.fromEntries(rows.map((r) => [r.band, r.total ? Math.round((r.hit / r.total) * 1000) / 10 : null])) });
-    }
+  // 플레이타임 구간별 긍정·부정 (최근 90일, 리뷰를 쓸 때까지의 플레이타임이 기록된 리뷰만)
+  // 예전에는 AI가 뽑은 키워드를 원문으로 찾아 구간별 언급 비율을 보여 줬지만, 영어 키워드가 영어 리뷰에만 걸려 결과가 한쪽으로 쏠려서 없앴다.
+  let bandRates: Row[] = [];
+  if (Number(g.reviews_with_playtime) > 2000) {
+    bandRates = await sql`
+      select ${BAND_CASE} as band, count(*) filter (where voted_up)::int as pos, count(*) filter (where not voted_up)::int as neg
+      from reviews where appid = ${appid} and created_at >= now() - interval '90 days' and playtime_at_review is not null group by 1`;
   }
 
   const m: Row = mrow?.metrics ?? {};
   const overallPos = langs.reduce((a, r) => a + r.pos, 0);
   const overallNeg = langs.reduce((a, r) => a + r.neg, 0);
+  const langTotal = overallPos + overallNeg;       // 모든 언어를 합친 최근 30일 리뷰 수 (비중 계산용)
   const ccuStart = cov.ccu_start ? new Date(cov.ccu_start) : null;
   const firstReview = cov.first_review ? new Date(cov.first_review) : null;
   const ccuMissing = !g.ccu_history_imported && (!ccuStart || (firstReview !== null && ccuStart.getTime() - firstReview.getTime() > 14 * 86400000));
@@ -114,9 +110,9 @@ export async function getGameData(appid: number) {
     weekly: weekly.map((r) => ({ w: r.w, pos: r.pos, neg: r.neg })),
     ccuMonthly,
     heat: heat.length && Math.max(...heat.map((h) => h.days)) >= 4 ? heat : null,
-    langs: langs.map((r) => ({ language: r.language, n: r.pos + r.neg, pos: rate(r.pos, r.neg, 30), diff: rate(r.pos, r.neg, 30) !== null && rate(overallPos, overallNeg, 30) !== null ? Math.round(((rate(r.pos, r.neg, 30) as number) - (rate(overallPos, overallNeg, 30) as number)) * 10) / 10 : null })),
+    langs: langs.slice(0, 10).map((r) => ({ language: r.language, n: r.pos + r.neg, pos_n: r.pos, neg_n: r.neg, share: langTotal ? Math.round(((r.pos + r.neg) / langTotal) * 1000) / 10 : null, pos: rate(r.pos, r.neg, 30), diff: rate(r.pos, r.neg, 30) !== null && rate(overallPos, overallNeg, 30) !== null ? Math.round(((rate(r.pos, r.neg, 30) as number) - (rate(overallPos, overallNeg, 30) as number)) * 10) / 10 : null })),
     langAi: Object.fromEntries(langAi.map((r) => [r.scope, { text: r.reaction_summary, month: r.period_key }])),
-    keywordBands,
+    bandRates,
   });
 }
 
