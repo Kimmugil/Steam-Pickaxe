@@ -1,10 +1,11 @@
+@font-face { font-family: "Pretendard Variable"; src: url("/fonts/PretendardVariable.woff2") format("woff2-variations"); font-weight: 45 920; font-display: swap; }
 /* 화면 구성: 상단바 + 본문. 홈은 본문 + 우측 브리핑 패널, 나머지는 1단 대시보드. 색은 모두 토큰으로 정의(밝은/어두운 모드 자동). */
 :root {
   --bg: #f3f5f7; --surface: #ffffff; --surface-2: #eaeff3; --ink: #12202c; --muted: #566676; --line: #d9e0e6;
   --accent: #17626b; --accent-ink: #ffffff; --accent-soft: #dcefef;
   --good: #1b7f54; --good-soft: #dcf2e8; --warn: #9a6300; --warn-soft: #fbefd0;
   --bad: #b83535; --bad-soft: #fadede; --cool: #43588a; --cool-soft: #e2e8f4;
-  --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
