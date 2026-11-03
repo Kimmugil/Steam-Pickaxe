@@ -117,7 +117,10 @@ def run_game(conn, appid: int) -> dict:
                         on conflict (appid, kind, period_key, scope) do update set
                           reaction_summary = case when analyses.extra->>'impact' is distinct from excluded.extra->>'impact'
                                                   then null else analyses.reaction_summary end,
-                          extra = excluded.extra, sentiment_rate = excluded.sentiment_rate, review_count = excluded.review_count,
+                          -- 해설을 유지할 때는 AI 분석 시각(ai_at)도 유지
+                          extra = case when analyses.extra->>'impact' is distinct from excluded.extra->>'impact' then excluded.extra
+                                       else excluded.extra || jsonb_strip_nulls(jsonb_build_object('ai_at', analyses.extra->'ai_at')) end,
+                          sentiment_rate = excluded.sentiment_rate, review_count = excluded.review_count,
                           input_fingerprint = excluded.input_fingerprint, updated_at = now()""",
                      (appid, key, ev_date, ev_date + timedelta(days=WINDOW), title, res["pos_after"],
                       None, json.dumps(res, ensure_ascii=False), res["fingerprint"]))

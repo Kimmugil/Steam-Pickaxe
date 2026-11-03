@@ -436,3 +436,7 @@ a.btn { display: inline-block; }
 .floatnav:hover button span { display: inline; }
 .floatnav { right: 6px; padding: 4px; }
 @media (min-width: 1560px) { .floatnav { right: 14px; } .floatnav button span { display: inline; } }
+
+/* AI 분석 시각 (해설이 언제 쓰였는지) */
+.ai-at { margin-left: 8px; font-size: 11.5px; font-weight: 400; color: var(--muted); white-space: nowrap; }
+.tl-ai .ai-at { display: inline-block; }

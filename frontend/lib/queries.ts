@@ -56,14 +56,17 @@ export async function getGameData(appid: number) {
 
   // 타임라인: 전후 영향이 분석된 공식 업데이트 + 급변 + 월간 요약
   const impacts = await sql`
-    select a.period_key, a.period_start as date, coalesce(e.title_kr, a.title) as title, e.url, a.extra, a.reaction_summary
+    select a.period_key, a.period_start as date, coalesce(e.title_kr, a.title) as title, e.url, a.extra, a.reaction_summary,
+           case when coalesce(a.reaction_summary, '') = '' then null else coalesce((a.extra->>'ai_at')::timestamptz, case when a.model is not null and a.kind <> 'event_impact' then a.updated_at end) end as ai_at
     from analyses a left join events e on e.appid = a.appid and e.event_key = a.period_key
     where a.appid = ${appid} and a.kind = 'event_impact' order by a.period_start desc limit 12`;
   const shifts = await sql`
-    select period_key, period_start as date, period_end, sentiment_rate, review_count, extra, reaction_summary, keywords, top_reviews
+    select period_key, period_start as date, period_end, sentiment_rate, review_count, extra, reaction_summary, keywords, top_reviews,
+           case when coalesce(reaction_summary, '') = '' then null else coalesce((extra->>'ai_at')::timestamptz, case when model is not null and kind <> 'event_impact' then updated_at end) end as ai_at
     from analyses where appid = ${appid} and kind = 'shift' order by period_start desc limit 12`;
   const monthly = await sql`
-    select period_key, period_start as date, sentiment_rate, review_count, extra, reaction_summary, keywords, top_reviews
+    select period_key, period_start as date, sentiment_rate, review_count, extra, reaction_summary, keywords, top_reviews,
+           case when coalesce(reaction_summary, '') = '' then null else coalesce((extra->>'ai_at')::timestamptz, case when model is not null and kind <> 'event_impact' then updated_at end) end as ai_at
     from analyses where appid = ${appid} and kind = 'monthly' and scope = 'all' and not is_sparse and coalesce(reaction_summary, '') <> ''
     order by period_key desc limit 6`;
 
@@ -83,7 +86,7 @@ export async function getGameData(appid: number) {
     select language, sum(pos)::int as pos, sum(neg)::int as neg from review_daily
     where appid = ${appid} and day >= current_date - 30 and language <> '' group by 1 order by sum(pos + neg) desc`;
   const langAi = await sql`
-    select distinct on (scope) scope, reaction_summary, period_key from analyses
+    select distinct on (scope) scope, reaction_summary, period_key, case when coalesce(reaction_summary, '') = '' then null else coalesce((extra->>'ai_at')::timestamptz, case when model is not null and kind <> 'event_impact' then updated_at end) end as ai_at from analyses
     where appid = ${appid} and kind = 'monthly' and scope <> 'all' and coalesce(reaction_summary, '') <> ''
     order by scope, period_key desc`;
 
@@ -112,7 +115,7 @@ export async function getGameData(appid: number) {
     heat: heat.length && Math.max(...heat.map((h) => h.days)) >= 4 ? heat : null,
     langAll: { pos: overallPos, neg: overallNeg },
     langs: langs.slice(0, 10).map((r) => ({ language: r.language, n: r.pos + r.neg, pos_n: r.pos, neg_n: r.neg, share: langTotal ? Math.round(((r.pos + r.neg) / langTotal) * 1000) / 10 : null, pos: rate(r.pos, r.neg, 30), diff: rate(r.pos, r.neg, 30) !== null && rate(overallPos, overallNeg, 30) !== null ? Math.round(((rate(r.pos, r.neg, 30) as number) - (rate(overallPos, overallNeg, 30) as number)) * 10) / 10 : null })),
-    langAi: Object.fromEntries(langAi.map((r) => [r.scope, { text: r.reaction_summary, month: r.period_key }])),
+    langAi: Object.fromEntries(langAi.map((r) => [r.scope, { text: r.reaction_summary, month: r.period_key, at: r.ai_at }])),
     bandRates,
   });
 }

@@ -55,8 +55,8 @@ function niceCeil(v: number) {
 }
 
 /** 'AI가 쓴 해설'은 본문보다 눈에 띄게, '읽는 법'은 ⓘ 안으로 */
-function AiBox({ label = "AI 해설", children }: { label?: string; children: React.ReactNode }) {
-  return <div className="aibox"><span className="lab">{label}</span>{children}</div>;
+function AiBox({ label = "AI 해설", at, children }: { label?: string; at?: string | null; children: React.ReactNode }) {
+  return <div className="aibox"><span className="lab">{label}{at && <span className="ai-at">AI 분석 {kst(at)}</span>}</span>{children}</div>;
 }
 
 export default function GameClient({ texts: t, data }: { texts: Texts; data: any }) {
@@ -152,6 +152,7 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
           <div className="cover">
             <span className="pill plain nodot">리뷰 수집 <b className="num">{num(g.reviews_collected)}</b> / Steam 전체 <b className="num">{num(g.steam_total_reviews)}</b>{collectedPct !== null && ` (${collectedPct}%)`}</span>
             <span className="pill plain nodot">마지막 수집 {g.last_collected_at ? kst(g.last_collected_at) : "아직 없음"}</span>
+            <span className="pill plain nodot" title="요약·해설을 AI가 마지막으로 쓴 시각입니다. 수집은 매일 되지만, AI 분석은 데이터가 바뀐 부분만 다시 합니다.">AI 분석 {data.reportAt ? kst(data.reportAt) : "아직 없음"}</span>
             {data.ccuStart && <span className="pill plain nodot">동접 기록 시작 <b className="num">{String(data.ccuStart).slice(0, 10)}</b></span>}
             {g.status === "archived" ? <Pill cls="plain">보관됨</Pill> : g.review_cursor ? <Pill cls="warn">과거 리뷰 보충 중</Pill> : <Pill cls="good">수집 정상</Pill>}
           </div>
@@ -164,7 +165,7 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
           <Quadrant diag={diag} />
         </div>
         <div>
-          <h3 className="hrow">{t.sum_title}<span className="ai-tag">{t.ai_tag}</span></h3>
+          <h3 className="hrow">{t.sum_title}<span className="ai-tag">{t.ai_tag}</span>{data.reportAt && <span className="muted small">AI 분석 {kst(data.reportAt)}</span>}</h3>
           {report?.bullets?.length ? <ul className="bullets">{report.bullets.map((b: string, i: number) => <li key={i}>{b}</li>)}</ul>
             : <p className="muted" style={{ marginTop: 8 }}>{(m.diagnosis_reasons ?? [])[0] ?? "AI 요약은 최신 리뷰 수집이 끝나면 만들어집니다."}</p>}
         </div>
@@ -233,7 +234,7 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
                   <Info title="이 표는 어떻게 읽나요?"><p>진한 칸일수록 평균 동접이 높은 시간입니다. 이 표는 숫자만으로 만들어지고 AI는 관여하지 않아요.</p></Info>
                 </div>
                 <Heatmap cells={data.heat.map((h: any) => ({ dow: h.dow, hr: h.hr, v: h.v }))} />
-                {report?.peaktime && <div style={{ marginTop: 12 }}><AiBox>{report.peaktime}</AiBox></div>}
+                {report?.peaktime && <div style={{ marginTop: 12 }}><AiBox at={data.reportAt}>{report.peaktime}</AiBox></div>}
               </>
             )}
           </div>
@@ -251,7 +252,7 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
             </div>
             {langs.length === 0 ? <p className="muted">최근 30일 언어별 자료가 없습니다.</p> : (
               <>
-                {report?.language && <AiBox>{report.language}</AiBox>}
+                {report?.language && <AiBox at={data.reportAt}>{report.language}</AiBox>}
                 <div className="langwrap">
                   <div className="langdonut">
                     <Donut slices={slices} sel={selLang} onSel={setSelLang}
@@ -276,7 +277,7 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
                   </div>
                 </div>
                 {selL && (
-                  <AiBox label={`${langName(selL.language)} 해설${selAi ? ` · ${selAi.month}` : ""}`}>
+                  <AiBox label={`${langName(selL.language)} 해설${selAi ? ` · ${selAi.month}` : ""}`} at={selAi?.at}>
                     {selAi ? selAi.text : selL.n < 30 ? `${t.lang_small} (30건 미만)` : "이 언어는 숫자만 제공합니다."}
                   </AiBox>
                 )}
@@ -311,7 +312,7 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
                 </div>
                 <div className="actside">
                   {m.active_share != null && <div className="big"><span className="num">{Math.round(m.active_share)}%</span><small className="muted">전체 구간 합계 · {num(m.active_n)}명 기준</small></div>}
-                  {report?.lifecycle && <AiBox>{report.lifecycle}</AiBox>}
+                  {report?.lifecycle && <AiBox at={data.reportAt}>{report.lifecycle}</AiBox>}
                 </div>
               </div>
             )}
@@ -372,7 +373,7 @@ function TimelineCard({ x, flash }: { x: any; flash?: boolean }) {
         <h3>{x.url ? <a href={x.url} target="_blank" rel="noreferrer">{title}</a> : title}{impact && <Pill cls={impact[0]}>{impact[1]}</Pill>}</h3>
         <div className="facts">{facts.map(([k, v]) => <span key={k}><em>{k}</em> <b className="num">{v}</b></span>)}</div>
         {e.overlapping_events > 0 && <p className="muted small">같은 주에 다른 공지 {e.overlapping_events}건이 겹쳐 단독 효과는 분명하지 않을 수 있습니다.</p>}
-        {x.reaction_summary ? <p className="tl-ai">{x.reaction_summary}</p> : <p className="muted small">AI 해설을 준비 중입니다.</p>}
+        {x.reaction_summary ? <p className="tl-ai">{x.reaction_summary}{x.ai_at && <span className="ai-at">AI 분석 {new Date(x.ai_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })}</span>}</p> : <p className="muted small">AI 해설을 준비 중입니다.</p>}
         {x.type === "monthly" && e.update_summary && <p className="tl-ai" style={{ marginTop: 4 }}><b>업데이트:</b> {e.update_summary}</p>}
         {kw.length > 0 && <div className="kw">{kw.map((k, i) => <span key={i}>{k}</span>)}</div>}
         {top.length > 0 && (

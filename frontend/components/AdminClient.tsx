@@ -9,7 +9,7 @@ import { ago, kst, num, TIER_LABEL, TIER_RULE } from "@/lib/format";
 type Dot = "good" | "warn" | "bad" | "na";
 const CHIPS = ["구간 분석", "게임 리포트", "언어별", "급변 감지", "업데이트 영향"];
 const JOB_LABEL: Record<string, string> = { collect: "리뷰 수집", ccu: "동접 수집", analyze: "AI 분석", calc: "지표 계산", brief: "브리핑", add_game: "게임 추가", probe: "수집 점검" };
-const JOB_EVERY: Record<string, number> = { collect: 36, ccu: 4, analyze: 36, calc: 36, brief: 24 * 8 }; // 이 시간(시간) 넘게 기록이 없으면 이상 신호
+const JOB_EVERY: Record<string, number> = { collect: 36, ccu: 12, analyze: 36, calc: 36, brief: 24 * 8 }; // 이 시간(시간) 넘게 기록이 없으면 이상 신호
 
 async function call(url: string, body: unknown, method = "POST") {
   const r = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -114,8 +114,14 @@ export default function AdminClient({ data, githubConnected }: { data: any; gith
       <div className="todo">
         {staleJobs.length > 0 && (
           <div className="todo-item"><div className="head"><div className="tx"><b>자동 작업이 오래 멈춰 있습니다: {staleJobs.map((j) => JOB_LABEL[j] ?? j).join(", ")}</b>
-            <span>정해진 시간 안에 실행 기록이 없습니다. 자동 실행(GitHub)이 아직 연결되지 않았거나 중단되었을 수 있습니다.</span></div><Pill cls="bad">점검 필요</Pill></div>
-            <div className="fix"><b>이렇게 하세요</b> GitHub 저장소의 Actions 탭에서 최근 실행과 오류 메시지를 확인하세요. 처음 설정 중이라면 연결을 끝낸 뒤 사라집니다.</div></div>
+            <span>{staleJobs.map((j) => {
+              const r = jobs.find((x) => x.job === j);
+              const h = Math.round(JOB_EVERY[j]);
+              if (!r) return `${JOB_LABEL[j] ?? j}: 실행 기록이 한 번도 없습니다.`;
+              if (r.ok === false) return `${JOB_LABEL[j] ?? j}: 마지막 실행(${ago(r.started_at)})이 실패했고, 그 뒤로 ${h}시간 넘게 다시 돌지 않았습니다.`;
+              return `${JOB_LABEL[j] ?? j}: 마지막 실행(${ago(r.started_at)})은 성공했지만, 그 뒤로 ${h}시간 넘게 실행되지 않았습니다.`;
+            }).join(" ")}</span></div><Pill cls="bad">점검 필요</Pill></div>
+            <div className="fix"><b>이렇게 하세요</b> [지금 점검·복구]를 한 번 누르세요. 그래도 몇 시간 뒤 다시 뜨면, GitHub 저장소 Actions 탭에서 해당 작업이 '꺼짐(disabled)'인지, 마지막 실행이 빨간색(실패)인지 확인하세요. 실패가 아니라 단순히 늦은 거라면 GitHub 예약 지연이라 기다리면 사라집니다.</div></div>
         )}
         {data.failed.filter((f: any) => f.attempts >= 3).map((f: any) => (
           <div key={`${f.appid}-${f.kind}-${f.period_key}-${f.scope}`} className="todo-item">

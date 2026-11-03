@@ -114,6 +114,9 @@ def _clean_kw(kw) -> list[str]:
 
 def save_analysis(conn, appid, kind, period_key, scope, *, start=None, end=None, title=None, rate=None, count=None,
                   sparse=False, summary=None, keywords=None, top_reviews=None, extra=None, fingerprint=None):
+    # 화면에 'AI 분석 시각'을 보여 주려고, AI가 해설을 쓴 때만 그 시각을 extra.ai_at 에 남긴다
+    if summary:
+        extra = {**(extra or {}), "ai_at": now_utc().isoformat()}
     conn.execute("""insert into analyses (appid, kind, period_key, scope, period_start, period_end, title, sentiment_rate, review_count,
                       is_sparse, reaction_summary, keywords, top_reviews, extra, input_fingerprint, model)
                     values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,%s)
