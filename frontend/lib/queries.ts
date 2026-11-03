@@ -65,7 +65,7 @@ export async function getGameData(appid: number) {
            case when coalesce(reaction_summary, '') = '' then null else coalesce((extra->>'ai_at')::timestamptz, case when model is not null and kind <> 'event_impact' then updated_at end) end as ai_at
     from analyses where appid = ${appid} and kind = 'shift' order by period_start desc limit 12`;
   const monthly = await sql`
-    select period_key, period_start as date, sentiment_rate, review_count, extra, reaction_summary, keywords, top_reviews,
+    select period_key, period_start as date, period_end, sentiment_rate, review_count, extra, reaction_summary, keywords, top_reviews,
            case when coalesce(reaction_summary, '') = '' then null else coalesce((extra->>'ai_at')::timestamptz, case when model is not null and kind <> 'event_impact' then updated_at end) end as ai_at
     from analyses where appid = ${appid} and kind = 'monthly' and scope = 'all' and not is_sparse and coalesce(reaction_summary, '') <> ''
     order by period_key desc limit 6`;
@@ -148,7 +148,14 @@ export async function getAdminData() {
   const requests = await sql`select appid, name, meta, request_count, memo, created_at from game_requests where status = 'open' order by request_count desc, created_at`;
   const [usage] = await sql`select coalesce(sum(calls), 0)::int as calls, coalesce(sum(input_tokens), 0)::bigint as inp, coalesce(sum(output_tokens), 0)::bigint as outp
                             from ai_usage where day >= date_trunc('month', current_date)`;
+  const usageDaily = await sql`select day, calls, input_tokens::bigint as inp, output_tokens::bigint as outp from ai_usage
+                               where day >= current_date - 13 order by day desc`;
+  const aiWork = await sql`
+    select (t at time zone 'Asia/Seoul')::date as day, kind, count(*)::int as n, count(distinct appid)::int as games from (
+      select a.appid, a.kind, coalesce((a.extra->>'ai_at')::timestamptz, case when a.model is not null and a.kind <> 'event_impact' then a.updated_at end) as t from analyses a where coalesce(a.reaction_summary, '') <> ''
+      union all select r.appid, 'report', r.generated_at from game_reports r where r.kind = 'report'
+    ) x where t >= now() - interval '14 days' group by 1, 2 order by 1 desc`;
   const [capRow] = await sql`select value from app_settings where key = 'ai_monthly_call_cap'`;
   const [size] = await sql`select pg_database_size(current_database())::bigint as bytes`;
-  return plain({ games, failed, jobs, requests, usage, cap: Number(capRow?.value ?? 600), dbBytes: Number(size.bytes) });
+  return plain({ games, failed, jobs, requests, usage, usageDaily, aiWork, cap: Number(capRow?.value ?? 600), dbBytes: Number(size.bytes) });
 }

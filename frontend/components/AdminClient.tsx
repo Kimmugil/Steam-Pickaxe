@@ -170,6 +170,23 @@ export default function AdminClient({ data, githubConnected }: { data: any; gith
           </tbody></table></div>
       </details>
 
+      <div className="sec-title"><h2>AI 사용 내역</h2><span>최근 14일 · 하루에 AI를 몇 번 불렀고 무엇을 분석했는지</span></div>
+      <div className="card" style={{ padding: 0 }}><div className="tbl-wrap"><table>
+        <thead><tr><th>날짜</th><th>AI 호출</th><th>토큰 (입력 / 출력)</th><th>분석한 것</th></tr></thead>
+        <tbody>
+          {(data.usageDaily ?? []).length === 0 && <tr><td colSpan={4} className="muted">기록 없음</td></tr>}
+          {(data.usageDaily ?? []).map((u: any) => {
+            const d = String(u.day).slice(0, 10);
+            const work = (data.aiWork ?? []).filter((w: any) => String(w.day).slice(0, 10) === d);
+            const KIND: Record<string, string> = { monthly: "월간 요약", shift: "급변 해설", event_impact: "업데이트 영향 해설", report: "게임 종합 요약" };
+            return (
+              <tr key={d}><td>{d}</td><td className="num"><b>{u.calls}</b></td><td className="num muted">{num(Number(u.inp))} / {num(Number(u.outp))}</td>
+                <td className="small">{work.length ? work.map((w: any) => `${KIND[w.kind] ?? w.kind} ${w.n}건(${w.games}개 게임)`).join(" · ") : <span className="muted">-</span>}</td></tr>
+            );
+          })}
+        </tbody></table></div></div>
+      <p className="help">호출 수는 정확한 기록이에요. '분석한 것'은 각 해설이 마지막으로 다시 쓰인 날 기준이라, 나중에 다시 분석된 해설은 그날로 옮겨 세어집니다. 다시 분석하는 경우: 새 달 시작, 지난달 리뷰가 25% 이상 늘었을 때, 이번 달 리뷰가 10%(100건) 이상 늘고 6일이 지났을 때, 게임 종합 요약은 주 1회 또는 진단이 바뀔 때.</p>
+
       <div className="sec-title"><h2>자동 작업 상태</h2><span>작업별 마지막 실행 기록</span></div>
       <div className="card" style={{ padding: 0 }}><div className="tbl-wrap"><table>
         <thead><tr><th>작업</th><th>마지막 시작</th><th>결과</th><th>메모</th></tr></thead>

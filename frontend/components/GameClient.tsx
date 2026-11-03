@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ComboChart, Donut, Heatmap, LineChart, PosNeg, Quadrant, type Mark, type Slice } from "./charts";
 import { Info } from "./info";
 import { Pill, Thumb } from "./ui";
-import { DIAG, kst, langName, num, sign, trendClass } from "@/lib/format";
+import { DIAG, kst, langName, num, sign, TIER_RULE, trendClass } from "@/lib/format";
 import type { Texts } from "@/lib/text-defs";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -134,6 +134,7 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
   ];
   const selL = langs.find((l) => l.language === selLang) ?? null;
   const selAi = selL ? data.langAi[selL.language] : null;
+  const lastNote = [...allItems.map((x: any) => x.ai_at), ...Object.values(data.langAi ?? {}).map((x: any) => x.at)].filter(Boolean).sort().pop() ?? null;
 
   return (
     <div>
@@ -151,8 +152,9 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
           </div>
           <div className="cover">
             <span className="pill plain nodot">리뷰 수집 <b className="num">{num(g.reviews_collected)}</b> / Steam 전체 <b className="num">{num(g.steam_total_reviews)}</b>{collectedPct !== null && ` (${collectedPct}%)`}</span>
-            <span className="pill plain nodot">마지막 수집 {g.last_collected_at ? kst(g.last_collected_at) : "아직 없음"}</span>
-            <span className="pill plain nodot" title="요약·해설을 AI가 마지막으로 쓴 시각입니다. 수집은 매일 되지만, AI 분석은 데이터가 바뀐 부분만 다시 합니다.">AI 분석 {data.reportAt ? kst(data.reportAt) : "아직 없음"}</span>
+            <span className="pill plain nodot" title="리뷰가 적은 게임은 며칠에 한 번 수집합니다.">마지막 수집 {g.last_collected_at ? kst(g.last_collected_at) : "아직 없음"}{TIER_RULE[g.tier_override ?? g.tier] ? ` · ${TIER_RULE[g.tier_override ?? g.tier]} 수집` : ""}</span>
+            <span className="pill plain nodot" title="맨 위 한눈 요약을 AI가 마지막으로 쓴 시각입니다. 주 1회, 또는 진단이 바뀌면 다시 씁니다.">한눈 요약 AI {data.reportAt ? kst(data.reportAt) : "아직 없음"}</span>
+            {lastNote && <span className="pill plain nodot" title="타임라인·언어별 해설 중 가장 최근에 AI가 쓴 날입니다. 해설은 리뷰가 충분히 늘어난 구간만 다시 씁니다.">해설 최근 갱신 {kst(lastNote, false)}</span>}
             {data.ccuStart && <span className="pill plain nodot">동접 기록 시작 <b className="num">{String(data.ccuStart).slice(0, 10)}</b></span>}
             {g.status === "archived" ? <Pill cls="plain">보관됨</Pill> : g.review_cursor ? <Pill cls="warn">과거 리뷰 보충 중</Pill> : <Pill cls="good">수집 정상</Pill>}
           </div>
@@ -342,6 +344,16 @@ export default function GameClient({ texts: t, data }: { texts: Texts; data: any
   );
 }
 
+const ymd = (v: string) => new Date(v).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+/** 이 해설을 AI가 언제 썼는지. 월간 요약은 그 달이 끝나기 전에 쓴 것이면 '그때까지의 리뷰' 기준임을 알림 */
+function aiWhen(x: any): string {
+  if (!x.ai_at) return "AI 분석 시각 기록 없음 (예전 분석)";
+  const at = ymd(x.ai_at);
+  if (x.type === "monthly" && x.period_end && at <= String(x.period_end).slice(0, 10))
+    return `AI 분석 ${at} · 달이 끝나기 전, 그때까지의 리뷰 ${num(x.review_count)}건으로 분석 (리뷰가 크게 늘면 다시 분석)`;
+  return `AI 분석 ${at}`;
+}
+
 function TimelineCard({ x, flash }: { x: any; flash?: boolean }) {
   const e = x.extra ?? {};
   let title = x.title ?? "", facts: [string, string][] = [], kw: string[] = x.keywords ?? [], impact: [string, string] | null = null;
@@ -372,8 +384,9 @@ function TimelineCard({ x, flash }: { x: any; flash?: boolean }) {
       <div className={`tl-card ${x.type} ${tone}${flash ? " flash" : ""}`}>
         <h3>{x.url ? <a href={x.url} target="_blank" rel="noreferrer">{title}</a> : title}{impact && <Pill cls={impact[0]}>{impact[1]}</Pill>}</h3>
         <div className="facts">{facts.map(([k, v]) => <span key={k}><em>{k}</em> <b className="num">{v}</b></span>)}</div>
+        {x.reaction_summary && <p className="tl-when">{aiWhen(x)}</p>}
         {e.overlapping_events > 0 && <p className="muted small">같은 주에 다른 공지 {e.overlapping_events}건이 겹쳐 단독 효과는 분명하지 않을 수 있습니다.</p>}
-        {x.reaction_summary ? <p className="tl-ai">{x.reaction_summary}{x.ai_at && <span className="ai-at">AI 분석 {new Date(x.ai_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })}</span>}</p> : <p className="muted small">AI 해설을 준비 중입니다.</p>}
+        {x.reaction_summary ? <p className="tl-ai">{x.reaction_summary}</p> : <p className="muted small">AI 해설을 준비 중입니다.</p>}
         {x.type === "monthly" && e.update_summary && <p className="tl-ai" style={{ marginTop: 4 }}><b>업데이트:</b> {e.update_summary}</p>}
         {kw.length > 0 && <div className="kw">{kw.map((k, i) => <span key={i}>{k}</span>)}</div>}
         {top.length > 0 && (
